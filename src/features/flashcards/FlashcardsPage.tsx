@@ -1,7 +1,8 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { useNavigate } from 'react-router-dom';
+import { parseFlashcardsCsv } from './csv';
 
 export interface Flashcard {
   id: string;
@@ -92,6 +93,50 @@ function NewFlashcardDialog({
 export default function FlashcardsPage() {
   const qc = useQueryClient();
   const nav = useNavigate();
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [importMsg, setImportMsg] = useState<{ ok: boolean; text: string } | null>(null);
+
+  // Inserta las fichas en lotes de 500
+  const importCsv = useMutation({
+    mutationFn: async (rows: { front: string; back: string }[]) => {
+      for (let i = 0; i < rows.length; i += 500) {
+        const { error } = await supabase.from('flashcards').insert(rows.slice(i, i + 500));
+        if (error) throw error;
+      }
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['flashcards'] }),
+  });
+
+  const handleFile = async (file: File) => {
+    setImportMsg(null);
+    if (file.size > 2_000_000) {
+      setImportMsg({ ok: false, text: 'El archivo es muy grande (máximo 2 MB).' });
+      return;
+    }
+    const text = await file.text();
+    const { cards: parsed, skipped } = parseFlashcardsCsv(text);
+    if (parsed.length === 0) {
+      setImportMsg({ ok: false, text: 'No se encontraron fichas válidas. Usa el formato: frente,reverso' });
+      return;
+    }
+    let question = `Se importarán ${parsed.length} fichas`;
+    if (skipped > 0) question += ` (${skipped} filas omitidas por estar incompletas)`;
+    question += '. ¿Continuar?';
+    if (text.includes('\uFFFD')) {
+      question += '\n\n⚠️ Parece que el archivo no está en UTF-8: algunas letras con tilde podrían verse mal.';
+    }
+    if (!window.confirm(question)) return;
+    try {
+      await importCsv.mutateAsync(parsed);
+      setImportMsg({ ok: true, text: `Se importaron ${parsed.length} fichas.` });
+    } catch {
+      setImportMsg({
+        ok: false,
+        text: 'No se pudieron importar todas las fichas. Es posible que algunas sí se hayan guardado: revisa la lista.',
+      });
+    }
+  };
+
   const [showForm, setShowForm] = useState(false);
 
   const cards = useQuery({ queryKey: ['flashcards'], queryFn: fetchFlashcards });
@@ -140,6 +185,30 @@ export default function FlashcardsPage() {
             + Nueva Ficha
           </button>
         </div>
+      </div>
+
+      <div>
+        <input
+          ref={fileRef}
+          type="file"
+          accept=".csv,text/csv"
+          className="hidden"
+          onChange={(e) => {
+            const f = e.target.files?.[0];
+            e.target.value = '';
+            if (f) void handleFile(f);
+          }}
+        />
+        <button
+          onClick={() => fileRef.current?.click()}
+          disabled={importCsv.isPending}
+          className="rounded-2xl border-2 border-slate-200 px-4 py-2 text-sm font-bold disabled:opacity-50 dark:border-slate-700"
+        >
+          {importCsv.isPending ? 'Importando…' : '📥 Importar CSV'}
+        </button>
+        {importMsg && (
+          <p className={`mt-2 text-sm font-bold ${importMsg.ok ? 'text-green-600' : 'text-red-500'}`}>{importMsg.text}</p>
+        )}
       </div>
 
       {cards.isLoading && <p className="text-slate-500">Cargando…</p>}
