@@ -110,6 +110,7 @@ export interface EditableQuestion {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   answer: any;
   explanation: string | null;
+  imagen_url: string | null;
 }
 
 export interface ExamEdits {
@@ -123,7 +124,7 @@ export const fetchExamForEdit = async (examId: string): Promise<{ exam: Exam; qu
   if (e1) throw e1;
   const { data: qs, error: e2 } = await supabase
     .from('questions')
-    .select('id,type,prompt,options,answer,explanation')
+    .select('id,type,prompt,options,answer,explanation,imagen_url')
     .eq('exam_id', examId)
     .order('position', { ascending: true });
   if (e2) throw e2;
@@ -157,6 +158,7 @@ export const saveExamEdits = async (
             options: q.options,
             answer: q.answer,
             explanation: q.explanation?.trim() || null,
+            imagen_url: q.imagen_url || null,
           })
           .eq('id', q.id!),
       ),
@@ -176,6 +178,7 @@ export const saveExamEdits = async (
       options: q.options,
       answer: q.answer,
       explanation: q.explanation?.trim() || null,
+      imagen_url: q.imagen_url || null,
     }));
   if (fresh.length) {
     const { error } = await supabase.from('questions').insert(fresh);
