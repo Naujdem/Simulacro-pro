@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Navigate, useNavigate } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { usePractice } from '@/features/practice/practiceStore';
+import { QUICK_REVIEW_ID, usePractice } from '@/features/practice/practiceStore';
 import { addToReview, fetchReviewIds, removeFromReview } from '@/features/exams/api';
 import QuestionImage from '@/components/QuestionImage';
 import AiPanel from '@/features/ai/AiPanel';
@@ -25,7 +25,7 @@ export default function ResultsPage() {
   const reviewIds = useQuery({ queryKey: ['review-ids'], queryFn: fetchReviewIds });
   const toggleReview = useMutation({
     mutationFn: ({ q, saved }: { q: Question; saved: boolean }) =>
-      saved ? removeFromReview(q.id) : addToReview(q.id, examId),
+      saved ? removeFromReview(q.id) : addToReview(q.id, q.exam_id ?? examId),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['review-ids'] }),
   });
 
@@ -41,13 +41,16 @@ export default function ResultsPage() {
   const savedIds = new Set(reviewIds.data ?? []);
 
   const again = (questions: typeof queue, mode: 'full' | 'retry_wrong') => {
-    usePractice.getState().start(examId, questions, mode, summary.attemptId);
+    // En Repaso Rápido, repetir sigue siendo Repaso Rápido (mezcla de simulacros)
+    const m = examId === QUICK_REVIEW_ID ? 'quick_review' : mode;
+    usePractice.getState().start(examId, questions, m, summary.attemptId);
     nav(`/practice/${examId}`);
   };
 
   const practiceOne = (q: Question) => {
-    usePractice.getState().start(examId, [q], 'custom', summary.attemptId);
-    nav(`/practice/${examId}`);
+    const qExam = q.exam_id ?? examId; // en Repaso Rápido, la pregunta se practica en su propio simulacro
+    usePractice.getState().start(qExam, [q], 'custom', summary.attemptId);
+    nav(`/practice/${qExam}`);
   };
 
   const items = queue.map((q, i) => ({ q, correct: results[i]?.correct ?? false }));
@@ -174,7 +177,7 @@ export default function ResultsPage() {
                           {saved ? '✓ En repaso' : '📌 Guardar en repaso'}
                         </button>
                       </div>
-                       <AiPanel q={q} examId={examId} />
+                       <AiPanel q={q} examId={q.exam_id ?? examId} />
                     </>
                   )}
                 </li>
