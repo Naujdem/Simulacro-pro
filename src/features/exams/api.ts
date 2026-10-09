@@ -1,5 +1,6 @@
 import { supabase } from '@/lib/supabase';
 import type { QType } from '@/lib/importParser';
+import type { Question } from '@/lib/grading';
 
 export interface Exam {
   id: string;
@@ -42,7 +43,12 @@ export const fetchProfile = async (): Promise<Profile> => {
 };
 
 export const fetchBestScores = async (): Promise<Record<string, number>> => {
-  const { data } = await supabase.from('attempts').select('exam_id,score').not('finished_at', 'is', null);
+  // Solo cuentan los intentos completos: repetir falladas o practicar una sola pregunta no debe inflar el "mejor %"
+  const { data } = await supabase
+    .from('attempts')
+    .select('exam_id,score')
+    .eq('mode', 'full')
+    .not('finished_at', 'is', null);
   const best: Record<string, number> = {};
   for (const a of data ?? []) best[a.exam_id] = Math.max(best[a.exam_id] ?? 0, Number(a.score));
   return best;
@@ -194,4 +200,59 @@ export const saveExamEdits = async (
     })
     .eq('id', examId);
   if (error) throw error;
+};
+
+// ───────────────────────── Lista de repaso ─────────────────────────
+
+export interface ReviewEntry {
+  created_at: string;
+  exam_id: string;
+  exam_title: string;
+  question: Question;
+}
+
+interface RawReviewRow {
+  created_at: string;
+  exam_id: string;
+  questions: Question | null;
+  exams: { title: string } | null;
+}
+
+// Ids de las preguntas que el usuario tiene guardadas en su lista de repaso
+export const fetchReviewIds = async (): Promise<string[]> => {
+  const { data, error } = await supabase.from('review_questions').select('question_id');
+  if (error) throw error;
+  return (data ?? []).map((r) => r.question_id as string);
+};
+
+export const addToReview = async (questionId: string, examId: string): Promise<void> => {
+  const { data: u } = await supabase.auth.getUser();
+  const { error } = await supabase
+    .from('review_questions')
+    .upsert(
+      { user_id: u.user!.id, question_id: questionId, exam_id: examId },
+      { onConflict: 'user_id,question_id', ignoreDuplicates: true },
+    );
+  if (error) throw error;
+};
+
+export const removeFromReview = async (questionId: string): Promise<void> => {
+  const { error } = await supabase.from('review_questions').delete().eq('question_id', questionId);
+  if (error) throw error;
+};
+
+export const fetchReviewEntries = async (): Promise<ReviewEntry[]> => {
+  const { data, error } = await supabase
+    .from('review_questions')
+    .select('created_at,exam_id,questions(*),exams(title)')
+    .order('created_at', { ascending: false });
+  if (error) throw error;
+  return ((data ?? []) as unknown as RawReviewRow[])
+    .filter((r) => r.questions)
+    .map((r) => ({
+      created_at: r.created_at,
+      exam_id: r.exam_id,
+      exam_title: r.exams?.title ?? 'Simulacro',
+      question: r.questions as Question,
+    }));
 };
