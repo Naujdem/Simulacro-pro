@@ -19,7 +19,10 @@ export interface Summary {
   answersSaved: boolean; // false si falló el guardado del detalle de respuestas
 }
 
-type Mode = 'full' | 'retry_wrong' | 'custom';
+// Id especial para la sesión de Repaso Rápido (mezcla preguntas de varios simulacros)
+export const QUICK_REVIEW_ID = 'quick';
+
+type Mode = 'full' | 'retry_wrong' | 'custom' | 'quick_review';
 
 interface PracticeState {
   active: boolean;
@@ -58,7 +61,8 @@ export const usePractice = create<PracticeState>((set, get) => ({
       examId,
       mode,
       parentAttemptId: parent,
-      allQuestions: mode === 'retry_wrong' ? s.allQuestions : questions,
+      // Al repetir solo las falladas se conserva la lista completa original
+      allQuestions: mode === 'retry_wrong' || (mode === 'quick_review' && parent) ? s.allQuestions : questions,
       queue: questions,
       index: 0,
       results: [],
@@ -93,14 +97,14 @@ export const usePractice = create<PracticeState>((set, get) => ({
     const score = total ? Math.round((correct / total) * 10000) / 100 : 0;
     const durationSec = Math.round((Date.now() - s.startedAt) / 1000);
     // Practicar preguntas sueltas ('custom') no da bono por completar, para no regalar XP
-    const bonus = s.mode === 'custom' ? 0 : 20 + (score >= 90 ? 30 : 0);
+    const bonus = s.mode === 'custom' || s.mode === 'quick_review' ? 0 : 20 + (score >= 90 ? 30 : 0);
     const xp = correct * 10 + bonus;
 
     const { data: attempt, error } = await supabase
       .from('attempts')
       .insert({
         user_id: userId,
-        exam_id: s.examId,
+        exam_id: s.examId === QUICK_REVIEW_ID ? null : s.examId, // el Repaso Rápido no pertenece a un solo simulacro
         mode: s.mode,
         parent_attempt_id: s.parentAttemptId ?? null,
         started_at: new Date(s.startedAt).toISOString(),

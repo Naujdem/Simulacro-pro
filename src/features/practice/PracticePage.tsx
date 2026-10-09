@@ -2,7 +2,7 @@ import { useEffect, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { supabase } from '@/lib/supabase';
 import type { Question } from '@/lib/grading';
-import { usePractice } from './practiceStore';
+import { QUICK_REVIEW_ID, usePractice } from './practiceStore';
 import { QuestionCard } from './QuestionCard';
 
 export default function PracticePage() {
@@ -15,6 +15,11 @@ export default function PracticePage() {
   useEffect(() => {
     const s = usePractice.getState();
     if (s.active && s.examId === examId) return;
+    // El Repaso Rápido solo existe en memoria: si se recarga la página, vuelve al inicio
+    if (examId === QUICK_REVIEW_ID) {
+      nav('/', { replace: true });
+      return;
+    }
     supabase
       .from('questions')
       .select('*')
@@ -64,7 +69,8 @@ export default function PracticePage() {
           {index + 1}/{queue.length}
         </span>
       </header>
-      <QuestionCard key={queue[index].id} question={queue[index]} examId={examId!} onNext={record} />
+      {/* En Repaso Rápido cada pregunta guarda su etiqueta en SU simulacro de origen */}
+      <QuestionCard key={queue[index].id} question={queue[index]} examId={queue[index].exam_id ?? examId!} onNext={record} />
     </div>
   );
 }
