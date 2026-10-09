@@ -1,25 +1,61 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Navigate, useNavigate } from 'react-router-dom';
-import { useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { usePractice } from '@/features/practice/practiceStore';
+import { addToReview, fetchReviewIds, removeFromReview } from '@/features/exams/api';
+import { correctText, type Question } from '@/lib/grading';
 
 const fmt = (s: number) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+
+// En las preguntas de "completar espacios" muestra ____ en lugar de {{1}}
+const showPrompt = (p: string) => p.replace(/\{\{\d+\}\}/g, '____');
+
+type Filter = 'all' | 'ok' | 'wrong';
 
 export default function ResultsPage() {
   const nav = useNavigate();
   const qc = useQueryClient();
-  const [review, setReview] = useState(false);
   const { summary, examId, queue, results } = usePractice();
+  // La revisión se abre sola si hubo preguntas falladas
+  const [review, setReview] = useState(() => usePractice.getState().results.some((r) => !r.correct));
+  const [filter, setFilter] = useState<Filter>('all');
+
+  const reviewIds = useQuery({ queryKey: ['review-ids'], queryFn: fetchReviewIds });
+  const toggleReview = useMutation({
+    mutationFn: ({ q, saved }: { q: Question; saved: boolean }) =>
+      saved ? removeFromReview(q.id) : addToReview(q.id, examId),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['review-ids'] }),
+  });
+
+  // Al llegar aquí, refresca las listas que dependen del intento recién guardado
+  useEffect(() => {
+    qc.invalidateQueries();
+  }, [qc]);
+
   if (!summary) return <Navigate to="/" replace />;
 
   const wrong = results.filter((r) => !r.correct).length;
   const pct = Math.round(summary.score);
-  qc.invalidateQueries();
+  const savedIds = new Set(reviewIds.data ?? []);
 
   const again = (questions: typeof queue, mode: 'full' | 'retry_wrong') => {
     usePractice.getState().start(examId, questions, mode, summary.attemptId);
     nav(`/practice/${examId}`);
   };
+
+  const practiceOne = (q: Question) => {
+    usePractice.getState().start(examId, [q], 'custom', summary.attemptId);
+    nav(`/practice/${examId}`);
+  };
+
+  const items = queue.map((q, i) => ({ q, correct: results[i]?.correct ?? false }));
+  const okCount = items.filter((x) => x.correct).length;
+  const shown = items.filter((x) => filter === 'all' || (filter === 'ok' ? x.correct : !x.correct));
+  const tabs: { id: Filter; label: string; count: number }[] = [
+    { id: 'all', label: 'Todas', count: items.length },
+    { id: 'ok', label: 'Correctas', count: okCount },
+    { id: 'wrong', label: 'Incorrectas', count: items.length - okCount },
+  ];
 
   return (
     <div className="mx-auto max-w-xl space-y-6 p-6">
@@ -47,6 +83,12 @@ export default function ResultsPage() {
         ))}
       </div>
 
+      {!summary.answersSaved && (
+        <p className="rounded-xl bg-amber-50 p-3 text-center text-xs text-amber-700 dark:bg-amber-950 dark:text-amber-300">
+          No se pudo guardar el detalle de cada respuesta de este intento. Tu resultado general sí se guardó.
+        </p>
+      )}
+
       <div className="space-y-3">
         {wrong > 0 && (
           <button onClick={() => again(usePractice.getState().retryWrongQueue(), 'retry_wrong')} className="w-full rounded-2xl bg-sky-500 py-4 font-extrabold uppercase text-white">
@@ -71,13 +113,73 @@ export default function ResultsPage() {
       </div>
 
       {review && (
-        <ul className="space-y-2">
-          {queue.map((q, i) => (
-            <li key={q.id} className={`rounded-xl p-3 text-sm ${results[i]?.correct ? 'bg-green-100 dark:bg-green-950' : 'bg-red-100 dark:bg-red-950'}`}>
-              {results[i]?.correct ? '✔' : '✖'} {q.prompt}
-            </li>
-          ))}
-        </ul>
+        <section className="space-y-3">
+          <div className="grid grid-cols-3 gap-2" role="tablist" aria-label="Filtrar preguntas">
+            {tabs.map((t) => (
+              <button
+                key={t.id}
+                role="tab"
+                aria-selected={filter === t.id}
+                onClick={() => setFilter(t.id)}
+                className={`rounded-xl border-2 px-2 py-2 text-sm font-bold ${
+                  filter === t.id ? 'border-sky-500 bg-sky-500 text-white' : 'border-slate-200 dark:border-slate-700'
+                }`}
+              >
+                {t.label} ({t.count})
+              </button>
+            ))}
+          </div>
+
+          {!shown.length && (
+            <p className="py-4 text-center text-sm text-slate-500">
+              {filter === 'wrong' ? '¡No fallaste ninguna! 🎉' : 'No hay preguntas en esta vista.'}
+            </p>
+          )}
+
+          <ul className="space-y-2">
+            {shown.map(({ q, correct }) => {
+              const saved = savedIds.has(q.id);
+              return (
+                <li
+                  key={q.id}
+                  className={`space-y-2 rounded-xl p-3 text-sm ${
+                    correct ? 'bg-green-100 dark:bg-green-950' : 'bg-red-100 dark:bg-red-950'
+                  }`}
+                >
+                  <p>
+                    {correct ? '✔' : '✖'} {showPrompt(q.prompt)}
+                  </p>
+                  {!correct && (
+                    <>
+                      <p className="text-xs">
+                        Respuesta correcta: <b>{correctText(q)}</b>
+                      </p>
+                      <div className="flex flex-wrap gap-2">
+                        <button
+                          onClick={() => practiceOne(q)}
+                          className="rounded-lg bg-sky-500 px-3 py-1.5 text-xs font-extrabold text-white"
+                        >
+                          Practicar solo esta
+                        </button>
+                        <button
+                          disabled={toggleReview.isPending}
+                          onClick={() => toggleReview.mutate({ q, saved })}
+                          className={`rounded-lg border-2 px-3 py-1.5 text-xs font-extrabold disabled:opacity-50 ${
+                            saved ? 'border-green-600 text-green-700 dark:text-green-300' : 'border-slate-400'
+                          }`}
+                        >
+                          {saved ? '✓ En repaso' : '📌 Guardar en repaso'}
+                        </button>
+                      </div>
+                    </>
+                  )}
+                </li>
+              );
+            })}
+          </ul>
+
+          {toggleReview.isError && <p className="text-xs text-red-500">{(toggleReview.error as Error).message}</p>}
+        </section>
       )}
     </div>
   );
