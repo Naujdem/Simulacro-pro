@@ -8,6 +8,7 @@ interface AttemptRow {
   total: number;
   duration_sec: number;
   finished_at: string;
+  mode: string;
   exams: { title: string } | null;
 }
 
@@ -18,7 +19,7 @@ export default function StatsPage() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('attempts')
-        .select('id,score,total,duration_sec,finished_at,exams(title)')
+        .select('id,score,total,duration_sec,finished_at,mode,exams(title)')
         .not('finished_at', 'is', null)
         .order('finished_at', { ascending: false })
         .limit(30);
@@ -81,7 +82,7 @@ export default function StatsPage() {
           {list.map((a) => (
             <li key={a.id} className="flex justify-between rounded-xl bg-white p-3 text-sm shadow-sm dark:bg-slate-800">
               <span>
-                <b>{a.exams?.title ?? 'Simulacro eliminado'}</b>
+                <b>{a.mode === 'quick_review' ? '🧠 Repaso Rápido' : (a.exams?.title ?? 'Simulacro eliminado')}</b>
                 <br />
                 <span className="text-xs text-slate-500">{new Date(a.finished_at).toLocaleString()}</span>
               </span>
