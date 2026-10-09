@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
-import { QuestionImage } from '@/components/QuestionImage';
+import QuestionImage from '@/components/QuestionImage';
 import { AudioPlayer } from '@/components/AudioPlayer';
 import type { Flashcard } from './FlashcardsPage';
 import { nextReview, type Rating } from './sm2';
@@ -23,7 +23,6 @@ const RATINGS: { value: Rating; label: string; className: string }[] = [
   { value: 'easy', label: 'Fácil', className: 'bg-sky-500' },
 ];
 
-// Solo las fichas que "tocan" hoy: su fecha de repaso (due_at) es anterior a mañana a las 00:00
 const fetchDueDeck = async (): Promise<StudyCard[]> => {
   const startOfTomorrow = new Date();
   startOfTomorrow.setHours(24, 0, 0, 0);
@@ -42,7 +41,6 @@ export default function StudyPage() {
   const [index, setIndex] = useState(0);
   const [flipped, setFlipped] = useState(false);
 
-  // El mazo del día se carga una sola vez por sesión de estudio
   const deck = useQuery({
     queryKey: ['flashcards-study'],
     queryFn: fetchDueDeck,
@@ -51,7 +49,6 @@ export default function StudyPage() {
     refetchOnWindowFocus: false,
   });
 
-  // Calcula con SM-2 y guarda el nuevo estado de la ficha en Supabase
   const save = useMutation({
     mutationFn: async ({ card, rating }: { card: StudyCard; rating: Rating }) => {
       const result = nextReview(
@@ -84,7 +81,7 @@ export default function StudyPage() {
 
   const handleRate = (rating: Rating) => {
     if (!card) return;
-    save.mutate({ card, rating }); // se guarda en segundo plano
+    save.mutate({ card, rating });
     setFlipped(false);
     setIndex((i) => i + 1);
   };
@@ -141,14 +138,12 @@ export default function StudyPage() {
             <div className="space-y-4 rounded-3xl bg-white p-6 text-center shadow-sm dark:bg-slate-800">
               <p className="whitespace-pre-wrap text-xl font-bold">{card.front}</p>
               
-              {/* Imagen de la ficha */}
               {card.imagen_ref && (
                 <div className="my-3 flex justify-center">
                   <QuestionImage src={card.imagen_ref} alt="Imagen de la ficha" />
                 </div>
               )}
 
-              {/* Audio de la ficha */}
               {card.audio_ref && (
                 <div className="my-3 flex justify-center">
                   <AudioPlayer src={card.audio_ref} />
