@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import JSZip from 'jszip';
+// @ts-ignore
 import initSqlJs from 'sql.js';
+// @ts-ignore
 import he from 'he';
 import { supabase } from '@/lib/supabase';
 import { uploadImage, uploadAudio } from '@/lib/drive';
@@ -21,13 +23,11 @@ export const AnkiImporter: React.FC<AnkiImporterProps> = ({ onImportSuccess }) =
     setStatus('Leyendo archivo .apkg...');
 
     try {
-      // 1. Descomprimir el archivo .apkg (ZIP)
       const zip = await JSZip.loadAsync(file);
 
-      // 2. Cargar motor de SQLite
       setStatus('Inicializando motor de base de datos...');
       const SQL = await initSqlJs({
-        locateFile: (filename) => `https://sql.js.org/dist/${filename}`,
+        locateFile: (filename: string) => `https://sql.js.org/dist/${filename}`,
       });
 
       const dbFile = zip.file('collection.anki2') || zip.file('collection.anki21');
@@ -38,7 +38,6 @@ export const AnkiImporter: React.FC<AnkiImporterProps> = ({ onImportSuccess }) =
       const dbBuffer = await dbFile.async('uint8array');
       const db = new SQL.Database(dbBuffer);
 
-      // 3. Obtener el mapa de archivos multimedia
       setStatus('Analizando archivos multimedia...');
       const mediaFile = zip.file('media');
       let mediaMap: Record<string, string> = {};
@@ -51,13 +50,11 @@ export const AnkiImporter: React.FC<AnkiImporterProps> = ({ onImportSuccess }) =
         }
       }
 
-      // Invertir mapa para buscar por nombre original de archivo
       const reverseMediaMap: Record<string, string> = {};
       Object.entries(mediaMap).forEach(([zipName, originalName]) => {
         reverseMediaMap[originalName] = zipName;
       });
 
-      // 4. Leer las tarjetas desde la tabla de notas
       const result = db.exec('SELECT flds FROM notes');
       if (!result.length || !result[0].values) {
         throw new Error('No se encontraron fichas dentro del archivo.');
@@ -67,11 +64,10 @@ export const AnkiImporter: React.FC<AnkiImporterProps> = ({ onImportSuccess }) =
       let totalImported = 0;
       let totalMediaUploaded = 0;
 
-      // 5. Procesar cada ficha una por una
       for (let i = 0; i < rows.length; i++) {
         setStatus(`Procesando ficha ${i + 1} de ${rows.length}...`);
         const fldsStr = rows[i][0] as string;
-        const fields = fldsStr.split('\x1f'); // Anki separa campos con 0x1F
+        const fields = fldsStr.split('\x1f');
 
         let front = fields[0] || '';
         let back = fields[1] || '';
@@ -79,7 +75,6 @@ export const AnkiImporter: React.FC<AnkiImporterProps> = ({ onImportSuccess }) =
         let imagenRef: string | null = null;
         let audioRef: string | null = null;
 
-        // --- Audios [sound:nombre.mp3] ---
         const audioMatch = front.match(/\[sound:(.*?)\]/) || back.match(/\[sound:(.*?)\]/);
         if (audioMatch) {
           const audioFilename = audioMatch[1];
@@ -96,7 +91,6 @@ export const AnkiImporter: React.FC<AnkiImporterProps> = ({ onImportSuccess }) =
           back = back.replace(/\[sound:.*?\]/g, '');
         }
 
-        // --- Imágenes <img src="nombre.png"> ---
         const imgMatch = front.match(/<img[^>]+src=["']([^"']+)["']/i) || back.match(/<img[^>]+src=["']([^"']+)["']/i);
         if (imgMatch) {
           const imgFilename = imgMatch[1];
@@ -113,7 +107,6 @@ export const AnkiImporter: React.FC<AnkiImporterProps> = ({ onImportSuccess }) =
           back = back.replace(/<img[^>]*>/gi, '');
         }
 
-        // Limpieza de código HTML y etiquetas de Anki
         const cleanedFront = he.decode(front.replace(/<[^>]+>/g, '')).trim();
         const cleanedBack = he.decode(back.replace(/<[^>]+>/g, '')).trim();
 
