@@ -3,18 +3,21 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { useNavigate } from 'react-router-dom';
 import { parseFlashcardsCsv } from './csv';
+import { AnkiImporter } from './AnkiImporter';
 
 export interface Flashcard {
   id: string;
   front: string;
   back: string;
   created_at: string;
+  imagen_ref?: string | null;
+  audio_ref?: string | null;
 }
 
 const fetchFlashcards = async (): Promise<Flashcard[]> => {
   const { data, error } = await supabase
     .from('flashcards')
-    .select('id,front,back,created_at')
+    .select('id,front,back,created_at,imagen_ref,audio_ref')
     .order('created_at', { ascending: false });
   if (error) throw error;
   return data as Flashcard[];
@@ -95,6 +98,7 @@ export default function FlashcardsPage() {
   const nav = useNavigate();
   const fileRef = useRef<HTMLInputElement>(null);
   const [importMsg, setImportMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  const [showAnkiImporter, setShowAnkiImporter] = useState(false);
 
   // Inserta las fichas en lotes de 500
   const importCsv = useMutation({
@@ -187,7 +191,7 @@ export default function FlashcardsPage() {
         </div>
       </div>
 
-      <div>
+      <div className="flex flex-wrap items-center gap-2">
         <input
           ref={fileRef}
           type="file"
@@ -206,10 +210,28 @@ export default function FlashcardsPage() {
         >
           {importCsv.isPending ? 'Importando…' : '📥 Importar CSV'}
         </button>
-        {importMsg && (
-          <p className={`mt-2 text-sm font-bold ${importMsg.ok ? 'text-green-600' : 'text-red-500'}`}>{importMsg.text}</p>
-        )}
+
+        <button
+          onClick={() => setShowAnkiImporter(!showAnkiImporter)}
+          className="rounded-2xl border-2 border-slate-200 px-4 py-2 text-sm font-bold dark:border-slate-700"
+        >
+          {showAnkiImporter ? '✕ Cerrar Anki' : '📦 Importar .apkg (Anki)'}
+        </button>
       </div>
+
+      {importMsg && (
+        <p className={`mt-2 text-sm font-bold ${importMsg.ok ? 'text-green-600' : 'text-red-500'}`}>{importMsg.text}</p>
+      )}
+
+      {showAnkiImporter && (
+        <div className="mt-2">
+          <AnkiImporter
+            onImportSuccess={() => {
+              qc.invalidateQueries({ queryKey: ['flashcards'] });
+            }}
+          />
+        </div>
+      )}
 
       {cards.isLoading && <p className="text-slate-500">Cargando…</p>}
       {cards.error && <p className="text-sm font-bold text-red-500">No se pudieron cargar las fichas.</p>}
@@ -220,35 +242,4 @@ export default function FlashcardsPage() {
         </p>
       )}
 
-      <ul className="space-y-3">
-        {list.map((c) => (
-          <li
-            key={c.id}
-            className="flex items-start justify-between gap-2 rounded-2xl bg-white p-4 shadow-sm dark:bg-slate-800"
-          >
-            <p className="flex-1 whitespace-pre-wrap font-bold">{c.front}</p>
-            <button
-              aria-label="Eliminar ficha"
-              disabled={remove.isPending}
-              onClick={() => {
-                if (window.confirm('¿Eliminar esta ficha?')) remove.mutate(c.id);
-              }}
-              className="px-2 text-lg disabled:opacity-50"
-            >
-              🗑️
-            </button>
-          </li>
-        ))}
-      </ul>
-
-      {showForm && (
-        <NewFlashcardDialog
-          onClose={() => setShowForm(false)}
-          onCreate={(front, back) => create.mutate({ front, back })}
-          saving={create.isPending}
-          error={create.error ? 'No se pudo guardar la ficha. Intenta de nuevo.' : null}
-        />
-      )}
-    </div>
-  );
-}
+      <ul className="space-y-
