@@ -3,10 +3,14 @@ import { useNavigate } from 'react-router-dom';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import type { Flashcard } from './FlashcardsPage';
+import { nextReview, type Rating } from './sm2';
 
-export type Rating = 'again' | 'hard' | 'good' | 'easy';
-
-type StudyCard = Flashcard & { review_count: number };
+type StudyCard = Flashcard & {
+  review_count: number;
+  ease_factor: number;
+  interval_days: number;
+  repetitions: number;
+};
 
 const RATINGS: { value: Rating; label: string; className: string }[] = [
   { value: 'again', label: 'Otra vez', className: 'bg-red-500' },
@@ -15,11 +19,16 @@ const RATINGS: { value: Rating; label: string; className: string }[] = [
   { value: 'easy', label: 'Fácil', className: 'bg-sky-500' },
 ];
 
-const fetchDeck = async (): Promise<StudyCard[]> => {
+// Solo las fichas que "tocan" hoy: su fecha de repaso (due_at) es anterior a mañana a las 00:00
+const fetchDueDeck = async (): Promise<StudyCard[]> => {
+  const startOfTomorrow = new Date();
+  startOfTomorrow.setHours(24, 0, 0, 0);
+
   const { data, error } = await supabase
     .from('flashcards')
-    .select('id,front,back,created_at,review_count')
-    .order('created_at', { ascending: true });
+    .select('id,front,back,created_at,review_count,ease_factor,interval_days,repetitions')
+    .lt('due_at', startOfTomorrow.toISOString())
+    .order('due_at', { ascending: true });
   if (error) throw error;
   return data as StudyCard[];
 };
@@ -29,21 +38,33 @@ export default function StudyPage() {
   const [index, setIndex] = useState(0);
   const [flipped, setFlipped] = useState(false);
 
-  // El mazo se carga una sola vez por sesión de estudio (no se recarga al cambiar de pestaña)
+  // El mazo del día se carga una sola vez por sesión de estudio
   const deck = useQuery({
     queryKey: ['flashcards-study'],
-    queryFn: fetchDeck,
+    queryFn: fetchDueDeck,
     staleTime: Infinity,
     gcTime: 0,
     refetchOnWindowFocus: false,
   });
 
-  // Guarda la calificación de una ficha en Supabase
+  // Calcula con SM-2 y guarda el nuevo estado de la ficha en Supabase
   const save = useMutation({
     mutationFn: async ({ card, rating }: { card: StudyCard; rating: Rating }) => {
+      const result = nextReview(
+        {
+          easeFactor: Number(card.ease_factor),
+          intervalDays: card.interval_days,
+          repetitions: card.repetitions,
+        },
+        rating,
+      );
       const { error } = await supabase
         .from('flashcards')
         .update({
+          ease_factor: result.easeFactor,
+          interval_days: result.intervalDays,
+          repetitions: result.repetitions,
+          due_at: result.dueAt.toISOString(),
           last_rating: rating,
           last_reviewed_at: new Date().toISOString(),
           review_count: card.review_count + 1,
@@ -89,8 +110,10 @@ export default function StudyPage() {
       {deck.error && <p className="text-center font-bold text-red-500">No se pudieron cargar las fichas.</p>}
 
       {!deck.isLoading && !deck.error && cards.length === 0 && (
-        <div className="space-y-4 text-center">
-          <p className="text-slate-500">No tienes fichas para estudiar todavía.</p>
+        <div className="flex flex-1 flex-col items-center justify-center gap-4 text-center">
+          <p className="text-4xl">🎉</p>
+          <h2 className="text-xl font-extrabold">¡Estás al día!</h2>
+          <p className="text-slate-500">No tienes fichas por repasar hoy.</p>
           <button onClick={exit} className="rounded-2xl bg-sky-500 px-5 py-3 font-extrabold text-white">
             Volver a Fichas
           </button>
@@ -100,7 +123,7 @@ export default function StudyPage() {
       {finished && (
         <div className="flex flex-1 flex-col items-center justify-center gap-4 text-center">
           <p className="text-4xl">🎉</p>
-          <h2 className="text-xl font-extrabold">¡Terminaste!</h2>
+          <h2 className="text-xl font-extrabold">¡Terminaste por hoy!</h2>
           <p className="text-slate-500">Repasaste {cards.length} fichas.</p>
           <button onClick={exit} className="rounded-2xl bg-sky-500 px-5 py-3 font-extrabold text-white">
             Volver a Fichas
