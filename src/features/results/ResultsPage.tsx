@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { usePractice } from '@/features/practice/practiceStore';
 import { addToReview, fetchReviewIds, removeFromReview } from '@/features/exams/api';
 import QuestionImage from '@/components/QuestionImage';
+import AiPanel from '@/features/ai/AiPanel';
 import { correctText, type Question } from '@/lib/grading';
 
 const fmt = (s: number) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
@@ -173,6 +174,7 @@ export default function ResultsPage() {
                           {saved ? '✓ En repaso' : '📌 Guardar en repaso'}
                         </button>
                       </div>
+                       <AiPanel q={q} examId={examId} />
                     </>
                   )}
                 </li>
