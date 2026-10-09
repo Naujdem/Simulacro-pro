@@ -74,3 +74,20 @@ export const assignExamToFolder = async (examId: string, folderId: string | null
   const { error } = await supabase.from('exams').update({ folder_id: folderId }).eq('id', examId);
   if (error) throw error;
 };
+
+export type QuestionTag = 'mal' | 'ok' | 'bien' | 'excelente';
+
+export const saveQuestionTag = async (questionId: string, examId: string, tag: QuestionTag): Promise<void> => {
+  const { data: u } = await supabase.auth.getUser();
+  const { error } = await supabase.from('question_tags').upsert(
+    {
+      user_id: u.user!.id,
+      question_id: questionId,
+      exam_id: examId,
+      tag,
+      updated_at: new Date().toISOString(),
+    },
+    { onConflict: 'user_id,question_id' },
+  );
+  if (error) throw error;
+};

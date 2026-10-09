@@ -64,7 +64,7 @@ export default function PracticePage() {
           {index + 1}/{queue.length}
         </span>
       </header>
-      <QuestionCard key={queue[index].id} question={queue[index]} onNext={record} />
+      <QuestionCard key={queue[index].id} question={queue[index]} examId={examId!} onNext={record} />
     </div>
   );
 }

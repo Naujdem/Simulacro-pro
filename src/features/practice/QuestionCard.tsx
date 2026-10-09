@@ -1,7 +1,15 @@
 import { useState } from 'react';
 import { Question, Response, checkAnswer, correctText } from '@/lib/grading';
+import { saveQuestionTag, type QuestionTag } from '@/features/exams/api';
 
-type Props = { question: Question; onNext: (r: Response, correct: boolean) => void };
+type Props = { question: Question; examId: string; onNext: (r: Response, correct: boolean) => void };
+
+const TAGS: { id: QuestionTag; label: string; className: string }[] = [
+  { id: 'mal', label: 'Mal', className: 'bg-red-500' },
+  { id: 'ok', label: 'Ok', className: 'bg-amber-500' },
+  { id: 'bien', label: 'Bien', className: 'bg-sky-500' },
+  { id: 'excelente', label: 'Excelente', className: 'bg-green-500' },
+];
 
 const emptyResponse = (q: Question): Response => {
   switch (q.type) {
@@ -38,11 +46,26 @@ const styles = {
 } as const;
 type S = keyof typeof styles;
 
-export function QuestionCard({ question: q, onNext }: Props) {
+export function QuestionCard({ question: q, examId, onNext }: Props) {
   const [resp, setResp] = useState<Response>(() => emptyResponse(q)); // usar key={q.id} en el padre
   const [correct, setCorrect] = useState<boolean | null>(null);
+  const [savingTag, setSavingTag] = useState(false);
+  const [tagError, setTagError] = useState('');
   const checked = correct !== null;
   const check = () => setCorrect(checkAnswer(q, resp));
+
+  async function pickTag(tag: QuestionTag) {
+    if (savingTag || correct === null) return;
+    setSavingTag(true);
+    setTagError('');
+    try {
+      await saveQuestionTag(q.id, examId, tag);
+      onNext(resp, correct);
+    } catch (e) {
+      setTagError((e as Error).message || 'No se pudo guardar la etiqueta');
+      setSavingTag(false);
+    }
+  }
 
   const multi = q.type === 'multiple_choice' && q.answer.correct.length > 1;
 
@@ -67,7 +90,7 @@ export function QuestionCard({ question: q, onNext }: Props) {
   };
 
   return (
-    <div className="mx-auto flex max-w-xl flex-col px-4 pb-56 pt-4">
+    <div className="mx-auto flex max-w-xl flex-col px-4 pb-72 pt-4">
       {q.type !== 'fill_blank' && (
         <h2 className="mb-6 text-xl font-bold leading-snug">
           {q.prompt}
@@ -176,15 +199,33 @@ export function QuestionCard({ question: q, onNext }: Props) {
               {q.explanation && <p className="mt-1 text-sm opacity-80">{q.explanation}</p>}
             </div>
           )}
-          <button
-            disabled={!checked && !isReady(resp)}
-            onClick={() => (checked ? onNext(resp, correct!) : check())}
-            className={`w-full rounded-2xl py-4 text-base font-extrabold uppercase tracking-wide text-white disabled:bg-slate-300 disabled:text-slate-500 ${
-              !checked ? 'bg-sky-500 active:bg-sky-600' : correct ? 'bg-green-500' : 'bg-red-500'
-            }`}
-          >
-            {checked ? 'Continuar' : 'Comprobar'}
-          </button>
+          {!checked ? (
+            <button
+              disabled={!isReady(resp)}
+              onClick={check}
+              className="w-full rounded-2xl bg-sky-500 py-4 text-base font-extrabold uppercase tracking-wide text-white active:bg-sky-600 disabled:bg-slate-300 disabled:text-slate-500"
+            >
+              Comprobar
+            </button>
+          ) : (
+            <div>
+              <p className="mb-2 text-sm font-bold">¿Cómo te fue en esta pregunta?</p>
+              <div className="grid grid-cols-4 gap-2">
+                {TAGS.map((t) => (
+                  <button
+                    key={t.id}
+                    disabled={savingTag}
+                    onClick={() => pickTag(t.id)}
+                    className={`rounded-2xl py-3 text-sm font-extrabold text-white disabled:opacity-50 ${t.className}`}
+                  >
+                    {t.label}
+                  </button>
+                ))}
+              </div>
+              {savingTag && <p className="mt-2 text-center text-xs font-bold opacity-70">Guardando…</p>}
+              {tagError && <p className="mt-2 text-center text-xs font-bold text-red-600">{tagError}</p>}
+            </div>
+          )}
         </div>
       </footer>
     </div>
