@@ -12,6 +12,7 @@ import ResultsPage from '@/features/results/ResultsPage';
 import ReviewPage from '@/features/results/ReviewPage';
 import StatsPage from '@/features/stats/StatsPage';
 import ProfilePage from '@/features/profile/ProfilePage';
+import FlashcardsPage from '@/features/flashcards/FlashcardsPage';
 
 export default function App() {
   const { session, loading } = useSession();
@@ -23,6 +24,7 @@ export default function App() {
       <Route element={<Layout />}>
         <Route index element={<HomePage />} />
         <Route path="library" element={<LibraryPage />} />
+        <Route path="flashcards" element={<FlashcardsPage />} />
         <Route path="folders/:folderId" element={<FolderPage />} />
         <Route path="exams/:examId/edit" element={<EditExamPage />} />
         <Route path="review" element={<ReviewPage />} />
