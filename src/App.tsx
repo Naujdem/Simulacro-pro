@@ -13,6 +13,7 @@ import ReviewPage from '@/features/results/ReviewPage';
 import StatsPage from '@/features/stats/StatsPage';
 import ProfilePage from '@/features/profile/ProfilePage';
 import FlashcardsPage from '@/features/flashcards/FlashcardsPage';
+import StudyPage from '@/features/flashcards/StudyPage';
 
 export default function App() {
   const { session, loading } = useSession();
@@ -33,6 +34,7 @@ export default function App() {
         <Route path="profile" element={<ProfilePage />} />
       </Route>
       <Route path="practice/:examId" element={<PracticePage />} />
+      <Route path="flashcards/study" element={<StudyPage />} />
       <Route path="results" element={<ResultsPage />} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
