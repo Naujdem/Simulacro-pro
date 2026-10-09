@@ -16,9 +16,10 @@ export interface Summary {
   score: number;
   durationSec: number;
   xp: number;
+  answersSaved: boolean; // false si falló el guardado del detalle de respuestas
 }
 
-type Mode = 'full' | 'retry_wrong';
+type Mode = 'full' | 'retry_wrong' | 'custom';
 
 interface PracticeState {
   active: boolean;
@@ -57,7 +58,7 @@ export const usePractice = create<PracticeState>((set, get) => ({
       examId,
       mode,
       parentAttemptId: parent,
-      allQuestions: mode === 'full' ? questions : s.allQuestions,
+      allQuestions: mode === 'retry_wrong' ? s.allQuestions : questions,
       queue: questions,
       index: 0,
       results: [],
@@ -91,7 +92,9 @@ export const usePractice = create<PracticeState>((set, get) => ({
     const correct = s.results.filter((r) => r.correct).length;
     const score = total ? Math.round((correct / total) * 10000) / 100 : 0;
     const durationSec = Math.round((Date.now() - s.startedAt) / 1000);
-    const xp = correct * 10 + 20 + (score >= 90 ? 30 : 0);
+    // Practicar preguntas sueltas ('custom') no da bono por completar, para no regalar XP
+    const bonus = s.mode === 'custom' ? 0 : 20 + (score >= 90 ? 30 : 0);
+    const xp = correct * 10 + bonus;
 
     const { data: attempt, error } = await supabase
       .from('attempts')
@@ -112,7 +115,7 @@ export const usePractice = create<PracticeState>((set, get) => ({
       .single();
     if (error) throw error;
 
-    await supabase.from('attempt_answers').insert(
+    const { error: answersError } = await supabase.from('attempt_answers').insert(
       s.results.map((r) => ({
         attempt_id: attempt.id,
         user_id: userId,
@@ -122,9 +125,18 @@ export const usePractice = create<PracticeState>((set, get) => ({
         time_ms: r.timeMs,
       })),
     );
+    if (answersError) console.error('No se pudo guardar el detalle de respuestas:', answersError);
     await supabase.rpc('record_study', { p_xp: xp, p_today: todayLocal() });
 
-    const summary: Summary = { attemptId: attempt.id, total, correct, score, durationSec, xp };
+    const summary: Summary = {
+      attemptId: attempt.id,
+      total,
+      correct,
+      score,
+      durationSec,
+      xp,
+      answersSaved: !answersError,
+    };
     set({ summary });
     return summary;
   },
