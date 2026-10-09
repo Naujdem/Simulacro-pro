@@ -1,4 +1,5 @@
 import { supabase } from '@/lib/supabase';
+import type { QType } from '@/lib/importParser';
 
 export interface Exam {
   id: string;
@@ -89,5 +90,108 @@ export const saveQuestionTag = async (questionId: string, examId: string, tag: Q
     },
     { onConflict: 'user_id,question_id' },
   );
+  if (error) throw error;
+};
+
+// ───────────────────────── Edición de simulacros ─────────────────────────
+
+// Una pregunta en el formulario de edición. id === null significa "pregunta nueva".
+export interface EditableQuestion {
+  id: string | null;
+  type: QType;
+  prompt: string;
+  options: { id: string; text: string }[] | null;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  answer: any;
+  explanation: string | null;
+}
+
+export interface ExamEdits {
+  title: string;
+  subject: string;
+  description: string;
+}
+
+export const fetchExamForEdit = async (examId: string): Promise<{ exam: Exam; questions: EditableQuestion[] }> => {
+  const { data: exam, error: e1 } = await supabase.from('exams').select('*').eq('id', examId).single();
+  if (e1) throw e1;
+  const { data: qs, error: e2 } = await supabase
+    .from('questions')
+    .select('id,type,prompt,options,answer,explanation')
+    .eq('exam_id', examId)
+    .order('position', { ascending: true });
+  if (e2) throw e2;
+  return { exam: exam as Exam, questions: (qs ?? []) as EditableQuestion[] };
+};
+
+// Guarda los cambios sin recrear las preguntas existentes (así se conservan
+// las etiquetas Mal/Ok/Bien/Excelente y el historial). El orden es a propósito:
+// primero se actualiza y se agrega, y solo al final se elimina.
+export const saveExamEdits = async (
+  examId: string,
+  edits: ExamEdits,
+  questions: EditableQuestion[],
+  deletedIds: string[],
+): Promise<void> => {
+  const { data: u } = await supabase.auth.getUser();
+  const userId = u.user!.id;
+
+  const indexed = questions.map((q, position) => ({ q, position }));
+
+  // 1) Actualizar las preguntas que ya existían
+  const updates = await Promise.all(
+    indexed
+      .filter(({ q }) => q.id)
+      .map(({ q, position }) =>
+        supabase
+          .from('questions')
+          .update({
+            position,
+            prompt: q.prompt.trim(),
+            options: q.options,
+            answer: q.answer,
+            explanation: q.explanation?.trim() || null,
+          })
+          .eq('id', q.id!),
+      ),
+  );
+  const failed = updates.find((r) => r.error);
+  if (failed?.error) throw failed.error;
+
+  // 2) Insertar las preguntas nuevas
+  const fresh = indexed
+    .filter(({ q }) => !q.id)
+    .map(({ q, position }) => ({
+      exam_id: examId,
+      user_id: userId,
+      position,
+      type: q.type,
+      prompt: q.prompt.trim(),
+      options: q.options,
+      answer: q.answer,
+      explanation: q.explanation?.trim() || null,
+    }));
+  if (fresh.length) {
+    const { error } = await supabase.from('questions').insert(fresh);
+    if (error) throw error;
+  }
+
+  // 3) Eliminar las preguntas quitadas (su etiqueta se borra en cascada)
+  if (deletedIds.length) {
+    const { error } = await supabase.from('questions').delete().eq('exam_id', examId).in('id', deletedIds);
+    if (error) throw error;
+  }
+
+  // 4) Actualizar el simulacro (título, tema, descripción y contador)
+  const { error } = await supabase
+    .from('exams')
+    .update({
+      title: edits.title.trim(),
+      subject: edits.subject.trim() || null,
+      description: edits.description.trim() || null,
+      question_count: questions.length,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', examId);
   if (error) throw error;
 };
