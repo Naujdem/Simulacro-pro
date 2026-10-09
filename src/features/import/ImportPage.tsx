@@ -1,7 +1,8 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { useQueryClient } from '@tanstack/react-query';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
+import { fetchFolders } from '@/features/exams/api';
 import { ParsedQuestion, parseQuestions } from '@/lib/importParser';
 
 const EXAMPLE = `1. ¿Cuál es la capital de Francia?
@@ -40,6 +41,9 @@ const isValid = (q: ParsedQuestion) => {
 export default function ImportPage() {
   const nav = useNavigate();
   const qc = useQueryClient();
+  const [params] = useSearchParams();
+  const folders = useQuery({ queryKey: ['folders'], queryFn: fetchFolders });
+  const [folderId, setFolderId] = useState(params.get('folder') ?? '');
   const [title, setTitle] = useState('');
   const [subject, setSubject] = useState('');
   const [description, setDescription] = useState('');
@@ -67,6 +71,7 @@ export default function ImportPage() {
           title: title.trim(),
           subject: subject.trim() || null,
           description: description.trim() || null,
+          folder_id: folderId || null,
           question_count: valid.length,
         })
         .select('id')
@@ -107,6 +112,14 @@ export default function ImportPage() {
         <input className={field} placeholder="Tema / asignatura" value={subject} onChange={(e) => setSubject(e.target.value)} />
         <input className={field} placeholder="Descripción (opcional)" value={description} onChange={(e) => setDescription(e.target.value)} />
       </div>
+      <select className={field} value={folderId} onChange={(e) => setFolderId(e.target.value)}>
+        <option value="">Sin biblioteca</option>
+        {(folders.data ?? []).map((f) => (
+          <option key={f.id} value={f.id}>
+            {f.name}
+          </option>
+        ))}
+      </select>
 
       <textarea
         className={field + ' h-48 font-mono text-sm'}

@@ -4,6 +4,7 @@ import Layout from '@/components/Layout';
 import AuthPage from '@/features/auth/AuthPage';
 import HomePage from '@/features/exams/HomePage';
 import LibraryPage from '@/features/exams/LibraryPage';
+import FolderPage from '@/features/exams/FolderPage';
 import ImportPage from '@/features/import/ImportPage';
 import PracticePage from '@/features/practice/PracticePage';
 import ResultsPage from '@/features/results/ResultsPage';
@@ -20,6 +21,7 @@ export default function App() {
       <Route element={<Layout />}>
         <Route index element={<HomePage />} />
         <Route path="library" element={<LibraryPage />} />
+        <Route path="folders/:folderId" element={<FolderPage />} />
         <Route path="new" element={<ImportPage />} />
         <Route path="stats" element={<StatsPage />} />
         <Route path="profile" element={<ProfilePage />} />
