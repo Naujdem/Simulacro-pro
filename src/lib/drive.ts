@@ -200,7 +200,29 @@ export async function uploadImage(file: Blob): Promise<string> {
   return makeRef(((await r.json()) as { id: string }).id);
 }
 
-// Descarga la imagen con tu permiso y devuelve una URL local (se guarda en memoria para no repetir).
+// Subir archivos de audio a Google Drive (en la carpeta "SimulaPro")
+export async function uploadAudio(file: Blob): Promise<string> {
+  const token = await getToken();
+  const parent = await ensureFolder(token);
+  const boundary = `simulapro${Date.now()}`;
+  const meta = { name: `audio-${Date.now()}.mp3`, mimeType: file.type || 'audio/mpeg', parents: [parent] };
+  const body = new Blob([
+    `--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${JSON.stringify(meta)}\r\n`,
+    `--${boundary}\r\nContent-Type: ${file.type || 'audio/mpeg'}\r\n\r\n`,
+    file,
+    `\r\n--${boundary}--`,
+  ]);
+  const r = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}`, 'Content-Type': `multipart/related; boundary=${boundary}` },
+    body,
+  });
+  if (r.status === 401) cached = null;
+  if (!r.ok) throw new DriveError('other', `Drive respondió ${r.status} al subir el audio.`);
+  return makeRef(((await r.json()) as { id: string }).id);
+}
+
+// Descarga la imagen/audio con tu permiso y devuelve una URL local (se guarda en memoria para no repetir).
 const urlCache = new Map<string, Promise<string>>();
 
 export function imageUrlFor(ref: string): Promise<string> {
@@ -218,7 +240,12 @@ export function imageUrlFor(ref: string): Promise<string> {
       return URL.createObjectURL(await r.blob());
     })();
     urlCache.set(id, p);
-    p.catch(() => urlCache.delete(id)); // si falla, se puede reintentar después
+    p.catch(() => urlCache.delete(id));
   }
   return p;
+}
+
+// Convertir una referencia gd:<id> a una URL blob jugable para <audio>
+export function audioUrlFor(ref: string): Promise<string> {
+  return imageUrlFor(ref);
 }
