@@ -1,10 +1,12 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import type { Flashcard } from './FlashcardsPage';
 
 export type Rating = 'again' | 'hard' | 'good' | 'easy';
+
+type StudyCard = Flashcard & { review_count: number };
 
 const RATINGS: { value: Rating; label: string; className: string }[] = [
   { value: 'again', label: 'Otra vez', className: 'bg-red-500' },
@@ -13,13 +15,13 @@ const RATINGS: { value: Rating; label: string; className: string }[] = [
   { value: 'easy', label: 'Fácil', className: 'bg-sky-500' },
 ];
 
-const fetchDeck = async (): Promise<Flashcard[]> => {
+const fetchDeck = async (): Promise<StudyCard[]> => {
   const { data, error } = await supabase
     .from('flashcards')
-    .select('id,front,back,created_at')
+    .select('id,front,back,created_at,review_count')
     .order('created_at', { ascending: true });
   if (error) throw error;
-  return data as Flashcard[];
+  return data as StudyCard[];
 };
 
 export default function StudyPage() {
@@ -36,13 +38,28 @@ export default function StudyPage() {
     refetchOnWindowFocus: false,
   });
 
+  // Guarda la calificación de una ficha en Supabase
+  const save = useMutation({
+    mutationFn: async ({ card, rating }: { card: StudyCard; rating: Rating }) => {
+      const { error } = await supabase
+        .from('flashcards')
+        .update({
+          last_rating: rating,
+          last_reviewed_at: new Date().toISOString(),
+          review_count: card.review_count + 1,
+        })
+        .eq('id', card.id);
+      if (error) throw error;
+    },
+  });
+
   const cards = deck.data ?? [];
   const card = cards[index];
   const finished = cards.length > 0 && index >= cards.length;
 
   const handleRate = (rating: Rating) => {
-    // Paso 2.3: aquí se guardará la calificación (rating) en Supabase
-    void rating;
+    if (!card) return;
+    save.mutate({ card, rating }); // se guarda en segundo plano
     setFlipped(false);
     setIndex((i) => i + 1);
   };
@@ -61,6 +78,12 @@ export default function StudyPage() {
           </span>
         )}
       </div>
+
+      {save.isError && (
+        <p className="mb-3 rounded-2xl bg-red-50 p-3 text-center text-sm font-bold text-red-600 dark:bg-red-950 dark:text-red-300">
+          No se pudo guardar la última calificación. Revisa tu conexión.
+        </p>
+      )}
 
       {deck.isLoading && <p className="text-center text-slate-500">Cargando…</p>}
       {deck.error && <p className="text-center font-bold text-red-500">No se pudieron cargar las fichas.</p>}
