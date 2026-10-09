@@ -2,6 +2,8 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
+import { QuestionImage } from '@/components/QuestionImage';
+import { AudioPlayer } from '@/components/AudioPlayer';
 import type { Flashcard } from './FlashcardsPage';
 import { nextReview, type Rating } from './sm2';
 
@@ -10,6 +12,8 @@ type StudyCard = Flashcard & {
   ease_factor: number;
   interval_days: number;
   repetitions: number;
+  imagen_ref?: string | null;
+  audio_ref?: string | null;
 };
 
 const RATINGS: { value: Rating; label: string; className: string }[] = [
@@ -26,7 +30,7 @@ const fetchDueDeck = async (): Promise<StudyCard[]> => {
 
   const { data, error } = await supabase
     .from('flashcards')
-    .select('id,front,back,created_at,review_count,ease_factor,interval_days,repetitions')
+    .select('id,front,back,created_at,review_count,ease_factor,interval_days,repetitions,imagen_ref,audio_ref')
     .lt('due_at', startOfTomorrow.toISOString())
     .order('due_at', { ascending: true });
   if (error) throw error;
@@ -136,6 +140,21 @@ export default function StudyPage() {
           <div className="flex flex-1 flex-col justify-center">
             <div className="space-y-4 rounded-3xl bg-white p-6 text-center shadow-sm dark:bg-slate-800">
               <p className="whitespace-pre-wrap text-xl font-bold">{card.front}</p>
+              
+              {/* Imagen de la ficha */}
+              {card.imagen_ref && (
+                <div className="my-3 flex justify-center">
+                  <QuestionImage src={card.imagen_ref} alt="Imagen de la ficha" />
+                </div>
+              )}
+
+              {/* Audio de la ficha */}
+              {card.audio_ref && (
+                <div className="my-3 flex justify-center">
+                  <AudioPlayer src={card.audio_ref} />
+                </div>
+              )}
+
               {flipped && (
                 <>
                   <hr className="border-slate-200 dark:border-slate-600" />
