@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
+import { useNavigate } from 'react-router-dom';
 
 export interface Flashcard {
   id: string;
@@ -90,6 +91,7 @@ function NewFlashcardDialog({
 
 export default function FlashcardsPage() {
   const qc = useQueryClient();
+  const nav = useNavigate();
   const [showForm, setShowForm] = useState(false);
 
   const cards = useQuery({ queryKey: ['flashcards'], queryFn: fetchFlashcards });
@@ -120,15 +122,24 @@ export default function FlashcardsPage() {
     <div className="space-y-4 p-4">
       <div className="flex items-center justify-between gap-2">
         <h1 className="text-2xl font-extrabold">Fichas</h1>
-        <button
-          onClick={() => {
-            create.reset();
-            setShowForm(true);
-          }}
-          className="rounded-2xl bg-sky-500 px-4 py-2 text-sm font-extrabold text-white"
-        >
-          + Nueva Ficha
-        </button>
+        <div className="flex gap-2">
+          <button
+            onClick={() => nav('/flashcards/study')}
+            disabled={list.length === 0}
+            className="rounded-2xl bg-green-500 px-4 py-2 text-sm font-extrabold text-white disabled:opacity-50"
+          >
+            Estudiar
+          </button>
+          <button
+            onClick={() => {
+              create.reset();
+              setShowForm(true);
+            }}
+            className="rounded-2xl bg-sky-500 px-4 py-2 text-sm font-extrabold text-white"
+          >
+            + Nueva Ficha
+          </button>
+        </div>
       </div>
 
       {cards.isLoading && <p className="text-slate-500">Cargando…</p>}
