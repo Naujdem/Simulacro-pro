@@ -147,7 +147,6 @@ export default function FlashcardsPage() {
 
   const create = useMutation({
     mutationFn: async ({ front, back }: { front: string; back: string }) => {
-      // user_id se llena solo en la base de datos (default auth.uid())
       const { error } = await supabase.from('flashcards').insert({ front, back });
       if (error) throw error;
     },
@@ -242,4 +241,35 @@ export default function FlashcardsPage() {
         </p>
       )}
 
-      <ul className="space-y-
+      <ul className="space-y-3">
+        {list.map((c) => (
+          <li
+            key={c.id}
+            className="flex items-start justify-between gap-2 rounded-2xl bg-white p-4 shadow-sm dark:bg-slate-800"
+          >
+            <p className="flex-1 whitespace-pre-wrap font-bold">{c.front}</p>
+            <button
+              aria-label="Eliminar ficha"
+              disabled={remove.isPending}
+              onClick={() => {
+                if (window.confirm('¿Eliminar esta ficha?')) remove.mutate(c.id);
+              }}
+              className="px-2 text-lg disabled:opacity-50"
+            >
+              🗑️
+            </button>
+          </li>
+        ))}
+      </ul>
+
+      {showForm && (
+        <NewFlashcardDialog
+          onClose={() => setShowForm(false)}
+          onCreate={(front, back) => create.mutate({ front, back })}
+          saving={create.isPending}
+          error={create.error ? 'No se pudo guardar la ficha. Intenta de nuevo.' : null}
+        />
+      )}
+    </div>
+  );
+}
