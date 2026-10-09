@@ -90,12 +90,17 @@ export default function FolderPage() {
                   {best.data?.[e.id] !== undefined && ` · mejor ${Math.round(best.data[e.id])}%`}
                 </p>
               </button>
-              <button
-                onClick={() => assign.mutate({ examId: e.id, id: null })}
-                className="shrink-0 text-xs font-bold text-slate-400"
-              >
-                Quitar
-              </button>
+              <div className="flex shrink-0 items-center gap-3">
+                <button aria-label="Editar simulacro" onClick={() => nav(`/exams/${e.id}/edit`)} className="text-lg">
+                  ✏️
+                </button>
+                <button
+                  onClick={() => assign.mutate({ examId: e.id, id: null })}
+                  className="text-xs font-bold text-slate-400"
+                >
+                  Quitar
+                </button>
+              </div>
             </div>
           </li>
         ))}
