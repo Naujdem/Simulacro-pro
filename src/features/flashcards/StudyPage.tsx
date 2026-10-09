@@ -140,7 +140,7 @@ export default function StudyPage() {
               
               {card.imagen_ref && (
                 <div className="my-3 flex justify-center">
-                  <QuestionImage src={card.imagen_ref} alt="Imagen de la ficha" />
+                  <QuestionImage src={card.imagen_ref} />
                 </div>
               )}
 
