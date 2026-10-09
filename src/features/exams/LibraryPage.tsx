@@ -72,6 +72,9 @@ export default function LibraryPage() {
                 </p>
                 {e.description && <p className="mt-1 text-sm text-slate-500">{e.description}</p>}
               </button>
+              <button aria-label="Editar simulacro" onClick={() => nav(`/exams/${e.id}/edit`)} className="px-2 text-lg">
+                ✏️
+              </button>
               <button aria-label="Opciones" onClick={() => setMenu(menu === e.id ? null : e.id)} className="px-2 text-xl">
                 ⋮
               </button>
