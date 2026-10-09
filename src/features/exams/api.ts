@@ -259,3 +259,30 @@ export const fetchReviewEntries = async (): Promise<ReviewEntry[]> => {
       question: r.questions as Question,
     }));
 };
+
+// ───────────────────────── Repaso Rápido ─────────────────────────
+
+// Cuántas preguntas tienen la etiqueta "Mal" (solo cuenta, no descarga las preguntas)
+export const fetchWrongCount = async (): Promise<number> => {
+  const { count, error } = await supabase
+    .from('question_tags')
+    .select('question_id', { count: 'exact', head: true })
+    .eq('tag', 'mal');
+  if (error) throw error;
+  return count ?? 0;
+};
+
+// Todas las preguntas con etiqueta "Mal" del usuario, de cualquier simulacro o biblioteca,
+// en orden aleatorio. (La seguridad por usuario la aplica Supabase con RLS.)
+export const fetchWrongQuestions = async (): Promise<Question[]> => {
+  const { data, error } = await supabase.from('question_tags').select('questions(*)').eq('tag', 'mal');
+  if (error) throw error;
+  const list = ((data ?? []) as unknown as { questions: Question | null }[])
+    .map((r) => r.questions)
+    .filter((q): q is Question => q !== null);
+  for (let i = list.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [list[i], list[j]] = [list[j], list[i]];
+  }
+  return list;
+};
