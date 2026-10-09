@@ -82,13 +82,13 @@ export default function HomePage() {
         )}
         <ul className="space-y-3">
           {recent.map((e) => (
-            <li key={e.id}>
+            <li key={e.id} className="flex items-center gap-2">
               <button
                 onClick={() => {
                   usePractice.getState().reset();
                   nav(`/practice/${e.id}`);
                 }}
-                className="flex w-full items-center justify-between rounded-2xl bg-white p-4 text-left shadow-sm active:scale-[.98] dark:bg-slate-800"
+                className="flex min-w-0 flex-1 items-center justify-between rounded-2xl bg-white p-4 text-left shadow-sm active:scale-[.98] dark:bg-slate-800"
               >
                 <div>
                   <p className="font-bold">{e.title}</p>
@@ -99,6 +99,13 @@ export default function HomePage() {
                 <span className="text-sm font-extrabold text-green-600">
                   {best.data?.[e.id] !== undefined ? `${Math.round(best.data[e.id])}%` : 'Practicar ›'}
                 </span>
+              </button>
+              <button
+                aria-label="Editar simulacro"
+                onClick={() => nav(`/exams/${e.id}/edit`)}
+                className="shrink-0 rounded-2xl bg-white p-4 text-lg shadow-sm active:scale-[.98] dark:bg-slate-800"
+              >
+                ✏️
               </button>
             </li>
           ))}
