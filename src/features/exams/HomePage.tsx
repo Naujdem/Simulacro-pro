@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { createFolder, fetchBestScores, fetchExams, fetchFolders, fetchProfile } from './api';
+import { createFolder, fetchBestScores, fetchExams, fetchFolders, fetchProfile, fetchReviewIds } from './api';
 import { usePractice } from '@/features/practice/practiceStore';
 import CreateFolderDialog from './CreateFolderDialog';
 
@@ -13,6 +13,8 @@ export default function HomePage() {
   const exams = useQuery({ queryKey: ['exams'], queryFn: fetchExams });
   const folders = useQuery({ queryKey: ['folders'], queryFn: fetchFolders });
   const best = useQuery({ queryKey: ['best'], queryFn: fetchBestScores });
+  const reviewIds = useQuery({ queryKey: ['review-ids'], queryFn: fetchReviewIds });
+  const reviewCount = reviewIds.data?.length ?? 0;
 
   const create = useMutation({
     mutationFn: ({ name, color }: { name: string; color: string }) => createFolder(name, color),
@@ -72,6 +74,16 @@ export default function HomePage() {
           )}
         </div>
       </section>
+
+      <Link
+        to="/review"
+        className="flex items-center justify-between rounded-2xl bg-white p-4 shadow-sm active:scale-[.98] dark:bg-slate-800"
+      >
+        <span className="font-extrabold">📌 Repaso</span>
+        <span className="text-sm font-bold text-slate-500">
+          {reviewCount} {reviewCount === 1 ? 'pregunta' : 'preguntas'} ›
+        </span>
+      </Link>
 
       <section>
         <h2 className="mb-2 font-extrabold">Simulacros recientes</h2>
