@@ -4,6 +4,8 @@ import JSZip from 'jszip';
 import initSqlJs from 'sql.js';
 // @ts-ignore
 import he from 'he';
+// El .wasm se empaqueta con la app: así coincide con la versión instalada de sql.js y funciona offline (PWA).
+import sqlWasmUrl from 'sql.js/dist/sql-wasm.wasm?url';
 import { supabase } from '@/lib/supabase';
 import { uploadImage, uploadAudio } from '@/lib/drive';
 
@@ -27,12 +29,23 @@ export const AnkiImporter: React.FC<AnkiImporterProps> = ({ onImportSuccess }) =
 
       setStatus('Inicializando motor de base de datos...');
       const SQL = await initSqlJs({
-        locateFile: (filename: string) => `https://sql.js.org/dist/${filename}`,
+        locateFile: () => sqlWasmUrl,
       });
 
-      const dbFile = zip.file('collection.anki2') || zip.file('collection.anki21');
+      // Anki moderno (2.1.50+) exporta por defecto en un formato comprimido (collection.anki21b)
+      // y deja en collection.anki2 una colección "señuelo". Si solo existe esa, no se puede leer aquí.
+      const dbFile = zip.file('collection.anki21') || zip.file('collection.anki2');
       if (!dbFile) {
-        throw new Error('El archivo .apkg no contiene una colección válida de Anki.');
+        throw new Error(
+          zip.file('collection.anki21b')
+            ? 'Este .apkg usa el formato nuevo de Anki. Expórtalo de nuevo marcando "Soporte para versiones anteriores de Anki" (Compatible with older Anki versions).'
+            : 'El archivo .apkg no contiene una colección válida de Anki.',
+        );
+      }
+      if (zip.file('collection.anki21b') && !zip.file('collection.anki21')) {
+        throw new Error(
+          'Este .apkg usa el formato nuevo de Anki. Expórtalo de nuevo marcando "Soporte para versiones anteriores de Anki" (Compatible with older Anki versions).',
+        );
       }
 
       const dbBuffer = await dbFile.async('uint8array');
@@ -63,6 +76,8 @@ export const AnkiImporter: React.FC<AnkiImporterProps> = ({ onImportSuccess }) =
       const rows = result[0].values;
       let totalImported = 0;
       let totalMediaUploaded = 0;
+      // Si Drive falla (p. ej. no está conectado) seguimos importando el texto sin multimedia.
+      let driveFailed = '';
 
       for (let i = 0; i < rows.length; i++) {
         setStatus(`Procesando ficha ${i + 1} de ${rows.length}...`);
@@ -81,11 +96,16 @@ export const AnkiImporter: React.FC<AnkiImporterProps> = ({ onImportSuccess }) =
           const zipKey = reverseMediaMap[audioFilename] || audioFilename;
           const audioZipEntry = zip.file(zipKey);
 
-          if (audioZipEntry) {
+          if (audioZipEntry && !driveFailed) {
             setStatus(`Subiendo audio: ${audioFilename}...`);
-            const audioBlob = await audioZipEntry.async('blob');
-            audioRef = await uploadAudio(audioBlob);
-            totalMediaUploaded++;
+            try {
+              const audioBlob = await audioZipEntry.async('blob');
+              audioRef = await uploadAudio(audioBlob);
+              totalMediaUploaded++;
+            } catch (e) {
+              console.error('No se pudo subir el audio:', e);
+              driveFailed = (e as Error).message || 'Error al subir a Google Drive.';
+            }
           }
           front = front.replace(/\[sound:.*?\]/g, '');
           back = back.replace(/\[sound:.*?\]/g, '');
@@ -97,11 +117,16 @@ export const AnkiImporter: React.FC<AnkiImporterProps> = ({ onImportSuccess }) =
           const zipKey = reverseMediaMap[imgFilename] || imgFilename;
           const imgZipEntry = zip.file(zipKey);
 
-          if (imgZipEntry) {
+          if (imgZipEntry && !driveFailed) {
             setStatus(`Subiendo imagen: ${imgFilename}...`);
-            const imgBlob = await imgZipEntry.async('blob');
-            imagenRef = await uploadImage(imgBlob);
-            totalMediaUploaded++;
+            try {
+              const imgBlob = await imgZipEntry.async('blob');
+              imagenRef = await uploadImage(imgBlob);
+              totalMediaUploaded++;
+            } catch (e) {
+              console.error('No se pudo subir la imagen:', e);
+              driveFailed = (e as Error).message || 'Error al subir a Google Drive.';
+            }
           }
           front = front.replace(/<img[^>]*>/gi, '');
           back = back.replace(/<img[^>]*>/gi, '');
@@ -130,7 +155,11 @@ export const AnkiImporter: React.FC<AnkiImporterProps> = ({ onImportSuccess }) =
         }
       }
 
-      setStatus(`¡Importación completada con éxito! Se importaron ${totalImported} fichas y ${totalMediaUploaded} archivos multimedia.`);
+      db.close();
+      setStatus(
+        `Importación completada: ${totalImported} fichas y ${totalMediaUploaded} archivos multimedia.` +
+          (driveFailed ? ` Las imágenes/audios no se subieron: ${driveFailed}` : ''),
+      );
       if (onImportSuccess) onImportSuccess();
 
     } catch (err: any) {
