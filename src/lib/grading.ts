@@ -9,6 +9,7 @@ export interface Question {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   answer: any;
   explanation?: string | null;
+  imagen_url?: string | null;
 }
 
 export type Response =
