@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { fetchFolders } from '@/features/exams/api';
+import { ImageField, useImageUpload } from '@/components/ImageField';
 import { ParsedQuestion, parseQuestions } from '@/lib/importParser';
 
 const EXAMPLE = `1. ¿Cuál es la capital de Francia?
@@ -87,6 +88,7 @@ export default function ImportPage() {
         options: q.type === 'multiple_choice' ? q.options!.filter((o) => o.text.trim()) : null,
         answer: q.answer,
         explanation: q.explanation ?? null,
+        imagen_url: q.imagen_url || null,
       }));
       const { error: e2 } = await supabase.from('questions').insert(rows);
       if (e2) throw e2;
@@ -167,6 +169,7 @@ function PreviewItem({ q, onChange, onRemove }: { q: ParsedQuestion; onChange: (
   const status = !ok ? '✖' : q.confidence < 0.8 || q.warnings.length ? '⚠' : '✔';
   const color = status === '✔' ? 'border-green-400' : status === '⚠' ? 'border-amber-400' : 'border-red-400';
   const f = 'w-full rounded-lg border bg-transparent p-2 text-sm outline-none dark:border-slate-600';
+  const up = useImageUpload(q.imagen_url ?? null, (v) => onChange({ imagen_url: v }));
 
   return (
     <div className={`space-y-2 rounded-2xl border-l-4 bg-white p-3 shadow-sm dark:bg-slate-800 ${color}`}>
@@ -178,7 +181,10 @@ function PreviewItem({ q, onChange, onRemove }: { q: ParsedQuestion; onChange: (
           Eliminar
         </button>
       </div>
-      <textarea className={f} value={q.prompt} onChange={(e) => onChange({ prompt: e.target.value })} placeholder="Enunciado" />
+      <div onPaste={up.onPaste} className="space-y-2">
+        <textarea className={f} value={q.prompt} onChange={(e) => onChange({ prompt: e.target.value })} placeholder="Enunciado" />
+        <ImageField up={up} />
+      </div>
 
       {q.type === 'multiple_choice' &&
         q.options!.map((o, k) => (

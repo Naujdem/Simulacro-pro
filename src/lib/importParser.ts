@@ -8,6 +8,7 @@ export interface ParsedQuestion {
   options: { id: string; text: string }[] | null;
   answer: Record<string, unknown> | null;
   explanation?: string;
+  imagen_url?: string | null;
   confidence: number; // 0..1  (< 0.6 → candidato a fallback IA)
   warnings: string[];
   raw: string;

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { ImageField, useImageUpload } from '@/components/ImageField';
 import type { QType } from '@/lib/importParser';
 import { fetchExamForEdit, saveExamEdits, type EditableQuestion } from './api';
 
@@ -20,7 +21,7 @@ let counter = 0;
 const newKey = () => `new-${Date.now()}-${counter++}`;
 
 const blankQuestion = (type: QType): EditableQuestion => {
-  const base = { id: null, type, prompt: '', explanation: null };
+  const base = { id: null, type, prompt: '', explanation: null, imagen_url: null };
   switch (type) {
     case 'multiple_choice':
       return { ...base, options: ['a', 'b', 'c', 'd'].map((id) => ({ id, text: '' })), answer: { correct: [] } };
@@ -290,6 +291,7 @@ function QuestionEditor({
   const opts = q.options ?? [];
   const correct = (q.answer?.correct ?? []) as string[];
   const issue = problem(q);
+  const up = useImageUpload(q.imagen_url, (v) => onPatch({ imagen_url: v }));
 
   const addOption = () => {
     const id = LETTERS.find((l) => !opts.some((o) => o.id === l));
@@ -313,13 +315,16 @@ function QuestionEditor({
         </button>
       </div>
 
-      <textarea
-        className={f}
-        rows={3}
-        value={q.prompt}
-        onChange={(e) => onPatch({ prompt: e.target.value })}
-        placeholder="Enunciado"
-      />
+      <div onPaste={up.onPaste} className="space-y-2">
+        <textarea
+          className={f}
+          rows={3}
+          value={q.prompt}
+          onChange={(e) => onPatch({ prompt: e.target.value })}
+          placeholder="Enunciado"
+        />
+        <ImageField up={up} />
+      </div>
       {q.type === 'fill_blank' && (
         <p className="text-xs text-slate-500">Escribe {'{{1}}'}, {'{{2}}'}… en el enunciado donde van los espacios.</p>
       )}

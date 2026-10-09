@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Question, Response, checkAnswer, correctText } from '@/lib/grading';
+import QuestionImage from '@/components/QuestionImage';
 import { saveQuestionTag, type QuestionTag } from '@/features/exams/api';
 
 type Props = { question: Question; examId: string; onNext: (r: Response, correct: boolean) => void };
@@ -91,6 +92,7 @@ export function QuestionCard({ question: q, examId, onNext }: Props) {
 
   return (
     <div className="mx-auto flex max-w-xl flex-col px-4 pb-72 pt-4">
+      {q.imagen_url && <QuestionImage src={q.imagen_url} className="mb-4" />}
       {q.type !== 'fill_blank' && (
         <h2 className="mb-6 text-xl font-bold leading-snug">
           {q.prompt}

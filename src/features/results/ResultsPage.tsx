@@ -3,6 +3,7 @@ import { Navigate, useNavigate } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { usePractice } from '@/features/practice/practiceStore';
 import { addToReview, fetchReviewIds, removeFromReview } from '@/features/exams/api';
+import QuestionImage from '@/components/QuestionImage';
 import { correctText, type Question } from '@/lib/grading';
 
 const fmt = (s: number) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
@@ -149,6 +150,7 @@ export default function ResultsPage() {
                   <p>
                     {correct ? '✔' : '✖'} {showPrompt(q.prompt)}
                   </p>
+                  {q.imagen_url && <QuestionImage src={q.imagen_url} />}
                   {!correct && (
                     <>
                       <p className="text-xs">
