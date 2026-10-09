@@ -3,6 +3,7 @@ import type { QType } from './importParser';
 
 export interface Question {
   id: string;
+  exam_id?: string; // simulacro al que pertenece (lo necesita el Repaso Rápido, que mezcla varios)
   type: QType;
   prompt: string;
   options: { id: string; text: string }[] | null;
