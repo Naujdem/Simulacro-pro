@@ -1,8 +1,17 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { createFolder, fetchBestScores, fetchExams, fetchFolders, fetchProfile, fetchReviewIds } from './api';
-import { usePractice } from '@/features/practice/practiceStore';
+import {
+  createFolder,
+  fetchBestScores,
+  fetchExams,
+  fetchFolders,
+  fetchProfile,
+  fetchReviewIds,
+  fetchWrongCount,
+  fetchWrongQuestions,
+} from './api';
+import { QUICK_REVIEW_ID, usePractice } from '@/features/practice/practiceStore';
 import CreateFolderDialog from './CreateFolderDialog';
 
 export default function HomePage() {
@@ -15,6 +24,23 @@ export default function HomePage() {
   const best = useQuery({ queryKey: ['best'], queryFn: fetchBestScores });
   const reviewIds = useQuery({ queryKey: ['review-ids'], queryFn: fetchReviewIds });
   const reviewCount = reviewIds.data?.length ?? 0;
+  const wrongCount = useQuery({ queryKey: ['wrong-count'], queryFn: fetchWrongCount });
+  const [quickMsg, setQuickMsg] = useState('');
+
+  // Repaso Rápido: busca TODAS las preguntas con etiqueta "Mal" y las practica en una sola sesión
+  const quick = useMutation({
+    mutationFn: fetchWrongQuestions,
+    onSuccess: (questions) => {
+      if (!questions.length) {
+        setQuickMsg('¡Felicidades! No tienes preguntas pendientes por repasar.');
+        return;
+      }
+      setQuickMsg('');
+      usePractice.getState().reset();
+      usePractice.getState().start(QUICK_REVIEW_ID, questions, 'quick_review');
+      nav(`/practice/${QUICK_REVIEW_ID}`);
+    },
+  });
 
   const create = useMutation({
     mutationFn: ({ name, color }: { name: string; color: string }) => createFolder(name, color),
@@ -73,6 +99,32 @@ export default function HomePage() {
             </p>
           )}
         </div>
+      </section>
+
+      <section className="space-y-2">
+        <button
+          onClick={() => {
+            setQuickMsg('');
+            quick.mutate();
+          }}
+          disabled={quick.isPending}
+          className="flex w-full items-center justify-between rounded-2xl bg-violet-600 p-4 text-left text-white shadow-sm active:scale-[.98] disabled:opacity-60"
+        >
+          <span className="font-extrabold">🧠 Repaso Rápido</span>
+          <span className="text-sm font-bold text-white/80">
+            {quick.isPending
+              ? 'Buscando…'
+              : wrongCount.data
+                ? `${wrongCount.data} ${wrongCount.data === 1 ? 'pregunta' : 'preguntas'} en “Mal” ›`
+                : 'Practicar ›'}
+          </span>
+        </button>
+        {quickMsg && (
+          <p className="rounded-xl bg-green-100 p-3 text-center text-sm font-bold text-green-800 dark:bg-green-950 dark:text-green-200">
+            {quickMsg}
+          </p>
+        )}
+        {quick.isError && <p className="text-center text-sm text-red-500">{(quick.error as Error).message}</p>}
       </section>
 
       <Link
