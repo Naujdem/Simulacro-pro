@@ -2,6 +2,7 @@ import { useMemo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { fetchReviewEntries, removeFromReview, type ReviewEntry } from '@/features/exams/api';
+import QuestionImage from '@/components/QuestionImage';
 import { usePractice } from '@/features/practice/practiceStore';
 import type { Question } from '@/lib/grading';
 
@@ -80,6 +81,7 @@ export default function ReviewPage() {
             {g.items.map((i) => (
               <li key={i.question.id} className="space-y-2 rounded-xl bg-slate-100 p-3 text-sm dark:bg-slate-700">
                 <p>{showPrompt(i.question.prompt)}</p>
+                {i.question.imagen_url && <QuestionImage src={i.question.imagen_url} />}
                 <div className="flex flex-wrap gap-2">
                   <button
                     onClick={() => practice(g.examId, [i.question])}
