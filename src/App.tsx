@@ -9,6 +9,7 @@ import EditExamPage from '@/features/exams/EditExamPage';
 import ImportPage from '@/features/import/ImportPage';
 import PracticePage from '@/features/practice/PracticePage';
 import ResultsPage from '@/features/results/ResultsPage';
+import ReviewPage from '@/features/results/ReviewPage';
 import StatsPage from '@/features/stats/StatsPage';
 import ProfilePage from '@/features/profile/ProfilePage';
 
@@ -24,6 +25,7 @@ export default function App() {
         <Route path="library" element={<LibraryPage />} />
         <Route path="folders/:folderId" element={<FolderPage />} />
         <Route path="exams/:examId/edit" element={<EditExamPage />} />
+        <Route path="review" element={<ReviewPage />} />
         <Route path="new" element={<ImportPage />} />
         <Route path="stats" element={<StatsPage />} />
         <Route path="profile" element={<ProfilePage />} />
