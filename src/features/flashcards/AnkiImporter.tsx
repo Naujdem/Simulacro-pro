@@ -67,9 +67,6 @@ export const AnkiImporter: React.FC<AnkiImporterProps> = ({ onImportSuccess }) =
       let totalImported = 0;
       let totalMediaUploaded = 0;
 
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('Usuario no autenticado');
-
       // 5. Procesar cada ficha una por una
       for (let i = 0; i < rows.length; i++) {
         setStatus(`Procesando ficha ${i + 1} de ${rows.length}...`);
@@ -122,15 +119,14 @@ export const AnkiImporter: React.FC<AnkiImporterProps> = ({ onImportSuccess }) =
 
         if (cleanedFront || cleanedBack) {
           const { error } = await supabase.from('flashcards').insert({
-            user_id: user.id,
-            pregunta: cleanedFront,
-            respuesta: cleanedBack,
+            front: cleanedFront,
+            back: cleanedBack,
             imagen_ref: imagenRef,
             audio_ref: audioRef,
-            interval: 0,
-            repetition: 0,
-            efactor: 2.5,
-            next_review: new Date().toISOString(),
+            interval_days: 0,
+            repetitions: 0,
+            ease_factor: 2.5,
+            due_at: new Date().toISOString(),
           });
 
           if (error) {
@@ -153,16 +149,16 @@ export const AnkiImporter: React.FC<AnkiImporterProps> = ({ onImportSuccess }) =
   };
 
   return (
-    <div className="p-4 border rounded-lg bg-white shadow-sm dark:bg-gray-800 dark:border-gray-700">
-      <h3 className="text-lg font-bold mb-2 text-gray-800 dark:text-white">
-        Importar archivo .apkg (Anki)
+    <div className="p-4 border rounded-2xl bg-white shadow-sm dark:bg-slate-800 dark:border-slate-700 space-y-3">
+      <h3 className="text-base font-extrabold text-slate-800 dark:text-white">
+        Importar mazo .apkg (Anki)
       </h3>
-      <p className="text-sm text-gray-600 dark:text-gray-300 mb-4">
-        Selecciona tu mazo comprimido para cargar tus tarjetas con imágenes y audios.
+      <p className="text-sm font-medium text-slate-500 dark:text-slate-400">
+        Selecciona un mazo comprimido para extraer automáticamente preguntas, respuestas, imágenes y audios.
       </p>
 
-      <label className="inline-flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium text-sm rounded-md cursor-pointer transition-colors disabled:opacity-50">
-        {loading ? 'Procesando...' : 'Seleccionar .apkg'}
+      <label className="inline-flex items-center px-4 py-2.5 bg-sky-500 hover:bg-sky-600 text-white font-extrabold text-sm rounded-2xl cursor-pointer transition-colors disabled:opacity-50">
+        {loading ? 'Procesando…' : 'Seleccionar .apkg'}
         <input
           type="file"
           accept=".apkg"
@@ -173,9 +169,9 @@ export const AnkiImporter: React.FC<AnkiImporterProps> = ({ onImportSuccess }) =
       </label>
 
       {status && (
-        <div className="mt-3 text-sm font-medium text-gray-700 dark:text-gray-200">
+        <p className="text-sm font-bold text-slate-700 dark:text-slate-200">
           {status}
-        </div>
+        </p>
       )}
     </div>
   );
