@@ -201,8 +201,10 @@ export default function FlashcardsPage() {
     }
     return { list: [...counts.entries()].sort(([a], [b]) => a.localeCompare(b)), none };
   }, [all]);
-  const hasDecks = decks.list.length > 0;
-  const filter = hasDecks && (deckFilter === DECK_NONE ? decks.none > 0 : deckFilter === DECK_ALL || decks.list.some(([d]) => d === deckFilter)) ? deckFilter : DECK_ALL;
+  // La columna `deck` existe (migración 0004 ejecutada) si las filas traen la clave, aunque sea null.
+  // Los botones se muestran siempre que exista, para poder filtrar/eliminar también las fichas "Sin mazo".
+  const showDecks = all.length > 0 && all.some((c) => c.deck !== undefined);
+  const filter = showDecks && (deckFilter === DECK_NONE ? decks.none > 0 : deckFilter === DECK_ALL || decks.list.some(([d]) => d === deckFilter)) ? deckFilter : DECK_ALL;
   const list = filter === DECK_ALL ? all : filter === DECK_NONE ? all.filter((c) => !c.deck) : all.filter((c) => c.deck === filter);
 
   const removeDeck = useMutation({
@@ -286,7 +288,7 @@ export default function FlashcardsPage() {
         </div>
       )}
 
-      {hasDecks && (
+      {showDecks && (
         <div className="space-y-2">
           <div className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1">
             <button onClick={() => setDeckFilter(DECK_ALL)} className={chip(filter === DECK_ALL)}>
