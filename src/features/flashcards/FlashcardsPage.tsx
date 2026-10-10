@@ -1,9 +1,10 @@
-import { useRef, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { useNavigate } from 'react-router-dom';
 import { parseFlashcardsCsv } from './csv';
 import { AnkiImporter } from './AnkiImporter';
+import { DECK_ALL, DECK_NONE, isMissingColumn } from './columns';
 
 export interface Flashcard {
   id: string;
@@ -12,15 +13,38 @@ export interface Flashcard {
   created_at: string;
   imagen_ref?: string | null;
   audio_ref?: string | null;
+  back_imagen_ref?: string | null;
+  back_audio_ref?: string | null;
+  deck?: string | null;
 }
 
+// Trae todas las fichas por páginas (Supabase devuelve como máximo 1000 filas por consulta).
 const fetchFlashcards = async (): Promise<Flashcard[]> => {
-  const { data, error } = await supabase
-    .from('flashcards')
-    .select('id,front,back,created_at,imagen_ref,audio_ref')
-    .order('created_at', { ascending: false });
-  if (error) throw error;
-  return data as Flashcard[];
+  const PAGE = 1000;
+  const all: Flashcard[] = [];
+  let columns = 'id,front,back,created_at,imagen_ref,audio_ref,deck';
+  for (let from = 0; ; from += PAGE) {
+    let { data, error } = await supabase
+      .from('flashcards')
+      .select(columns)
+      .order('created_at', { ascending: false })
+      .order('id')
+      .range(from, from + PAGE - 1);
+    if (error && isMissingColumn(error) && columns.endsWith(',deck')) {
+      // Aún no se ejecutó la migración 0004: la lista funciona igual, solo sin mazos.
+      columns = 'id,front,back,created_at,imagen_ref,audio_ref';
+      ({ data, error } = await supabase
+        .from('flashcards')
+        .select(columns)
+        .order('created_at', { ascending: false })
+        .order('id')
+        .range(from, from + PAGE - 1));
+    }
+    if (error) throw error;
+    const page = (data ?? []) as unknown as Flashcard[];
+    all.push(...page);
+    if (page.length < PAGE) return all;
+  }
 };
 
 function NewFlashcardDialog({
@@ -164,7 +188,37 @@ export default function FlashcardsPage() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ['flashcards'] }),
   });
 
-  const list = cards.data ?? [];
+  const all = cards.data ?? [];
+
+  // Mazos (viene de Anki): chips para filtrar y estudiar un mazo a la vez
+  const [deckFilter, setDeckFilter] = useState<string>(DECK_ALL);
+  const decks = useMemo(() => {
+    const counts = new Map<string, number>();
+    let none = 0;
+    for (const c of all) {
+      if (c.deck) counts.set(c.deck, (counts.get(c.deck) ?? 0) + 1);
+      else none++;
+    }
+    return { list: [...counts.entries()].sort(([a], [b]) => a.localeCompare(b)), none };
+  }, [all]);
+  const hasDecks = decks.list.length > 0;
+  const filter = hasDecks && (deckFilter === DECK_NONE ? decks.none > 0 : deckFilter === DECK_ALL || decks.list.some(([d]) => d === deckFilter)) ? deckFilter : DECK_ALL;
+  const list = filter === DECK_ALL ? all : filter === DECK_NONE ? all.filter((c) => !c.deck) : all.filter((c) => c.deck === filter);
+
+  const removeDeck = useMutation({
+    mutationFn: async (target: string) => {
+      const q = supabase.from('flashcards').delete();
+      const { error } = target === DECK_NONE ? await q.is('deck', null) : await q.eq('deck', target);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      setDeckFilter(DECK_ALL);
+      qc.invalidateQueries({ queryKey: ['flashcards'] });
+    },
+  });
+
+  const chip = (active: boolean) =>
+    `shrink-0 rounded-full px-3 py-1.5 text-sm font-bold ${active ? 'bg-sky-500 text-white' : 'border-2 border-slate-200 dark:border-slate-700'}`;
 
   return (
     <div className="space-y-4 p-4">
@@ -172,7 +226,7 @@ export default function FlashcardsPage() {
         <h1 className="text-2xl font-extrabold">Fichas</h1>
         <div className="flex gap-2">
           <button
-            onClick={() => nav('/flashcards/study')}
+            onClick={() => nav(filter === DECK_ALL ? '/flashcards/study' : `/flashcards/study?deck=${encodeURIComponent(filter)}`)}
             disabled={list.length === 0}
             className="rounded-2xl bg-green-500 px-4 py-2 text-sm font-extrabold text-white disabled:opacity-50"
           >
@@ -232,6 +286,39 @@ export default function FlashcardsPage() {
         </div>
       )}
 
+      {hasDecks && (
+        <div className="space-y-2">
+          <div className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1">
+            <button onClick={() => setDeckFilter(DECK_ALL)} className={chip(filter === DECK_ALL)}>
+              Todos ({all.length})
+            </button>
+            {decks.list.map(([name, n]) => (
+              <button key={name} onClick={() => setDeckFilter(name)} className={chip(filter === name)}>
+                {name} ({n})
+              </button>
+            ))}
+            {decks.none > 0 && (
+              <button onClick={() => setDeckFilter(DECK_NONE)} className={chip(filter === DECK_NONE)}>
+                Sin mazo ({decks.none})
+              </button>
+            )}
+          </div>
+          {filter !== DECK_ALL && (
+            <button
+              disabled={removeDeck.isPending}
+              onClick={() => {
+                const label = filter === DECK_NONE ? 'sin mazo' : `del mazo “${filter}”`;
+                if (window.confirm(`¿Eliminar las ${list.length} fichas ${label}? Esto no se puede deshacer.`)) removeDeck.mutate(filter);
+              }}
+              className="text-sm font-bold text-red-500 disabled:opacity-50"
+            >
+              🗑️ {removeDeck.isPending ? 'Eliminando…' : 'Eliminar estas fichas'}
+            </button>
+          )}
+          {removeDeck.isError && <p className="text-sm font-bold text-red-500">No se pudieron eliminar las fichas.</p>}
+        </div>
+      )}
+
       {cards.isLoading && <p className="text-slate-500">Cargando…</p>}
       {cards.error && <p className="text-sm font-bold text-red-500">No se pudieron cargar las fichas.</p>}
 
@@ -247,7 +334,10 @@ export default function FlashcardsPage() {
             key={c.id}
             className="flex items-start justify-between gap-2 rounded-2xl bg-white p-4 shadow-sm dark:bg-slate-800"
           >
-            <p className="flex-1 whitespace-pre-wrap font-bold">{c.front}</p>
+            <div className="min-w-0 flex-1">
+              <p className="whitespace-pre-wrap font-bold">{c.front}</p>
+              {c.back && <p className="mt-1 line-clamp-2 whitespace-pre-wrap text-sm text-slate-500">{c.back}</p>}
+            </div>
             <button
               aria-label="Eliminar ficha"
               disabled={remove.isPending}

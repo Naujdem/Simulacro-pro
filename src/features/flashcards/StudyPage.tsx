@@ -1,19 +1,18 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import QuestionImage from '@/components/QuestionImage';
 import { AudioPlayer } from '@/components/AudioPlayer';
 import type { Flashcard } from './FlashcardsPage';
 import { nextReview, type Rating } from './sm2';
+import { DECK_NONE, isMissingColumn } from './columns';
 
 type StudyCard = Flashcard & {
   review_count: number;
   ease_factor: number;
   interval_days: number;
   repetitions: number;
-  imagen_ref?: string | null;
-  audio_ref?: string | null;
 };
 
 const RATINGS: { value: Rating; label: string; className: string }[] = [
@@ -23,27 +22,39 @@ const RATINGS: { value: Rating; label: string; className: string }[] = [
   { value: 'easy', label: 'Fácil', className: 'bg-sky-500' },
 ];
 
-const fetchDueDeck = async (): Promise<StudyCard[]> => {
+const BASE_COLUMNS = 'id,front,back,created_at,review_count,ease_factor,interval_days,repetitions,imagen_ref,audio_ref';
+
+// `deck`: null = todas; DECK_NONE = fichas sin mazo; cualquier otro valor = ese mazo.
+const fetchDueDeck = async (deck: string | null): Promise<StudyCard[]> => {
   const startOfTomorrow = new Date();
   startOfTomorrow.setHours(24, 0, 0, 0);
 
-  const { data, error } = await supabase
-    .from('flashcards')
-    .select('id,front,back,created_at,review_count,ease_factor,interval_days,repetitions,imagen_ref,audio_ref')
-    .lt('due_at', startOfTomorrow.toISOString())
-    .order('due_at', { ascending: true });
+  const run = (columns: string, filterDeck: boolean) => {
+    let q = supabase.from('flashcards').select(columns).lt('due_at', startOfTomorrow.toISOString());
+    if (filterDeck && deck) q = deck === DECK_NONE ? q.is('deck', null) : q.eq('deck', deck);
+    // Mismo día: primero lo más antiguo de cada tanda, y dentro de ella en el orden del mazo
+    return q.order('due_at', { ascending: true }).order('created_at', { ascending: false });
+  };
+
+  let { data, error } = await run(`${BASE_COLUMNS},deck,back_imagen_ref,back_audio_ref`, true);
+  if (error && isMissingColumn(error)) {
+    // Aún no se ejecutó la migración 0004: se estudia igual, sin mazos ni multimedia del reverso.
+    ({ data, error } = await run(BASE_COLUMNS, false));
+  }
   if (error) throw error;
-  return data as StudyCard[];
+  return (data ?? []) as unknown as StudyCard[];
 };
 
 export default function StudyPage() {
   const nav = useNavigate();
+  const [params] = useSearchParams();
+  const deckParam = params.get('deck');
   const [index, setIndex] = useState(0);
   const [flipped, setFlipped] = useState(false);
 
   const deck = useQuery({
-    queryKey: ['flashcards-study'],
-    queryFn: fetchDueDeck,
+    queryKey: ['flashcards-study', deckParam],
+    queryFn: () => fetchDueDeck(deckParam),
     staleTime: Infinity,
     gcTime: 0,
     refetchOnWindowFocus: false,
@@ -154,6 +165,18 @@ export default function StudyPage() {
                 <>
                   <hr className="border-slate-200 dark:border-slate-600" />
                   <p className="whitespace-pre-wrap text-lg">{card.back}</p>
+
+                  {card.back_imagen_ref && (
+                    <div className="my-3 flex justify-center">
+                      <QuestionImage src={card.back_imagen_ref} />
+                    </div>
+                  )}
+
+                  {card.back_audio_ref && (
+                    <div className="my-3 flex justify-center">
+                      <AudioPlayer src={card.back_audio_ref} />
+                    </div>
+                  )}
                 </>
               )}
             </div>
