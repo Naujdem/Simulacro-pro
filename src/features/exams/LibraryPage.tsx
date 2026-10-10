@@ -2,8 +2,8 @@ import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
-import { fetchBestScores, fetchExams } from './api';
-import { usePractice } from '@/features/practice/practiceStore';
+import { fetchBestScores, fetchExams, type Exam } from './api';
+import ExamStartSheet from './ExamStartSheet';
 
 export default function LibraryPage() {
   const nav = useNavigate();
@@ -11,6 +11,7 @@ export default function LibraryPage() {
   const [q, setQ] = useState('');
   const [subject, setSubject] = useState<string | null>(null);
   const [menu, setMenu] = useState<string | null>(null);
+  const [sheet, setSheet] = useState<Exam | null>(null); // simulacro abierto: completo o repaso de las que tengo mal
 
   const exams = useQuery({ queryKey: ['exams'], queryFn: fetchExams });
   const best = useQuery({ queryKey: ['best'], queryFn: fetchBestScores });
@@ -60,10 +61,7 @@ export default function LibraryPage() {
             <div className="flex items-start justify-between gap-2">
               <button
                 className="flex-1 text-left"
-                onClick={() => {
-                  usePractice.getState().reset();
-                  nav(`/practice/${e.id}`);
-                }}
+                onClick={() => setSheet(e)}
               >
                 <p className="font-bold">{e.title}</p>
                 <p className="text-xs text-slate-500">
@@ -91,6 +89,8 @@ export default function LibraryPage() {
         ))}
         {!list.length && !exams.isLoading && <p className="py-8 text-center text-slate-500">Sin resultados.</p>}
       </ul>
+
+      {sheet && <ExamStartSheet exam={sheet} onClose={() => setSheet(null)} />}
     </div>
   );
 }

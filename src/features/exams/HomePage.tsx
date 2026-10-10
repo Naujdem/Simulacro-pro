@@ -10,9 +10,12 @@ import {
   fetchReviewIds,
   fetchWrongCount,
   fetchWrongQuestions,
+  type Exam,
 } from './api';
 import { QUICK_REVIEW_ID, usePractice } from '@/features/practice/practiceStore';
+import { pendingProgress, setLastSlot } from '@/features/practice/progress';
 import CreateFolderDialog from './CreateFolderDialog';
+import ExamStartSheet from './ExamStartSheet';
 
 export default function HomePage() {
   const nav = useNavigate();
@@ -26,6 +29,8 @@ export default function HomePage() {
   const reviewCount = reviewIds.data?.length ?? 0;
   const wrongCount = useQuery({ queryKey: ['wrong-count'], queryFn: fetchWrongCount });
   const [quickMsg, setQuickMsg] = useState('');
+  const [sheet, setSheet] = useState<Exam | null>(null); // simulacro abierto: completo o repaso de las que tengo mal
+  const savedQuick = pendingProgress(QUICK_REVIEW_ID, 'quick_review'); // Repaso Rápido dejado a medias
 
   // Repaso Rápido: busca TODAS las preguntas con etiqueta "Mal" y las practica en una sola sesión
   const quick = useMutation({
@@ -102,6 +107,21 @@ export default function HomePage() {
       </section>
 
       <section className="space-y-2">
+        {savedQuick && (
+          <button
+            onClick={() => {
+              setLastSlot(QUICK_REVIEW_ID, 'quick_review');
+              usePractice.getState().reset();
+              nav(`/practice/${QUICK_REVIEW_ID}`);
+            }}
+            className="flex w-full items-center justify-between rounded-2xl border-2 border-violet-600 p-4 text-left font-extrabold text-violet-700 active:scale-[.98] dark:text-violet-300"
+          >
+            <span>▶ Continuar Repaso Rápido</span>
+            <span className="text-sm font-bold">
+              pregunta {savedQuick.done + 1} de {savedQuick.total}
+            </span>
+          </button>
+        )}
         <button
           onClick={() => {
             setQuickMsg('');
@@ -148,10 +168,7 @@ export default function HomePage() {
           {recent.map((e) => (
             <li key={e.id} className="flex items-center gap-2">
               <button
-                onClick={() => {
-                  usePractice.getState().reset();
-                  nav(`/practice/${e.id}`);
-                }}
+                onClick={() => setSheet(e)}
                 className="flex min-w-0 flex-1 items-center justify-between rounded-2xl bg-white p-4 text-left shadow-sm active:scale-[.98] dark:bg-slate-800"
               >
                 <div>
@@ -186,6 +203,8 @@ export default function HomePage() {
       </button>
 
       {create.isError && <p className="text-center text-sm text-red-500">{(create.error as Error).message}</p>}
+
+      {sheet && <ExamStartSheet exam={sheet} onClose={() => setSheet(null)} />}
 
       {creating && (
         <CreateFolderDialog

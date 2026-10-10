@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { fetchReviewEntries, removeFromReview, type ReviewEntry } from '@/features/exams/api';
 import QuestionImage from '@/components/QuestionImage';
 import { usePractice } from '@/features/practice/practiceStore';
+import { pendingProgress, setLastSlot } from '@/features/practice/progress';
 import type { Question } from '@/lib/grading';
 
 // En las preguntas de "completar espacios" muestra ____ en lugar de {{1}}
@@ -33,8 +34,16 @@ export default function ReviewPage() {
     return [...map.values()];
   }, [entries.data]);
 
-  const practice = (examId: string, questions: Question[]) => {
-    usePractice.getState().start(examId, questions, 'custom');
+  // La lista completa de un simulacro se guarda en su propia sesión ('saved') para poder continuarla
+  const practice = (examId: string, questions: Question[], slot?: string) => {
+    usePractice.getState().reset();
+    usePractice.getState().start(examId, questions, 'custom', undefined, slot);
+    nav(`/practice/${examId}`);
+  };
+
+  const resume = (examId: string) => {
+    setLastSlot(examId, 'saved');
+    usePractice.getState().reset();
     nav(`/practice/${examId}`);
   };
 
@@ -55,7 +64,9 @@ export default function ReviewPage() {
         </p>
       )}
 
-      {groups.map((g) => (
+      {groups.map((g) => {
+        const pending = pendingProgress(g.examId, 'saved');
+        return (
         <section key={g.examId} className="space-y-2 rounded-2xl bg-white p-4 shadow-sm dark:bg-slate-800">
           <div className="flex items-center justify-between gap-2">
             <div>
@@ -69,6 +80,7 @@ export default function ReviewPage() {
                 practice(
                   g.examId,
                   g.items.map((i) => i.question),
+                  'saved',
                 )
               }
               className="shrink-0 rounded-xl bg-sky-500 px-3 py-2 text-xs font-extrabold text-white"
@@ -76,6 +88,14 @@ export default function ReviewPage() {
               Practicar estas ({g.items.length})
             </button>
           </div>
+          {pending && (
+            <button
+              onClick={() => resume(g.examId)}
+              className="w-full rounded-xl border-2 border-sky-500 py-2 text-xs font-extrabold text-sky-700 dark:text-sky-300"
+            >
+              ▶ Continuar (pregunta {pending.done + 1} de {pending.total})
+            </button>
+          )}
 
           <ul className="space-y-2">
             {g.items.map((i) => (
@@ -101,7 +121,8 @@ export default function ReviewPage() {
             ))}
           </ul>
         </section>
-      ))}
+        );
+      })}
 
       {remove.isError && <p className="text-xs text-red-500">{(remove.error as Error).message}</p>}
     </div>

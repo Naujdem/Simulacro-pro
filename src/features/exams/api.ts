@@ -272,6 +272,20 @@ export const fetchWrongCount = async (): Promise<number> => {
   return count ?? 0;
 };
 
+// Preguntas con etiqueta "Mal" de UN simulacro, en el orden en que aparecen en él.
+export const fetchExamWrongQuestions = async (examId: string): Promise<Question[]> => {
+  const { data, error } = await supabase
+    .from('question_tags')
+    .select('questions(*)')
+    .eq('exam_id', examId)
+    .eq('tag', 'mal');
+  if (error) throw error;
+  return ((data ?? []) as unknown as { questions: (Question & { position?: number }) | null }[])
+    .map((r) => r.questions)
+    .filter((q): q is Question & { position?: number } => q !== null)
+    .sort((a, b) => (a.position ?? 0) - (b.position ?? 0));
+};
+
 // Todas las preguntas con etiqueta "Mal" del usuario, de cualquier simulacro o biblioteca,
 // en orden aleatorio. (La seguridad por usuario la aplica Supabase con RLS.)
 export const fetchWrongQuestions = async (): Promise<Question[]> => {
