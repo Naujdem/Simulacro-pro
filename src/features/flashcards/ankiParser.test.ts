@@ -1,6 +1,6 @@
 import { beforeAll, describe, expect, it } from 'vitest';
 import initSqlJs from 'sql.js';
-import { buildMediaIndex, htmlToText, lookupMedia, readAnkiCollection, renderCloze } from './ankiParser';
+import { buildMediaIndex, extractMedia, htmlToText, lookupMedia, readAnkiCollection, renderCloze } from './ankiParser';
 import { scheduleImportedCards } from './ankiSchedule';
 
 // Colección mínima con el esquema 11 de Anki (el de "Soporte para versiones anteriores").
@@ -130,24 +130,16 @@ describe('scheduleImportedCards', () => {
       sched: { type: 0, queue: 0, due: 0, ivl: 0, factor: 0, reps: 0, lapses: 0 },
     }));
 
-  it('reparte las nuevas: 20 por día, no las 1000 de golpe', () => {
-    const out = scheduleImportedCards(mk(1000), { crt: CRT, newPerDay: 20, keepProgress: true, now });
-    const day = (d: Date) => Math.round((d.getTime() - new Date('2026-10-09T00:00:00').getTime()) / 86_400_000);
-    expect(out.filter((s) => day(s.dueAt) === 0)).toHaveLength(20);
-    expect(out.filter((s) => day(s.dueAt) === 1)).toHaveLength(20);
-    expect(day(out[999].dueAt)).toBe(49);
-    expect(out.every((s) => s.intervalDays === 0 && s.repetitions === 0 && s.easeFactor === 2.5)).toBe(true);
-  });
-
-  it('cada mazo lleva su propio ritmo', () => {
-    const out = scheduleImportedCards([...mk(30, 'A'), ...mk(30, 'B')], { crt: CRT, newPerDay: 20, keepProgress: true, now });
+  it('las nuevas quedan sin estudiar y para hoy (el límite diario lo pone el mazo)', () => {
+    const out = scheduleImportedCards(mk(1000), { crt: CRT, keepProgress: true, now });
     const today = new Date('2026-10-09T00:00:00').getTime();
-    expect(out.filter((s) => s.dueAt.getTime() === today)).toHaveLength(40); // 20 de A + 20 de B
+    expect(out.every((s) => s.dueAt.getTime() === today)).toBe(true);
+    expect(out.every((s) => s.intervalDays === 0 && s.repetitions === 0 && s.easeFactor === 2.5)).toBe(true);
   });
 
   it('respeta el progreso de Anki en las tarjetas ya estudiadas', () => {
     const studied = readAnkiCollection(db).cards.find((c) => c.front === 'Repaso')!;
-    const [s] = scheduleImportedCards([studied], { crt: CRT, newPerDay: 20, keepProgress: true, now });
+    const [s] = scheduleImportedCards([studied], { crt: CRT, keepProgress: true, now });
     expect(s.intervalDays).toBe(30);
     expect(s.easeFactor).toBe(2.3);
     expect(s.repetitions).toBe(10);
@@ -157,7 +149,7 @@ describe('scheduleImportedCards', () => {
 
   it('con keepProgress=false todo se trata como nuevo', () => {
     const studied = readAnkiCollection(db).cards.find((c) => c.front === 'Repaso')!;
-    const [s] = scheduleImportedCards([studied], { crt: CRT, newPerDay: 20, keepProgress: false, now });
+    const [s] = scheduleImportedCards([studied], { crt: CRT, keepProgress: false, now });
     expect(s).toMatchObject({ intervalDays: 0, repetitions: 0, easeFactor: 2.5 });
   });
 });
@@ -165,6 +157,11 @@ describe('scheduleImportedCards', () => {
 describe('utilidades', () => {
   it('htmlToText conserva saltos de línea y decodifica entidades', () => {
     expect(htmlToText('Hola<br>mundo &amp; <b>más</b><div>otra</div>[sound:a.mp3]')).toBe('Hola\nmundo & más\notra');
+  });
+
+  it('extractMedia detecta audios en [sound:] y también en etiquetas <audio>/<source>', () => {
+    const html = '[sound:a%20b.mp3]<audio controls src="c.ogg"></audio><audio><source src=\'d.mp3\'></audio><img src="x.png">';
+    expect(extractMedia(html)).toEqual({ images: ['x.png'], audios: ['a b.mp3', 'c.ogg', 'd.mp3'] });
   });
 
   it('renderCloze oculta solo el hueco pedido', () => {

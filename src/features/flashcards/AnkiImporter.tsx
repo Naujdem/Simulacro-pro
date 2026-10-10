@@ -7,7 +7,9 @@ import { supabase } from '@/lib/supabase';
 import { DriveError, connectDrive, getToken, preloadGis, uploadAudio, uploadImage } from '@/lib/drive';
 import { buildMediaIndex, lookupMedia, readAnkiCollection, type AnkiCard } from './ankiParser';
 import { scheduleImportedCards } from './ankiSchedule';
+import { ensureDeckSettings } from './api';
 import { isMissingColumn } from './columns';
+import { DEFAULT_MAX_REVIEWS } from './decks';
 
 interface AnkiImporterProps {
   onImportSuccess?: () => void;
@@ -173,9 +175,9 @@ export const AnkiImporter: React.FC<AnkiImporterProps> = ({ onImportSuccess }) =
 
     const refOf = (n: string | null): string | null => (!n ? null : isUrl(n) ? n : refs.get(n) ?? null);
 
-    // 2) SM-2: fecha de próximo repaso para cada ficha
+    // 2) SM-2: las nuevas quedan sin estudiar; las que ya traían progreso de Anki lo conservan
     const perDay = Math.min(500, Math.max(1, parseInt(newPerDay, 10) || 20));
-    const schedule = scheduleImportedCards(p.cards, { crt: p.crt, newPerDay: perDay, keepProgress });
+    const schedule = scheduleImportedCards(p.cards, { crt: p.crt, keepProgress });
 
     // 3) Guardar en lotes. created_at decrece con la posición para que, al listar "más nuevas primero",
     //    las fichas salgan en el mismo orden que en Anki.
@@ -209,18 +211,19 @@ export const AnkiImporter: React.FC<AnkiImporterProps> = ({ onImportSuccess }) =
       setProgress({ done: Math.min(i + BATCH, rows.length), total: rows.length });
     }
 
-    // 4) Resumen
+    // 4) Opciones de cada mazo (nuevas por día / máximo de repasos); no pisa las que ya tuvieran
     const perDeck = new Map<string, number>();
     p.cards.forEach((c) => perDeck.set(c.deck, (perDeck.get(c.deck) ?? 0) + 1));
+    await ensureDeckSettings([...perDeck.keys()], { new_per_day: perDay, max_reviews_per_day: DEFAULT_MAX_REVIEWS });
+
+    // 5) Resumen
     const fresh = schedule.filter((s) => s.repetitions === 0 && s.intervalDays === 0);
-    const lastDue = fresh.reduce<Date | null>((m, s) => (!m || s.dueAt > m ? s.dueAt : m), null);
 
     const lines = [`Importación completada: ${rows.length} fichas en ${perDeck.size} ${perDeck.size === 1 ? 'mazo' : 'mazos'}.`];
     [...perDeck.entries()].forEach(([deck, n]) => lines.push(`• ${deck}: ${n}`));
     if (fresh.length) {
       lines.push(
-        `Repaso espaciado: ${fresh.length} nuevas repartidas a ${perDay} por día` +
-          (lastDue ? ` (la última toca el ${lastDue.toLocaleDateString('es-CO', { day: 'numeric', month: 'long' })}).` : '.'),
+        `${fresh.length} fichas nuevas: saldrán ${perDay} por día en cada mazo (puedes cambiarlo en ⚙️ Opciones del mazo).`,
       );
     }
     if (rows.length - fresh.length > 0) lines.push(`${rows.length - fresh.length} fichas conservan su progreso de Anki.`);
@@ -275,7 +278,7 @@ export const AnkiImporter: React.FC<AnkiImporterProps> = ({ onImportSuccess }) =
       <div className="space-y-2 text-sm font-bold text-slate-700 dark:text-slate-200">
         <label className="flex items-center gap-2">
           <input type="number" min={1} max={500} value={newPerDay} onChange={(e) => setNewPerDay(e.target.value)} disabled={loading} className={field} />
-          fichas nuevas por día (por mazo)
+          fichas nuevas por día (se puede cambiar luego en cada mazo)
         </label>
         <label className="flex items-center gap-2">
           <input type="checkbox" checked={keepProgress} onChange={(e) => setKeepProgress(e.target.checked)} disabled={loading} className="h-4 w-4" />
