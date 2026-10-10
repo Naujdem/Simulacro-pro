@@ -4,9 +4,11 @@ import { BrowserRouter } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import App from './App';
 import { applyTheme, getTheme } from './lib/theme';
+import { initDeepLinkAuth } from './lib/nativeAuth';
 import './index.css';
 
 applyTheme(getTheme());
+initDeepLinkAuth(); // solo actúa dentro del APK: recibe el regreso del login de Google
 
 const queryClient = new QueryClient({ defaultOptions: { queries: { staleTime: 30_000, refetchOnWindowFocus: false } } });
 

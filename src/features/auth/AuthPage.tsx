@@ -1,5 +1,6 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
+import { AUTH_ERROR_EVENT, isNativeApp, signInWithGoogleNative } from '@/lib/nativeAuth';
 
 export default function AuthPage() {
   const [mode, setMode] = useState<'in' | 'up'>('in');
@@ -7,6 +8,13 @@ export default function AuthPage() {
   const [password, setPassword] = useState('');
   const [msg, setMsg] = useState('');
   const [busy, setBusy] = useState(false);
+
+  // Errores del regreso desde Google en el APK (deep link).
+  useEffect(() => {
+    const onError = (e: Event) => setMsg((e as CustomEvent<string>).detail || 'No se pudo iniciar sesión con Google.');
+    window.addEventListener(AUTH_ERROR_EVENT, onError);
+    return () => window.removeEventListener(AUTH_ERROR_EVENT, onError);
+  }, []);
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -21,8 +29,15 @@ export default function AuthPage() {
     else if (mode === 'up') setMsg('Revisa tu correo para confirmar la cuenta.');
   }
 
-  const google = () =>
-    supabase.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: window.location.origin } });
+  async function google() {
+    setMsg('');
+    try {
+      if (isNativeApp()) await signInWithGoogleNative();
+      else await supabase.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: window.location.origin } });
+    } catch (e) {
+      setMsg((e as Error).message || 'No se pudo iniciar sesión con Google.');
+    }
+  }
 
   const input = 'w-full rounded-2xl border-2 border-slate-200 bg-transparent p-4 outline-none focus:border-sky-400 dark:border-slate-700';
 
