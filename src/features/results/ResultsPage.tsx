@@ -164,6 +164,12 @@ export default function ResultsPage() {
                       <p className="text-xs">
                         Respuesta correcta: <b>{correctText(q)}</b>
                       </p>
+                      {q.explanation && (
+                        <div className="space-y-1 rounded-lg bg-white/70 p-3 text-xs dark:bg-slate-900/60">
+                          <p className="font-extrabold">📖 Explicación</p>
+                          <p className="whitespace-pre-line">{q.explanation}</p>
+                        </div>
+                      )}
                       <div className="flex flex-wrap gap-2">
                         <button
                           onClick={() => practiceOne(q)}

@@ -12,6 +12,7 @@ B) París
 C) Roma
 D) Berlín
 Respuesta: B
+Explicación: París es una ciudad francesa
 
 2. Las plantas absorben dióxido de carbono.
 Verdadero

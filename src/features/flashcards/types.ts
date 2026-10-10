@@ -16,4 +16,6 @@ export interface StudyCard extends Flashcard {
   ease_factor: number;
   interval_days: number;
   repetitions: number;
+  /** Paso de aprendizaje en la sesión actual (no se guarda en la base de datos). */
+  step?: number;
 }

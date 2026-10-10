@@ -5,7 +5,7 @@ import { supabase } from '@/lib/supabase';
 import QuestionImage from '@/components/QuestionImage';
 import { AudioButton } from '@/components/AudioButton';
 import { playAudio, prefetchRefs, stopAudio } from '@/lib/playAudio';
-import { LEARN_AGAIN_MINUTES, describeInterval, nextReview, type Rating, type Sm2Result } from './sm2';
+import { describeInterval, nextReview, type Rating, type Sm2Result } from './sm2';
 import { isMissingColumn } from './columns';
 import { buildStudyQueue } from './api';
 import { isNewCard } from './decks';
@@ -19,7 +19,6 @@ const RATINGS: { value: Rating; label: string; className: string }[] = [
   { value: 'easy', label: 'Fácil', className: 'bg-sky-500' },
 ];
 
-const LEARN_MS = LEARN_AGAIN_MINUTES * 60_000;
 const AUTOPLAY_KEY = 'simulapro:autoplay-audio';
 
 interface Session {
@@ -101,12 +100,17 @@ export default function StudyPage() {
   const finished = !!session && !session.current && session.total > 0;
   const remaining = session ? session.queue.length + session.learning.length + (session.current ? 1 : 0) : 0;
 
-  // Cuánto tardará en volver a salir la ficha según el botón: "Otra vez 1 min", "Bien 1 d"…
+  // Cuánto tardará en volver a salir la ficha según el botón: "1 min", "6 min", "10 min", "1 d"…
   const previews = useMemo(() => {
     if (!card) return null;
-    const state = { easeFactor: Number(card.ease_factor), intervalDays: card.interval_days, repetitions: card.repetitions };
+    const state = {
+      easeFactor: Number(card.ease_factor),
+      intervalDays: card.interval_days,
+      repetitions: card.repetitions,
+      step: card.step,
+    };
     const now = new Date();
-    return RATINGS.map((r) => describeInterval(r.value, nextReview(state, r.value, now)));
+    return RATINGS.map((r) => describeInterval(nextReview(state, r.value, now)));
   }, [card]);
 
   // Audio del frente al mostrar la ficha; el del reverso al voltearla
@@ -143,27 +147,35 @@ export default function StudyPage() {
     if (!card || !session) return;
     const now = new Date();
     const result = nextReview(
-      { easeFactor: Number(card.ease_factor), intervalDays: card.interval_days, repetitions: card.repetitions },
+      {
+        easeFactor: Number(card.ease_factor),
+        intervalDays: card.interval_days,
+        repetitions: card.repetitions,
+        step: card.step,
+      },
       rating,
       now,
     );
     save.mutate({ card, rating, result, now });
 
-    // La ficha con su estado nuevo (si fue "Otra vez" vuelve a salir en esta sesión y debe calificarse desde ahí)
+    // La ficha con su estado nuevo (si sigue aprendiéndose vuelve a salir en esta sesión y debe calificarse desde ahí)
     const updated: StudyCard = {
       ...card,
       ease_factor: result.easeFactor,
       interval_days: result.intervalDays,
       repetitions: result.repetitions,
       review_count: card.review_count + 1,
+      step: result.step,
     };
+    const stays = result.delayMinutes !== undefined; // todavía en minutos: no cuenta como terminada
     setFlipped(false);
     setSession((s) => {
       if (!s) return s;
-      const again = rating === 'again';
-      const learning = again ? [...s.learning, { card: updated, due: now.getTime() + LEARN_MS }] : s.learning;
+      const learning = stays
+        ? [...s.learning, { card: updated, due: now.getTime() + (result.delayMinutes ?? 0) * 60_000 }]
+        : s.learning;
       const next = pickNext(s.queue, learning, Date.now());
-      return { ...next, done: again ? s.done : s.done + 1, total: s.total, seq: s.seq + 1 };
+      return { ...next, done: stays ? s.done : s.done + 1, total: s.total, seq: s.seq + 1 };
     });
   };
 
