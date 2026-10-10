@@ -92,10 +92,11 @@ function parseBlock(raw: string): ParsedQuestion {
         .map((s) => s.trim())
         .filter(Boolean);
       section = 'option';
-    } else if (i > 0 && (m = l.match(RE.option))) {
+    } else if (i > 0 && section !== 'explanation' && (m = l.match(RE.option))) {
+      // (dentro de la explicación, una línea tipo "A. diferencia…" es texto de la explicación, no una opción)
       options.push({ id: m[1].toLowerCase(), text: m[2].trim() });
       section = 'option';
-    } else if (i > 0 && !options.length && !inline && tfLine === null && (m = l.match(RE.tf))) {
+    } else if (i > 0 && section !== 'explanation' && !options.length && !inline && tfLine === null && (m = l.match(RE.tf))) {
       tfLine = toBool(m[1]); // línea suelta "Verdadero" / "Falso"
     } else if (section === 'prompt') {
       prompt.push(l.trim());

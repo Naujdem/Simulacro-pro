@@ -48,6 +48,61 @@ Explicación: Usa luz solar, agua y CO2.`);
     expect(r[0].explanation).toMatch(/luz solar/);
   });
 
+  it('Explicación opcional: opción múltiple (formato 1)', () => {
+    const r = parseQuestions(`1. ¿Cuál es la capital de Francia?
+A) Madrid
+B) París
+C) Roma
+D) Berlín
+Respuesta: B
+Explicación: París es una ciudad francesa
+
+2. ¿Cuál es la capital de Italia?
+A) Madrid
+B) París
+C) Roma
+D) Berlín
+Respuesta: C`);
+    expect(r).toHaveLength(2);
+    expect(r[0].options).toHaveLength(4);
+    expect(r[0].answer).toEqual({ correct: ['b'] });
+    expect(r[0].explanation).toBe('París es una ciudad francesa');
+    expect(r[0].confidence).toBe(1);
+    // sin explicación no pasa nada
+    expect(r[1].explanation).toBeUndefined();
+    expect(r[1].confidence).toBe(1);
+  });
+
+  it('Explicación opcional: verdadero/falso', () => {
+    const r = parseQuestions(`2. Las plantas absorben dióxido de carbono.
+Verdadero
+Explicación: Lo usan en la fotosíntesis.`);
+    expect(r[0].type).toBe('true_false');
+    expect(r[0].answer).toEqual({ value: true });
+    expect(r[0].explanation).toBe('Lo usan en la fotosíntesis.');
+  });
+
+  it('Explicación opcional: formato Pregunta / Opciones / Correcta', () => {
+    const r = parseQuestions(`Pregunta: ¿Cuál es la capital de Italia?
+Opciones: Madrid | París | Roma | Berlín
+Correcta: Roma
+Explicación: Roma es la capital desde 1871.`);
+    expect(r[0].type).toBe('multiple_choice');
+    expect(r[0].answer).toEqual({ correct: ['c'] });
+    expect(r[0].explanation).toBe('Roma es la capital desde 1871.');
+  });
+
+  it('la explicación puede ocupar varias líneas sin confundirse con opciones', () => {
+    const r = parseQuestions(`1. ¿Cuál es la capital de Francia?
+A) Madrid
+B) París
+Respuesta: B
+Explicación: París es la capital.
+A. diferencia de Madrid, está en Francia.`);
+    expect(r[0].options).toHaveLength(2);
+    expect(r[0].explanation).toBe('París es la capital. A. diferencia de Madrid, está en Francia.');
+  });
+
   it('multi-selección', () => {
     const r = parseQuestions(`1. Son planetas:
 A) Marte

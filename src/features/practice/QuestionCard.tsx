@@ -8,7 +8,7 @@ type Props = {
   question: Question;
   examId: string;
   onNext: (r: Response, correct: boolean) => void;
-  /** Muestra "Explicar / Preguntas similares" con IA en cuanto te equivocas (se usa en los repasos). */
+  /** Muestra "Explicación con IA / Preguntas similares" en cuanto te equivocas (se usa en los repasos). */
   aiHelp?: boolean;
 };
 
@@ -187,6 +187,13 @@ export function QuestionCard({ question: q, examId, onNext, aiHelp = false }: Pr
         />
       )}
 
+      {checked && q.explanation && (
+        <div className="mt-6 space-y-1 rounded-2xl border-2 border-sky-300 bg-sky-50 p-3 dark:border-sky-800 dark:bg-sky-950/40">
+          <p className="text-sm font-extrabold">📖 Explicación</p>
+          <p className="whitespace-pre-line text-sm">{q.explanation}</p>
+        </div>
+      )}
+
       {showAi && (
         <div ref={aiRef} className="mt-6 space-y-2 rounded-2xl border-2 border-violet-300 bg-violet-50 p-3 dark:border-violet-800 dark:bg-violet-950/40">
           <p className="text-sm font-extrabold">¿No te quedó claro? Pide ayuda a la IA</p>
@@ -219,7 +226,6 @@ export function QuestionCard({ question: q, examId, onNext, aiHelp = false }: Pr
                   Respuesta correcta: <b>{correctText(q)}</b>
                 </p>
               )}
-              {q.explanation && <p className="mt-1 text-sm opacity-80">{q.explanation}</p>}
             </div>
           )}
           {!checked ? (

@@ -11,7 +11,8 @@ interface Props {
   examId: string;
 }
 
-// Botones de IA para una pregunta fallada: "Explicar" y "Preguntas similares".
+// Botones de IA para una pregunta fallada: "Explicación con IA" y "Preguntas similares".
+// (La "Explicación" que escribiste al crear la pregunta se muestra aparte, no pasa por la IA.)
 export default function AiPanel({ q, examId }: Props) {
   const qc = useQueryClient();
   const nav = useNavigate();
@@ -40,7 +41,11 @@ export default function AiPanel({ q, examId }: Props) {
     <div className="space-y-2">
       <div className="flex flex-wrap gap-2">
         <button disabled={explain.isPending} onClick={() => explain.mutate()} className={btn}>
-          {explain.isPending ? 'Explicando…' : info.data?.explicacion ? '💡 Ver explicación' : '💡 Explicar'}
+          {explain.isPending
+            ? 'Explicando…'
+            : info.data?.explicacion
+              ? '🤖 Ver explicación con IA'
+              : '🤖 Explicación con IA'}
         </button>
         <button disabled={similar.isPending} onClick={() => similar.mutate()} className={btn}>
           {similar.isPending
