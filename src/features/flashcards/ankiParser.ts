@@ -84,11 +84,15 @@ function cleanName(raw: string): string {
   }
 }
 
+// Algunos mazos ponen el audio como etiqueta HTML en vez de [sound:...]
+const AUDIO_TAG_RE = /<(?:audio|source)\b[^>]*?\bsrc\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))/gi;
+
 export function extractMedia(html: string): { images: string[]; audios: string[] } {
   const images: string[] = [];
   const audios: string[] = [];
   for (const m of html.matchAll(IMG_RE)) images.push(cleanName(m[1] ?? m[2] ?? m[3] ?? ''));
   for (const m of html.matchAll(SOUND_RE)) audios.push(cleanName(m[1]));
+  for (const m of html.matchAll(AUDIO_TAG_RE)) audios.push(cleanName(m[1] ?? m[2] ?? m[3] ?? ''));
   return { images: images.filter(Boolean), audios: audios.filter(Boolean) };
 }
 

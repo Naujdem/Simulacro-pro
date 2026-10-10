@@ -19,6 +19,9 @@ export const INITIAL_SM2: Sm2State = { easeFactor: 2.5, intervalDays: 0, repetit
 const QUALITY: Record<Rating, number> = { again: 1, hard: 3, good: 4, easy: 5 };
 const MIN_EASE = 1.3;
 
+/** "Otra vez" no manda la ficha a mañana: vuelve a aparecer en este tiempo (como el paso de aprendizaje de Anki). */
+export const LEARN_AGAIN_MINUTES = 1;
+
 /** Medianoche (hora local) de hoy + N días. Así la ficha "toca" desde el inicio de ese día. */
 function startOfDayPlus(now: Date, days: number): Date {
   const d = new Date(now);
@@ -33,7 +36,8 @@ export function nextReview(state: Sm2State, rating: Rating, now: Date = new Date
   let { easeFactor, intervalDays, repetitions } = state;
 
   if (q < 3) {
-    // Otra vez: se reinicia y vuelve mañana
+    // Otra vez: se reinicia. `intervalDays` es el que se usará cuando la vuelvas a acertar (1 día);
+    // mientras tanto la ficha reaparece en LEARN_AGAIN_MINUTES.
     repetitions = 0;
     intervalDays = 1;
   } else {
@@ -48,5 +52,23 @@ export function nextReview(state: Sm2State, rating: Rating, now: Date = new Date
   easeFactor += 0.1 - (5 - q) * (0.08 + (5 - q) * 0.02);
   easeFactor = Math.max(MIN_EASE, Math.round(easeFactor * 100) / 100);
 
-  return { easeFactor, intervalDays, repetitions, dueAt: startOfDayPlus(now, intervalDays) };
+  const dueAt =
+    rating === 'again' ? new Date(now.getTime() + LEARN_AGAIN_MINUTES * 60_000) : startOfDayPlus(now, intervalDays);
+  return { easeFactor, intervalDays, repetitions, dueAt };
+}
+
+/** "6 d", "2 meses", "1 año"… (para ≥ 1 día). */
+export function formatDays(days: number): string {
+  if (days < 30) return `${days} d`;
+  if (days < 365) {
+    const m = Math.round((days / 30) * 10) / 10;
+    return `${m.toLocaleString('es')} ${m === 1 ? 'mes' : 'meses'}`;
+  }
+  const y = Math.round((days / 365) * 10) / 10;
+  return `${y.toLocaleString('es')} ${y === 1 ? 'año' : 'años'}`;
+}
+
+/** Texto que se muestra bajo cada botón: cuánto tardará en volver a aparecer la ficha. */
+export function describeInterval(rating: Rating, result: Pick<Sm2Result, 'intervalDays'>): string {
+  return rating === 'again' ? `${LEARN_AGAIN_MINUTES} min` : formatDays(result.intervalDays);
 }
