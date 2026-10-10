@@ -19,7 +19,8 @@ const RE = {
   option: /^\s*\(?([A-Ha-h])[.)\]:\-]\s+(.+)$/,
   inlineOptions: /^\s*(?:opciones|options)\s*:\s*(.+)$/i,
   answer: /^\s*(?:respuesta(?:\s+correcta)?|correcta|answer|clave)\s*[:=\-]\s*(.+)$/i,
-  explanation: /^\s*(?:explicaci[oó]n|justificaci[oó]n|retroalimentaci[oó]n)\s*[:\-]\s*(.+)$/i,
+  // El texto puede venir en la misma línea o en las siguientes ("Explicación:" solo en su línea)
+  explanation: /^\s*(?:explicaci[oó]n|justificaci[oó]n|retroalimentaci[oó]n)\s*[:\-]\s*(.*)$/i,
   tf: /^\s*(verdadero|falso|true|false|v|f)\s*[.)]?\s*$/i,
   blank: /_{3,}|\[\s*\.{0,3}\s*\]|\{\{[^}]*\}\}/,
 };
@@ -37,15 +38,34 @@ export function normalize(text: string): string {
     .trim();
 }
 
+/**
+ * ¿La línea `i` empieza una pregunta nueva?
+ * Dentro de una explicación, "1. …" puede ser un punto de la lista de la explicación y no la pregunta siguiente:
+ * solo cuenta como pregunta nueva si dice "Pregunta…" o si lo que sigue trae opciones, respuesta o huecos.
+ */
+function startsQuestion(lines: string[], i: number, inExplanation: boolean): boolean {
+  if (!RE.qStart.test(lines[i])) return false;
+  if (!inExplanation || /^\s*(?:pregunta|question)\b/i.test(lines[i]) || RE.blank.test(lines[i])) return true;
+  for (let j = i + 1; j < lines.length && !RE.qStart.test(lines[j]); j++) {
+    const l = lines[j];
+    if (RE.option.test(l) || RE.inlineOptions.test(l) || RE.answer.test(l) || RE.tf.test(l) || RE.blank.test(l)) return true;
+  }
+  return false;
+}
+
 /** 2. Divide en bloques (uno por pregunta) */
 function splitBlocks(text: string): string[] {
+  const lines = text.split('\n');
   const blocks: string[][] = [];
   let cur: string[] = [];
-  for (const line of text.split('\n')) {
-    if (RE.qStart.test(line) && cur.some((l) => l.trim())) {
+  let inExplanation = false;
+  for (const [i, line] of lines.entries()) {
+    if (startsQuestion(lines, i, inExplanation) && cur.some((l) => l.trim())) {
       blocks.push(cur);
       cur = [];
+      inExplanation = false;
     }
+    if (RE.explanation.test(line)) inExplanation = true;
     cur.push(line);
   }
   if (cur.some((l) => l.trim())) blocks.push(cur);
