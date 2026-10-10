@@ -103,6 +103,62 @@ A. diferencia de Madrid, está en Francia.`);
     expect(r[0].explanation).toBe('París es la capital. A. diferencia de Madrid, está en Francia.');
   });
 
+  it('Explicación con el texto en la línea de abajo', () => {
+    const r = parseQuestions(`1. ¿Capital de Francia?
+A) Madrid
+B) París
+Respuesta: B
+Explicación:
+París es la capital de Francia.
+Es la sede del gobierno.`);
+    expect(r).toHaveLength(1);
+    expect(r[0].answer).toEqual({ correct: ['b'] });
+    expect(r[0].confidence).toBe(1);
+    expect(r[0].explanation).toBe('París es la capital de Francia. Es la sede del gobierno.');
+  });
+
+  it('una lista numerada dentro de la explicación no crea preguntas nuevas', () => {
+    const r = parseQuestions(`1. ¿Capital de Francia?
+A) Madrid
+B) París
+Respuesta: B
+Explicación: Hay dos razones:
+1. Es la sede del gobierno.
+2. Es la ciudad más grande.`);
+    expect(r).toHaveLength(1);
+    expect(r[0].answer).toEqual({ correct: ['b'] });
+    expect(r[0].explanation).toBe('Hay dos razones: 1. Es la sede del gobierno. 2. Es la ciudad más grande.');
+  });
+
+  it('tras una explicación con lista, la pregunta siguiente sí se separa', () => {
+    const r = parseQuestions(`1. ¿Capital de Francia?
+A) Madrid
+B) París
+Respuesta: B
+Explicación: Hay dos razones:
+1. Es la sede del gobierno.
+2. Es la ciudad más grande.
+
+2. ¿Capital de Italia?
+A) Roma
+B) Lisboa
+Respuesta: A
+
+3. Las plantas absorben CO2.
+Verdadero
+Explicación: Lo usan al hacer fotosíntesis.
+
+Pregunta: La capital de Perú es ___.
+Respuesta: Lima`);
+    expect(r).toHaveLength(4);
+    expect(r[0].explanation).toContain('2. Es la ciudad más grande.');
+    expect(r[1].answer).toEqual({ correct: ['a'] });
+    expect(r[1].explanation).toBeUndefined();
+    expect(r[2].type).toBe('true_false');
+    expect(r[2].explanation).toBe('Lo usan al hacer fotosíntesis.');
+    expect(r[3].type).toBe('fill_blank');
+  });
+
   it('multi-selección', () => {
     const r = parseQuestions(`1. Son planetas:
 A) Marte
