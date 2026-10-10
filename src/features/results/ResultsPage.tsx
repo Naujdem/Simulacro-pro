@@ -41,9 +41,13 @@ export default function ResultsPage() {
   const savedIds = new Set(reviewIds.data ?? []);
 
   const again = (questions: typeof queue, mode: 'full' | 'retry_wrong') => {
-    // En Repaso Rápido, repetir sigue siendo Repaso Rápido (mezcla de simulacros)
-    const m = examId === QUICK_REVIEW_ID ? 'quick_review' : mode;
-    usePractice.getState().start(examId, questions, m, summary.attemptId);
+    const st = usePractice.getState();
+    // En Repaso Rápido, repetir sigue siendo Repaso Rápido (mezcla de simulacros).
+    // Un repaso parcial ('custom') tampoco se convierte en simulacro completo: no debe inflar el "mejor %".
+    const m = examId === QUICK_REVIEW_ID ? 'quick_review' : mode === 'full' && st.mode === 'custom' ? 'custom' : mode;
+    // Cada tipo de sesión guarda su avance aparte para poder continuarla
+    const slot = m === 'quick_review' ? 'quick_review' : mode === 'retry_wrong' ? 'retry_wrong' : m === 'full' ? 'full' : st.slot;
+    st.start(examId, questions, m, summary.attemptId, slot);
     nav(`/practice/${examId}`);
   };
 

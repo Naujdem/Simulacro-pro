@@ -1,9 +1,16 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Question, Response, checkAnswer, correctText } from '@/lib/grading';
 import QuestionImage from '@/components/QuestionImage';
+import AiPanel from '@/features/ai/AiPanel';
 import { saveQuestionTag, type QuestionTag } from '@/features/exams/api';
 
-type Props = { question: Question; examId: string; onNext: (r: Response, correct: boolean) => void };
+type Props = {
+  question: Question;
+  examId: string;
+  onNext: (r: Response, correct: boolean) => void;
+  /** Muestra "Explicar / Preguntas similares" con IA en cuanto te equivocas (se usa en los repasos). */
+  aiHelp?: boolean;
+};
 
 const TAGS: { id: QuestionTag; label: string; className: string }[] = [
   { id: 'mal', label: 'Mal', className: 'bg-red-500' },
@@ -47,13 +54,20 @@ const styles = {
 } as const;
 type S = keyof typeof styles;
 
-export function QuestionCard({ question: q, examId, onNext }: Props) {
+export function QuestionCard({ question: q, examId, onNext, aiHelp = false }: Props) {
   const [resp, setResp] = useState<Response>(() => emptyResponse(q)); // usar key={q.id} en el padre
   const [correct, setCorrect] = useState<boolean | null>(null);
   const [savingTag, setSavingTag] = useState(false);
   const [tagError, setTagError] = useState('');
   const checked = correct !== null;
   const check = () => setCorrect(checkAnswer(q, resp));
+  const aiRef = useRef<HTMLDivElement>(null);
+  const showAi = aiHelp && checked && correct === false;
+
+  // Al fallar, lleva la vista a la ayuda de IA (la barra de abajo tapa el final de la página)
+  useEffect(() => {
+    if (showAi) aiRef.current?.scrollIntoView?.({ behavior: 'smooth', block: 'center' });
+  }, [showAi]);
 
   async function pickTag(tag: QuestionTag) {
     if (savingTag || correct === null) return;
@@ -171,6 +185,13 @@ export function QuestionCard({ question: q, examId, onNext }: Props) {
             checked ? (correct ? 'border-green-500' : 'border-red-500') : 'border-slate-300 focus:border-sky-400'
           }`}
         />
+      )}
+
+      {showAi && (
+        <div ref={aiRef} className="mt-6 space-y-2 rounded-2xl border-2 border-violet-300 bg-violet-50 p-3 dark:border-violet-800 dark:bg-violet-950/40">
+          <p className="text-sm font-extrabold">¿No te quedó claro? Pide ayuda a la IA</p>
+          <AiPanel q={q} examId={examId} />
+        </div>
       )}
 
       <footer

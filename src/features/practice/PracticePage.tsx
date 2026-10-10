@@ -1,35 +1,56 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { supabase } from '@/lib/supabase';
 import type { Question } from '@/lib/grading';
 import { QUICK_REVIEW_ID, usePractice } from './practiceStore';
+import { lastSlotFor } from './progress';
 import { QuestionCard } from './QuestionCard';
 
 export default function PracticePage() {
   const { examId } = useParams();
   const nav = useNavigate();
-  const { active, examId: current, queue, index, record } = usePractice();
+  const { active, examId: current, mode, queue, index, record } = usePractice();
   const finishing = useRef(false);
+  const [resumedAt, setResumedAt] = useState<number | null>(null);
 
-  // Carga las preguntas si no venimos de "Repetir"
+  // Al abrir (o recargar) el simulacro: continúa el avance guardado; si no hay, carga las preguntas desde cero.
+  // Si venimos de "Repetir" o de un botón "Empezar", la sesión ya está en memoria y no se hace nada.
   useEffect(() => {
     const s = usePractice.getState();
     if (s.active && s.examId === examId) return;
-    // El Repaso Rápido solo existe en memoria: si se recarga la página, vuelve al inicio
-    if (examId === QUICK_REVIEW_ID) {
-      nav('/', { replace: true });
-      return;
-    }
-    supabase
-      .from('questions')
-      .select('*')
-      .eq('exam_id', examId!)
-      .order('position')
-      .then(({ data }) => {
-        if (!data?.length) return nav('/library');
-        usePractice.getState().start(examId!, data as Question[]);
-      });
+    let cancelled = false;
+
+    (async () => {
+      const slot = lastSlotFor(examId!) ?? (examId === QUICK_REVIEW_ID ? 'quick_review' : 'full');
+      const resumed = await usePractice.getState().resume(examId!, slot).catch(() => false);
+      if (cancelled) return;
+      if (resumed) {
+        setResumedAt(usePractice.getState().index + 1);
+        return;
+      }
+
+      // El Repaso Rápido no se puede reconstruir sin avance guardado: vuelve al inicio
+      if (examId === QUICK_REVIEW_ID) {
+        nav('/', { replace: true });
+        return;
+      }
+      const { data } = await supabase.from('questions').select('*').eq('exam_id', examId!).order('position');
+      if (cancelled) return;
+      if (!data?.length) return nav('/library');
+      usePractice.getState().start(examId!, data as Question[]);
+    })();
+
+    return () => {
+      cancelled = true;
+    };
   }, [examId, nav]);
+
+  // El aviso de "continuando…" se quita solo
+  useEffect(() => {
+    if (resumedAt === null) return;
+    const t = setTimeout(() => setResumedAt(null), 4000);
+    return () => clearTimeout(t);
+  }, [resumedAt]);
 
   // Al terminar la cola: guardar y mostrar resultados
   useEffect(() => {
@@ -55,6 +76,7 @@ export default function PracticePage() {
         <button
           aria-label="Salir"
           onClick={() => {
+            // El avance ya está guardado: al volver a abrir este simulacro puedes continuar donde te quedaste
             usePractice.getState().reset();
             nav('/library');
           }}
@@ -69,8 +91,19 @@ export default function PracticePage() {
           {index + 1}/{queue.length}
         </span>
       </header>
-      {/* En Repaso Rápido cada pregunta guarda su etiqueta en SU simulacro de origen */}
-      <QuestionCard key={queue[index].id} question={queue[index]} examId={queue[index].exam_id ?? examId!} onNext={record} />
+      {resumedAt !== null && (
+        <p role="status" className="mx-auto mt-3 max-w-xl rounded-xl bg-sky-100 px-4 py-2 text-center text-sm font-bold text-sky-800 dark:bg-sky-950 dark:text-sky-200">
+          Continuando donde te quedaste: pregunta {resumedAt}
+        </p>
+      )}
+      {/* En Repaso Rápido cada pregunta guarda su etiqueta en SU simulacro de origen. En los repasos, al fallar se ofrece la ayuda de IA. */}
+      <QuestionCard
+        key={queue[index].id}
+        question={queue[index]}
+        examId={queue[index].exam_id ?? examId!}
+        onNext={record}
+        aiHelp={mode !== 'full'}
+      />
     </div>
   );
 }

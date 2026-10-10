@@ -1,14 +1,15 @@
 import { useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { assignExamToFolder, fetchBestScores, fetchExams, fetchFolder } from './api';
-import { usePractice } from '@/features/practice/practiceStore';
+import { assignExamToFolder, fetchBestScores, fetchExams, fetchFolder, type Exam } from './api';
+import ExamStartSheet from './ExamStartSheet';
 
 export default function FolderPage() {
   const { folderId } = useParams<{ folderId: string }>();
   const nav = useNavigate();
   const qc = useQueryClient();
   const [adding, setAdding] = useState(false);
+  const [sheet, setSheet] = useState<Exam | null>(null); // simulacro abierto: completo o repaso de las que tengo mal
 
   const folder = useQuery({ queryKey: ['folder', folderId], queryFn: () => fetchFolder(folderId!), enabled: !!folderId });
   const exams = useQuery({ queryKey: ['exams'], queryFn: fetchExams });
@@ -79,10 +80,7 @@ export default function FolderPage() {
             <div className="flex items-start justify-between gap-2">
               <button
                 className="flex-1 text-left"
-                onClick={() => {
-                  usePractice.getState().reset();
-                  nav(`/practice/${e.id}`);
-                }}
+                onClick={() => setSheet(e)}
               >
                 <p className="font-bold">{e.title}</p>
                 <p className="text-xs text-slate-500">
@@ -105,6 +103,8 @@ export default function FolderPage() {
           </li>
         ))}
       </ul>
+
+      {sheet && <ExamStartSheet exam={sheet} onClose={() => setSheet(null)} />}
 
       {adding && (
         <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-4 sm:items-center" onClick={() => setAdding(false)}>
