@@ -114,7 +114,7 @@ function DeckRow({
           <span className="w-5" />
         )}
         <button className="min-w-0 flex-1 text-left" onClick={() => onOpen(node.name)}>
-          <p className="truncate font-extrabold">
+          <p className="truncate font-bold">
             {node.hasCards ? '' : '📁 '}
             {node.label}
           </p>
@@ -123,7 +123,7 @@ function DeckRow({
         <button
           onClick={() => onStudy(node.name)}
           disabled={todo === 0}
-          className="shrink-0 rounded-xl bg-green-500 px-3 py-2 text-xs font-extrabold text-white disabled:opacity-40"
+          className="shrink-0 rounded-xl bg-green-500 px-3 py-2 text-xs font-bold text-white disabled:opacity-40"
         >
           {todo === 0 ? 'Al día' : 'Estudiar'}
         </button>
@@ -156,7 +156,7 @@ function NewFlashcardDialog({
   const [deck, setDeck] = useState(defaultDeck);
   const canSave = front.trim() !== '' && back.trim() !== '';
   const field =
-    'w-full rounded-2xl border-2 border-slate-200 bg-transparent p-3 outline-none focus:border-sky-400 dark:border-slate-600';
+    'w-full rounded-2xl border border-slate-200 bg-transparent p-3 outline-none focus:border-sky-400 dark:border-slate-600';
 
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-4 sm:items-center" onClick={onClose}>
@@ -169,7 +169,7 @@ function NewFlashcardDialog({
           onCreate(front.trim(), back.trim(), cleanDeckName(deck));
         }}
       >
-        <h2 className="text-lg font-extrabold">Nueva ficha</h2>
+        <h2 className="text-lg font-bold">Nueva ficha</h2>
 
         <div>
           <label className="mb-1 block text-sm font-bold text-slate-500">Frente</label>
@@ -194,10 +194,10 @@ function NewFlashcardDialog({
         {error && <p className="text-sm font-bold text-red-500">{error}</p>}
 
         <div className="flex gap-2">
-          <button type="button" onClick={onClose} className="flex-1 rounded-2xl border-2 py-3 font-bold">
+          <button type="button" onClick={onClose} className="flex-1 rounded-2xl border py-3 font-bold">
             Cancelar
           </button>
-          <button type="submit" disabled={saving || !canSave} className="flex-1 rounded-2xl bg-sky-500 py-3 font-extrabold text-white disabled:opacity-50">
+          <button type="submit" disabled={saving || !canSave} className="flex-1 rounded-2xl bg-sky-500 py-3 font-bold text-white disabled:opacity-50">
             {saving ? 'Guardando…' : 'Guardar'}
           </button>
         </div>
@@ -271,13 +271,13 @@ function ImportBar({ targetDeck }: { targetDeck: string | null }) {
         <button
           onClick={() => fileRef.current?.click()}
           disabled={importCsv.isPending}
-          className="rounded-2xl border-2 border-slate-200 px-4 py-2 text-sm font-bold disabled:opacity-50 dark:border-slate-700"
+          className="rounded-2xl border border-slate-200 px-4 py-2 text-sm font-bold disabled:opacity-50 dark:border-slate-700"
         >
           {importCsv.isPending ? 'Importando…' : '📥 Importar CSV'}
         </button>
         <button
           onClick={() => setShowAnki(!showAnki)}
-          className="rounded-2xl border-2 border-slate-200 px-4 py-2 text-sm font-bold dark:border-slate-700"
+          className="rounded-2xl border border-slate-200 px-4 py-2 text-sm font-bold dark:border-slate-700"
         >
           {showAnki ? '✕ Cerrar Anki' : '📦 Importar .apkg (Anki)'}
         </button>
@@ -331,12 +331,12 @@ function DeckOverview({
   return (
     <div className="space-y-4 p-4">
       <div className="flex items-center justify-between gap-2">
-        <h1 className="text-2xl font-extrabold">Fichas</h1>
+        <h1 className="text-2xl font-bold">Fichas</h1>
         <div className="flex gap-2">
           <button
             onClick={() => study(null)}
             disabled={todo === 0}
-            className="rounded-2xl bg-green-500 px-4 py-2 text-sm font-extrabold text-white disabled:opacity-50"
+            className="rounded-2xl bg-green-500 px-4 py-2 text-sm font-bold text-white disabled:opacity-50"
           >
             Estudiar todo
           </button>
@@ -345,7 +345,7 @@ function DeckOverview({
               create.reset();
               setShowForm(true);
             }}
-            className="rounded-2xl bg-sky-500 px-4 py-2 text-sm font-extrabold text-white"
+            className="rounded-2xl bg-sky-500 px-4 py-2 text-sm font-bold text-white"
           >
             + Nueva Ficha
           </button>
@@ -468,19 +468,19 @@ function DeckDetail({
 
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
-          <h1 className="truncate text-2xl font-extrabold">{node.label}</h1>
+          <h1 className="truncate text-2xl font-bold">{node.label}</h1>
           <Counts c={node.agg} />
         </div>
         <div className="flex shrink-0 gap-2">
           <button
             onClick={() => study(name)}
             disabled={todo === 0}
-            className="rounded-2xl bg-green-500 px-4 py-2 text-sm font-extrabold text-white disabled:opacity-50"
+            className="rounded-2xl bg-green-500 px-4 py-2 text-sm font-bold text-white disabled:opacity-50"
           >
             Estudiar
           </button>
           {!isNone && (
-            <button onClick={() => setShowOptions(true)} aria-label="Opciones del mazo" className="rounded-2xl border-2 border-slate-200 px-3 py-2 text-sm font-bold dark:border-slate-700">
+            <button onClick={() => setShowOptions(true)} aria-label="Opciones del mazo" className="rounded-2xl border border-slate-200 px-3 py-2 text-sm font-bold dark:border-slate-700">
               ⚙️
             </button>
           )}
@@ -499,7 +499,7 @@ function DeckDetail({
             create.reset();
             setShowForm(true);
           }}
-          className="rounded-2xl bg-sky-500 px-4 py-2 text-sm font-extrabold text-white"
+          className="rounded-2xl bg-sky-500 px-4 py-2 text-sm font-bold text-white"
         >
           + Nueva Ficha
         </button>
@@ -520,7 +520,7 @@ function DeckDetail({
 
       {node.children.length > 0 && (
         <div className="space-y-2">
-          <h2 className="text-sm font-extrabold uppercase tracking-wide text-slate-500">Mazos de este grupo</h2>
+          <h2 className="text-sm font-bold tracking-wide text-slate-500">Mazos de este grupo</h2>
           {node.children.map((ch) => (
             <DeckRow key={ch.name} node={ch} baseDepth={node.depth + 1} collapsed={collapsed} toggle={toggle} onOpen={go} onStudy={study} />
           ))}
@@ -533,7 +533,7 @@ function DeckDetail({
 
       {node.hasCards && (
         <div className="space-y-2">
-          <h2 className="text-sm font-extrabold uppercase tracking-wide text-slate-500">Fichas</h2>
+          <h2 className="text-sm font-bold tracking-wide text-slate-500">Fichas</h2>
           {cards.isLoading && <p className="text-slate-500">Cargando…</p>}
           {cards.error && <p className="text-sm font-bold text-red-500">No se pudieron cargar las fichas.</p>}
 
@@ -563,7 +563,7 @@ function DeckDetail({
           </ul>
 
           {list.length > visible && (
-            <button onClick={() => setVisible((v) => v + 50)} className="w-full rounded-2xl border-2 border-slate-200 py-3 text-sm font-bold dark:border-slate-700">
+            <button onClick={() => setVisible((v) => v + 50)} className="w-full rounded-2xl border border-slate-200 py-3 text-sm font-bold dark:border-slate-700">
               Mostrar más ({list.length - visible} restantes)
             </button>
           )}

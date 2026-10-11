@@ -24,13 +24,13 @@ export default function CreateFolderDialog({
           onCreate(name.trim(), color);
         }}
       >
-        <h2 className="text-lg font-extrabold">Nueva biblioteca</h2>
+        <h2 className="text-lg font-bold">Nueva biblioteca</h2>
         <input
           autoFocus
           value={name}
           onChange={(e) => setName(e.target.value)}
           placeholder="Ej. Simulacros Química"
-          className="w-full rounded-2xl border-2 border-slate-200 bg-transparent p-3 outline-none focus:border-sky-400 dark:border-slate-600"
+          className="w-full rounded-2xl border border-slate-200 bg-transparent p-3 outline-none focus:border-sky-400 dark:border-slate-600"
         />
         <div>
           <p className="mb-2 text-sm font-bold text-slate-500">Color</p>
@@ -48,13 +48,13 @@ export default function CreateFolderDialog({
           </div>
         </div>
         <div className="flex gap-2">
-          <button type="button" onClick={onClose} className="flex-1 rounded-2xl border-2 py-3 font-bold">
+          <button type="button" onClick={onClose} className="flex-1 rounded-2xl border py-3 font-bold">
             Cancelar
           </button>
           <button
             type="submit"
             disabled={saving || !name.trim()}
-            className="flex-1 rounded-2xl py-3 font-extrabold text-white disabled:opacity-50"
+            className="flex-1 rounded-2xl py-3 font-bold text-white disabled:opacity-50"
             style={{ backgroundColor: color }}
           >
             {saving ? 'Creando…' : 'Crear'}

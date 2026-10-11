@@ -86,26 +86,26 @@ export default function WordPopup({ word, sentence, onClose, onAdded }: Props) {
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-start justify-between gap-2">
-          <h2 className="text-2xl font-extrabold leading-tight">{word}</h2>
+          <h2 className="text-2xl font-bold leading-tight">{word}</h2>
           <button onClick={onClose} aria-label="Cerrar" className="text-2xl leading-none text-slate-400">
             ✕
           </button>
         </div>
 
         {done ? (
-          <p role="status" className="rounded-2xl bg-green-100 p-4 text-center font-extrabold text-green-800 dark:bg-green-950 dark:text-green-200">
+          <p role="status" className="rounded-2xl bg-green-100 p-4 text-center font-bold text-green-800 dark:bg-green-950 dark:text-green-200">
             {done === 'added' ? `✅ Ficha agregada a «${VOCAB_DECK}»` : `Ya tienes «${word.toLowerCase()}» en «${VOCAB_DECK}»`}
           </p>
         ) : (
           <>
             <div className="flex items-center gap-2 text-xs" role="group" aria-label="IA para traducir">
-              <span className="font-bold uppercase text-slate-500">Traducir con</span>
+              <span className="font-bold text-slate-500">Traducir con</span>
               {(['openrouter', 'gemini'] as const).map((p) => (
                 <button
                   key={p}
                   onClick={() => choose(p)}
                   aria-pressed={provider === p}
-                  className={`rounded-full border-2 px-3 py-1 font-bold ${
+                  className={`rounded-full border px-3 py-1 font-bold ${
                     provider === p ? 'border-sky-500 bg-sky-500 text-white' : 'border-slate-300 text-slate-600 dark:border-slate-600 dark:text-slate-300'
                   }`}
                 >
@@ -114,7 +114,7 @@ export default function WordPopup({ word, sentence, onClose, onAdded }: Props) {
               ))}
             </div>
             <label className="block space-y-1">
-              <span className="text-xs font-bold uppercase text-slate-500">Traducción</span>
+              <span className="text-xs font-bold text-slate-500">Traducción</span>
               <input
                 value={translation}
                 onChange={(e) => {
@@ -122,7 +122,7 @@ export default function WordPopup({ word, sentence, onClose, onAdded }: Props) {
                   setTranslation(e.target.value);
                 }}
                 placeholder={loading ? 'Traduciendo…' : 'Escribe la traducción'}
-                className="w-full rounded-xl border-2 border-slate-200 bg-transparent p-3 text-lg font-semibold outline-none focus:border-sky-400 dark:border-slate-600"
+                className="w-full rounded-xl border border-slate-200 bg-transparent p-3 text-lg font-semibold outline-none focus:border-sky-400 dark:border-slate-600"
               />
             </label>
             {usedOther && !aiError && (
@@ -133,7 +133,7 @@ export default function WordPopup({ word, sentence, onClose, onAdded }: Props) {
             {aiError && (
               <div className="space-y-2 rounded-lg bg-amber-50 p-2 text-xs text-amber-800 dark:bg-amber-950 dark:text-amber-200">
                 <p className="whitespace-pre-line">{aiError}</p>
-                <button onClick={() => choose(other)} className="rounded-lg bg-amber-600 px-3 py-1.5 font-extrabold text-white">
+                <button onClick={() => choose(other)} className="rounded-lg bg-amber-600 px-3 py-1.5 font-bold text-white">
                   🔁 Probar con {PROVIDER_NAMES[other]}
                 </button>
                 <p>O escribe la traducción tú.</p>
@@ -142,7 +142,7 @@ export default function WordPopup({ word, sentence, onClose, onAdded }: Props) {
 
             {sentence && (
               <div className="space-y-1">
-                <span className="text-xs font-bold uppercase text-slate-500">Ejemplo</span>
+                <span className="text-xs font-bold text-slate-500">Ejemplo</span>
                 <p className="rounded-xl bg-slate-100 p-3 text-sm leading-relaxed dark:bg-slate-900">
                   {example.map((part, i) =>
                     i % 2 === 1 ? (
@@ -160,7 +160,7 @@ export default function WordPopup({ word, sentence, onClose, onAdded }: Props) {
             <button
               onClick={add}
               disabled={saving || !translation.trim()}
-              className="w-full rounded-2xl bg-sky-500 py-3 font-extrabold text-white disabled:opacity-50"
+              className="w-full rounded-2xl bg-sky-500 py-3 font-bold text-white disabled:opacity-50"
             >
               {saving ? 'Guardando…' : '➕ Agregar a Vocabulario'}
             </button>

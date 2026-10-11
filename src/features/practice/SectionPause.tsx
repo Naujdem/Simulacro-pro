@@ -31,10 +31,10 @@ export default function SectionPause({ done, next, nextNumber, sectionCount, ans
   return (
     <div className="mx-auto min-h-dvh max-w-xl space-y-5 p-6">
       <div className="space-y-1 text-center">
-        <p className="text-sm font-bold uppercase tracking-wide text-slate-500">
+        <p className="text-sm font-bold tracking-wide text-slate-500">
           Sección {nextNumber - 1} de {sectionCount} completada
         </p>
-        <h1 className="text-2xl font-extrabold">☕ {done.name}</h1>
+        <h1 className="text-2xl font-bold">☕ {done.name}</h1>
         <p className="text-sm text-slate-500">Buen momento para respirar un poco.</p>
       </div>
 
@@ -46,14 +46,14 @@ export default function SectionPause({ done, next, nextNumber, sectionCount, ans
         ].map(([i, v, l]) => (
           <div key={String(l)} className="rounded-2xl bg-white p-3 shadow-sm dark:bg-slate-800">
             <div>{i}</div>
-            <div className="text-xl font-extrabold">{v}</div>
+            <div className="text-xl font-bold">{v}</div>
             <div className="text-xs text-slate-500">{l}</div>
           </div>
         ))}
       </div>
       <p className="text-center text-sm font-bold">{pct}% de aciertos en esta sección</p>
 
-      <div className="space-y-2 rounded-2xl border-2 border-slate-200 p-4 dark:border-slate-700">
+      <div className="space-y-2 rounded-2xl border border-slate-200 p-4 dark:border-slate-700">
         <div className="flex justify-between text-sm font-bold">
           <span>Progreso del simulacro</span>
           <span>
@@ -69,10 +69,10 @@ export default function SectionPause({ done, next, nextNumber, sectionCount, ans
       </div>
 
       <div className="space-y-3">
-        <button onClick={onContinue} disabled={finishing} className="w-full rounded-2xl bg-sky-500 py-4 text-base font-extrabold text-white disabled:opacity-50">
+        <button onClick={onContinue} disabled={finishing} className="w-full rounded-2xl bg-sky-500 py-4 text-base font-bold text-white disabled:opacity-50">
           Continuar → {next.name} ({next.total} {next.total === 1 ? 'pregunta' : 'preguntas'})
         </button>
-        <button onClick={onFinish} disabled={finishing} className="w-full rounded-2xl border-2 border-slate-300 py-4 font-bold disabled:opacity-50 dark:border-slate-600">
+        <button onClick={onFinish} disabled={finishing} className="w-full rounded-2xl border border-slate-300 py-4 font-bold disabled:opacity-50 dark:border-slate-600">
           {finishing ? 'Guardando…' : 'Terminar aquí y ver el resultado parcial'}
         </button>
         <button onClick={onExit} disabled={finishing} className="w-full py-2 text-sm font-bold text-slate-500">

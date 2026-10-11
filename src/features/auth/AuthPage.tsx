@@ -39,22 +39,22 @@ export default function AuthPage() {
     }
   }
 
-  const input = 'w-full rounded-2xl border-2 border-slate-200 bg-transparent p-4 outline-none focus:border-sky-400 dark:border-slate-700';
+  const input = 'w-full rounded-2xl border border-slate-200 bg-transparent p-4 outline-none focus:border-sky-400 dark:border-slate-700';
 
   return (
     <div className="mx-auto flex min-h-dvh max-w-sm flex-col justify-center gap-4 p-6">
-      <h1 className="text-center text-4xl font-extrabold text-sky-500">SimulaPro</h1>
+      <h1 className="text-center text-4xl font-bold text-sky-500">SimulaPro</h1>
       <p className="text-center text-slate-500">Practica tus simulacros, sube de nivel.</p>
 
       <form onSubmit={submit} className="space-y-3">
         <input className={input} type="email" required placeholder="Correo" value={email} onChange={(e) => setEmail(e.target.value)} />
         <input className={input} type="password" required minLength={6} placeholder="Contraseña" value={password} onChange={(e) => setPassword(e.target.value)} />
-        <button disabled={busy} className="w-full rounded-2xl bg-sky-500 py-4 font-extrabold uppercase text-white disabled:opacity-60">
+        <button disabled={busy} className="w-full rounded-2xl bg-sky-500 py-4 font-bold text-white disabled:opacity-60">
           {mode === 'in' ? 'Entrar' : 'Crear cuenta'}
         </button>
       </form>
 
-      <button onClick={google} className="w-full rounded-2xl border-2 border-slate-300 py-4 font-bold dark:border-slate-600">
+      <button onClick={google} className="w-full rounded-2xl border border-slate-300 py-4 font-bold dark:border-slate-600">
         Continuar con Google
       </button>
 

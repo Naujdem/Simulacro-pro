@@ -68,14 +68,14 @@ export default function StatsPage() {
 
   const tile = (v: string | number, l: string) => (
     <div className="rounded-2xl bg-white p-3 text-center shadow-sm dark:bg-slate-800">
-      <div className="text-xl font-extrabold">{v}</div>
+      <div className="text-xl font-bold">{v}</div>
       <div className="text-xs text-slate-500">{l}</div>
     </div>
   );
 
   return (
     <div className="space-y-5 p-4">
-      <h1 className="text-2xl font-extrabold">Progreso</h1>
+      <h1 className="text-2xl font-bold">Progreso</h1>
 
       <div className="grid grid-cols-2 gap-3">
         {tile(`🔥 ${p?.current_streak ?? 0}`, 'Racha actual (días)')}
@@ -84,7 +84,7 @@ export default function StatsPage() {
         {tile(`${Math.round(totalSec / 60)} min`, 'Tiempo total')}
       </div>
 
-      <Link to="/suggestions" className="flex items-center justify-between rounded-2xl bg-white p-4 font-extrabold shadow-sm dark:bg-slate-800">
+      <Link to="/suggestions" className="flex items-center justify-between rounded-2xl bg-white p-4 font-bold shadow-sm dark:bg-slate-800">
         <span>💡 Sugerencias guardadas</span>
         <span className="text-slate-400">›</span>
       </Link>
@@ -96,7 +96,7 @@ export default function StatsPage() {
             role="tab"
             aria-selected={range === r.id}
             onClick={() => setRange(r.id)}
-            className={`rounded-xl border-2 px-1 py-2 text-xs font-bold ${
+            className={`rounded-xl border px-1 py-2 text-xs font-bold ${
               range === r.id ? 'border-sky-500 bg-sky-500 text-white' : 'border-slate-200 dark:border-slate-700'
             }`}
           >
@@ -109,7 +109,7 @@ export default function StatsPage() {
       )}
 
       <section className="rounded-2xl bg-white p-4 shadow-sm dark:bg-slate-800">
-        <h2 className="mb-3 font-extrabold">Aciertos por biblioteca</h2>
+        <h2 className="mb-3 font-bold">Aciertos por biblioteca</h2>
         {bars.length ? (
           <BarChart items={bars} />
         ) : (
@@ -118,7 +118,7 @@ export default function StatsPage() {
       </section>
 
       <section className="rounded-2xl bg-white p-4 shadow-sm dark:bg-slate-800">
-        <h2 className="mb-1 font-extrabold">Evolución (últimos {Math.min(points.length || 10, 10)} simulacros)</h2>
+        <h2 className="mb-1 font-bold">Evolución (últimos {Math.min(points.length || 10, 10)} simulacros)</h2>
         {diff != null && (
           <p className="mb-2 text-xs text-slate-500">
             {diff === 0 ? 'Tu último resultado está igual que tu promedio anterior.' : `Tu último resultado está ${Math.abs(diff)} puntos ${diff > 0 ? 'por encima ↑' : 'por debajo ↓'} de tu promedio anterior.`}
@@ -132,17 +132,17 @@ export default function StatsPage() {
       </section>
 
       <section className="rounded-2xl bg-white p-4 shadow-sm dark:bg-slate-800">
-        <h2 className="mb-3 font-extrabold">Preguntas más falladas</h2>
+        <h2 className="mb-3 font-bold">Preguntas más falladas</h2>
         {failed.length ? (
           <ol className="space-y-2 text-sm">
             {failed.map((f, i) => (
               <li key={f.questionId} className="flex items-start gap-3">
-                <span className="w-5 shrink-0 text-right font-extrabold text-slate-400">{i + 1}</span>
+                <span className="w-5 shrink-0 text-right font-bold text-slate-400">{i + 1}</span>
                 <span className="min-w-0 flex-1">
                   <span className="line-clamp-2">{f.prompt.replace(/\{\{\d+\}\}/g, '____')}</span>
                   <span className="block truncate text-xs text-slate-500">{f.exam}</span>
                 </span>
-                <span className="shrink-0 rounded-lg bg-red-100 px-2 py-1 text-xs font-extrabold text-red-700 dark:bg-red-950 dark:text-red-300">
+                <span className="shrink-0 rounded-lg bg-red-100 px-2 py-1 text-xs font-bold text-red-700 dark:bg-red-950 dark:text-red-300">
                   {f.wrong === 1 ? '1 fallo' : `${f.wrong} fallos`} de {f.answered}
                 </span>
               </li>
@@ -154,13 +154,13 @@ export default function StatsPage() {
       </section>
 
       <section>
-        <h2 className="mb-2 font-extrabold">Historial de intentos</h2>
+        <h2 className="mb-2 font-bold">Historial de intentos</h2>
         <ul className="space-y-2">
           {list.slice(0, 30).map((a) => (
             <li key={a.id} className="flex justify-between rounded-xl bg-white p-3 text-sm shadow-sm dark:bg-slate-800">
               <span>
                 <b>{a.mode === 'quick_review' ? '🧠 Repaso Rápido' : a.mode === 'surprise' ? '🎲 Simulacro Sorpresa' : (a.exams?.title ?? 'Simulacro eliminado')}</b>
-                {a.time_limit_sec ? <span className="ml-1 rounded-full bg-slate-200 px-2 py-0.5 text-[10px] font-extrabold dark:bg-slate-700">⏱ Examen cronometrado</span> : null}
+                {a.time_limit_sec ? <span className="ml-1 rounded-full bg-slate-200 px-2 py-0.5 text-[10px] font-bold dark:bg-slate-700">⏱ Examen cronometrado</span> : null}
                 <br />
                 <span className="text-xs text-slate-500">{new Date(a.finished_at).toLocaleString()}</span>
               </span>

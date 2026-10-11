@@ -6,9 +6,9 @@ export default function SuggestionView({ content }: { content: string }) {
     <div className="space-y-3 text-sm leading-relaxed">
       <ReactMarkdown
         components={{
-          h1: (p) => <h1 className="text-xl font-extrabold" {...p} />,
-          h2: (p) => <h2 className="mt-5 text-lg font-extrabold text-sky-600 dark:text-sky-400" {...p} />,
-          h3: (p) => <h3 className="mt-4 font-extrabold" {...p} />,
+          h1: (p) => <h1 className="text-xl font-bold" {...p} />,
+          h2: (p) => <h2 className="mt-5 text-lg font-bold text-sky-600 dark:text-sky-400" {...p} />,
+          h3: (p) => <h3 className="mt-4 font-bold" {...p} />,
           p: (p) => <p {...p} />,
           ul: (p) => <ul className="list-disc space-y-1 pl-5" {...p} />,
           ol: (p) => <ol className="list-decimal space-y-1 pl-5" {...p} />,

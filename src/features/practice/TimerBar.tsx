@@ -7,7 +7,7 @@ export default function TimerBar({ remaining, limitSec }: { remaining: number; l
     <div
       role="timer"
       aria-label={`${formatClock(remaining)} restantes`}
-      className={`sticky top-0 z-20 flex items-center justify-between gap-3 px-4 py-2 text-sm font-extrabold text-white ${
+      className={`sticky top-0 z-20 flex items-center justify-between gap-3 px-4 py-2 text-sm font-bold text-white ${
         low ? 'bg-red-600' : 'bg-slate-800 dark:bg-slate-700'
       }`}
     >

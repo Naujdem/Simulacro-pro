@@ -190,7 +190,7 @@ export default function EditExamPage() {
   }
 
   const field =
-    'w-full rounded-xl border-2 border-slate-200 bg-transparent p-3 outline-none focus:border-sky-400 dark:border-slate-700';
+    'w-full rounded-xl border border-slate-200 bg-transparent p-3 outline-none focus:border-sky-400 dark:border-slate-700';
 
   if (data.isError) {
     return (
@@ -211,7 +211,7 @@ export default function EditExamPage() {
         <button onClick={cancel} className="rounded-xl px-2 py-1 text-lg" aria-label="Volver">
           ←
         </button>
-        <h1 className="text-2xl font-extrabold">Editar simulacro</h1>
+        <h1 className="text-2xl font-bold">Editar simulacro</h1>
       </header>
 
       <input className={field} placeholder="Título" value={title} onChange={(e) => { setTitle(e.target.value); setDirty(true); }} />
@@ -242,7 +242,7 @@ export default function EditExamPage() {
 
       <div className="flex gap-2">
         <select
-          className="flex-1 rounded-2xl border-2 bg-transparent px-3 py-3 text-sm font-bold dark:border-slate-700"
+          className="flex-1 rounded-2xl border bg-transparent px-3 py-3 text-sm font-bold dark:border-slate-700"
           value={newType}
           onChange={(e) => setNewType(e.target.value as QType)}
         >
@@ -252,7 +252,7 @@ export default function EditExamPage() {
             </option>
           ))}
         </select>
-        <button onClick={addQuestion} className="rounded-2xl border-2 border-dashed px-4 py-3 text-sm font-bold text-slate-500">
+        <button onClick={addQuestion} className="rounded-2xl border border-dashed px-4 py-3 text-sm font-bold text-slate-500">
           + Agregar pregunta
         </button>
       </div>
@@ -260,13 +260,13 @@ export default function EditExamPage() {
       {error && <p className="whitespace-pre-line rounded-xl bg-red-50 p-3 text-sm text-red-600 dark:bg-red-950">{error}</p>}
 
       <div className="grid grid-cols-2 gap-2">
-        <button onClick={cancel} disabled={saving} className="rounded-2xl border-2 py-4 font-bold disabled:opacity-50">
+        <button onClick={cancel} disabled={saving} className="rounded-2xl border py-4 font-bold disabled:opacity-50">
           Cancelar
         </button>
         <button
           onClick={save}
           disabled={saving}
-          className="rounded-2xl bg-green-500 py-4 font-extrabold uppercase text-white disabled:opacity-50"
+          className="rounded-2xl bg-green-500 py-4 font-bold text-white disabled:opacity-50"
         >
           {saving ? 'Guardando…' : 'Guardar cambios'}
         </button>
@@ -370,7 +370,7 @@ function QuestionEditor({
                   })
                 }
               />
-              <span className="w-5 text-sm font-bold uppercase">{o.id}</span>
+              <span className="w-5 text-sm font-bold">{o.id}</span>
               <input
                 className={f}
                 value={o.text}
