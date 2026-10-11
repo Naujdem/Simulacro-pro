@@ -2,7 +2,10 @@ import { useEffect, useState } from 'react';
 import { Navigate, useNavigate } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { QUICK_REVIEW_ID, usePractice } from '@/features/practice/practiceStore';
-import { addToReview, fetchReviewIds, removeFromReview } from '@/features/exams/api';
+import { addToReview, fetchExams, fetchReviewIds, removeFromReview } from '@/features/exams/api';
+import { generateSuggestion, MIN_FAILED, providerName } from '@/features/suggestions/api';
+import { useDraft } from '@/features/suggestions/draftStore';
+import { getProvider, setProvider, type AiProvider } from '@/features/ai/translate';
 import QuestionImage from '@/components/QuestionImage';
 import AiPanel from '@/features/ai/AiPanel';
 import { correctText, type Question } from '@/lib/grading';
@@ -28,6 +31,23 @@ export default function ResultsPage() {
     mutationFn: ({ q, saved }: { q: Question; saved: boolean }) =>
       saved ? removeFromReview(q.id) : addToReview(q.id, q.exam_id ?? examId),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['review-ids'] }),
+  });
+
+  const exams = useQuery({ queryKey: ['exams'], queryFn: fetchExams });
+  const suggest = useMutation({
+    mutationFn: (provider: AiProvider) => {
+      const st = usePractice.getState();
+      const answered = st.queue.slice(0, st.results.length);
+      const failed = answered.filter((_, i) => !st.results[i].correct);
+      const quick = st.examId === QUICK_REVIEW_ID;
+      const title = quick ? 'Repaso rápido' : (exams.data?.find((e) => e.id === st.examId)?.title ?? 'Simulacro');
+      const sections = [...new Set(answered.map((q) => q.section).filter((x): x is string => !!x))];
+      return generateSuggestion({ examId: quick ? null : st.examId, examTitle: title, failed, sections, provider });
+    },
+    onSuccess: (d) => {
+      useDraft.getState().set(d);
+      nav('/suggestion');
+    },
   });
 
   // Al llegar aquí, refresca las listas que dependen del intento recién guardado
@@ -130,6 +150,32 @@ export default function ResultsPage() {
           <button onClick={() => again(usePractice.getState().retryWrongQueue(), 'retry_wrong')} className="w-full rounded-2xl bg-sky-500 py-4 font-extrabold uppercase text-white">
             Repetir solo las falladas ({wrong})
           </button>
+        )}
+        {wrong >= MIN_FAILED && (
+          <div className="space-y-2">
+            <button
+              disabled={suggest.isPending}
+              onClick={() => suggest.mutate(getProvider())}
+              className="w-full rounded-2xl bg-violet-500 py-4 font-extrabold uppercase text-white disabled:opacity-60"
+            >
+              {suggest.isPending ? 'Generando sugerencia…' : '💡 Generar sugerencia de estudio'}
+            </button>
+            {suggest.isError && (
+              <div role="alert" className="space-y-2 rounded-xl bg-red-50 p-3 text-xs text-red-600 dark:bg-red-950 dark:text-red-300">
+                <p className="whitespace-pre-line">{(suggest.error as Error).message}</p>
+                <button
+                  onClick={() => {
+                    const other: AiProvider = getProvider() === 'gemini' ? 'openrouter' : 'gemini';
+                    setProvider(other);
+                    suggest.mutate(other);
+                  }}
+                  className="rounded-lg border-2 border-red-300 px-3 py-1.5 font-extrabold"
+                >
+                  🔁 Probar con {providerName(getProvider() === 'gemini' ? 'openrouter' : 'gemini')}
+                </button>
+              </div>
+            )}
+          </div>
         )}
         <button onClick={() => again(usePractice.getState().allQuestions, 'full')} className="w-full rounded-2xl border-2 border-slate-300 py-4 font-bold">
           Repetir todo
