@@ -1,0 +1,749 @@
+diff --git a/src/components/Collapsible.tsx b/src/components/Collapsible.tsx
+new file mode 100644
+index 0000000..ea05668
+--- /dev/null
++++ b/src/components/Collapsible.tsx
+@@ -0,0 +1,78 @@
++import { useId, useState, type ReactNode } from 'react';
++import Icon from './Icon';
++
++function readOpen(key: string | undefined, fallback: boolean): boolean {
++  if (!key) return fallback;
++  try {
++    const v = localStorage.getItem(`collapsible:${key}`);
++    return v === null ? fallback : v === '1';
++  } catch {
++    return fallback;
++  }
++}
++
++interface Props {
++  title: ReactNode;
++  /** Número o texto pequeño junto al título (por ejemplo, cuántos elementos hay dentro). */
++  count?: ReactNode;
++  /** Si se pasa, recuerda si el usuario la dejó abierta o cerrada. */
++  storageKey?: string;
++  defaultOpen?: boolean;
++  /** 'plain': título pequeño sobre la página. 'card': todo el bloque dentro de una tarjeta. */
++  variant?: 'plain' | 'card';
++  children: ReactNode;
++}
++
++/** Sección que se abre y se cierra tocando su título; sirve para que no se vea todo a la vez. */
++export default function Collapsible({ title, count, storageKey, defaultOpen = false, variant = 'plain', children }: Props) {
++  const [open, setOpen] = useState(() => readOpen(storageKey, defaultOpen));
++  const bodyId = useId();
++
++  const toggle = () => {
++    const next = !open;
++    setOpen(next);
++    if (storageKey) {
++      try {
++        localStorage.setItem(`collapsible:${storageKey}`, next ? '1' : '0');
++      } catch {
++        /* sin almacenamiento: solo se pierde la memoria de la preferencia */
++      }
++    }
++  };
++
++  const card = variant === 'card';
++  const header = (
++    <button
++      type="button"
++      onClick={toggle}
++      aria-expanded={open}
++      aria-controls={bodyId}
++      className={`flex w-full items-center justify-between gap-3 text-left ${card ? 'p-4' : 'py-1'}`}
++    >
++      <span className={`flex items-center gap-2 ${card ? 'font-semibold' : 'section-title'}`}>
++        {title}
++        {count !== undefined && (
++          <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-semibold normal-case tracking-normal text-slate-500 dark:bg-slate-700 dark:text-slate-300">
++            {count}
++          </span>
++        )}
++      </span>
++      <Icon
++        name="chevron"
++        size={18}
++        className={`shrink-0 text-slate-400 transition-transform duration-200 ${open ? 'rotate-90' : ''}`}
++      />
++    </button>
++  );
++
++  return (
++    <section className={card ? 'card' : undefined}>
++      {header}
++      {open && (
++        <div id={bodyId} className={card ? 'px-4 pb-4' : 'mt-2'}>
++          {children}
++        </div>
++      )}
++    </section>
++  );
++}
+diff --git a/src/components/Icon.tsx b/src/components/Icon.tsx
+index cd1d829..eded132 100644
+--- a/src/components/Icon.tsx
++++ b/src/components/Icon.tsx
+@@ -12,6 +12,8 @@ const PATHS = {
+   more: ['M12 5.5v.01', 'M12 12v.01', 'M12 18.5v.01'],
+   pencil: ['M4 20h4L19 9l-4-4L4 16z', 'M13.5 6.5l4 4'],
+   trash: ['M4 7h16', 'M10 11v6', 'M14 11v6', 'M6 7l1 13h10l1-13', 'M9 7V4h6v3'],
++  folder: ['M3 6a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z'],
++  folderPlus: ['M3 6a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z', 'M12 10.5v5', 'M9.5 13h5'],
+   bolt: ['M13 2 4 14h7l-1 8 9-12h-7z'],
+   dice: ['M7 4h10a3 3 0 0 1 3 3v10a3 3 0 0 1-3 3H7a3 3 0 0 1-3-3V7a3 3 0 0 1 3-3z', 'M9 9v.01', 'M15 9v.01', 'M9 15v.01', 'M15 15v.01'],
+   bookmark: ['M6 3h12v18l-6-4-6 4z'],
+diff --git a/src/components/Layout.tsx b/src/components/Layout.tsx
+index 38b115e..85421e8 100644
+--- a/src/components/Layout.tsx
++++ b/src/components/Layout.tsx
+@@ -22,17 +22,20 @@ export default function Layout() {
+   const belongs = (i: Item) => i.also?.some((p) => pathname === p || pathname.startsWith(`${p}/`)) ?? false;
+ 
+   return (
+-    <div className="mx-auto min-h-dvh max-w-xl pb-24">
+-      <Outlet />
+-      <nav className="fixed inset-x-0 bottom-0 z-10 border-t border-slate-200/70 bg-white/90 pb-[env(safe-area-inset-bottom)] backdrop-blur dark:border-slate-800 dark:bg-slate-900/90">
+-        <ul className="mx-auto flex max-w-xl justify-around">
++    <div className="min-h-dvh pb-24 md:pb-8 md:pl-24">
++      {/* Móvil: columna angosta con barra abajo. PC (md+): contenido más ancho y barra lateral a la izquierda. */}
++      <div className="mx-auto max-w-xl md:max-w-5xl md:px-4">
++        <Outlet />
++      </div>
++      <nav className="fixed inset-x-0 bottom-0 z-10 border-t border-slate-200/70 bg-white/90 pb-[env(safe-area-inset-bottom)] backdrop-blur md:inset-x-auto md:inset-y-0 md:left-0 md:w-24 md:border-r md:border-t-0 md:pb-0 dark:border-slate-800 dark:bg-slate-900/90">
++        <ul className="mx-auto flex max-w-xl justify-around md:max-w-none md:flex-col md:justify-start md:gap-1 md:px-2 md:pt-6">
+           {items.map((i) => (
+-            <li key={i.to} className="flex-1">
++            <li key={i.to} className="flex-1 md:flex-none">
+               <NavLink
+                 to={i.to}
+                 end={i.to === '/'}
+                 className={({ isActive }) =>
+-                  `flex flex-col items-center gap-0.5 px-2 py-2 text-[11px] font-medium transition-colors ${
++                  `flex flex-col items-center gap-0.5 px-2 py-2 text-[11px] font-medium transition-colors md:rounded-xl md:py-3 md:hover:bg-slate-100 md:dark:hover:bg-slate-800 ${
+                     isActive || belongs(i) ? 'text-sky-500' : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-300'
+                   }`
+                 }
+diff --git a/src/features/exams/HomePage.tsx b/src/features/exams/HomePage.tsx
+index f5027fe..7c4cc23 100644
+--- a/src/features/exams/HomePage.tsx
++++ b/src/features/exams/HomePage.tsx
+@@ -1,11 +1,9 @@
+ import { useState } from 'react';
+ import { Link, useNavigate } from 'react-router-dom';
+-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
++import { useMutation, useQuery } from '@tanstack/react-query';
+ import {
+-  createFolder,
+   fetchBestScores,
+   fetchExams,
+-  fetchFolders,
+   fetchProfile,
+   fetchReviewIds,
+   fetchWrongCount,
+@@ -15,17 +13,14 @@ import {
+ import { QUICK_REVIEW_ID, SURPRISE_ID, usePractice } from '@/features/practice/practiceStore';
+ import { pendingProgress, setLastSlot } from '@/features/practice/progress';
+ import { useProgressVersion } from '@/features/practice/progressSync';
+-import CreateFolderDialog from './CreateFolderDialog';
+ import ExamStartSheet from './ExamStartSheet';
+ import Icon, { type IconName } from '@/components/Icon';
++import Collapsible from '@/components/Collapsible';
+ 
+ export default function HomePage() {
+   const nav = useNavigate();
+-  const qc = useQueryClient();
+-  const [creating, setCreating] = useState(false);
+   const profile = useQuery({ queryKey: ['profile'], queryFn: fetchProfile });
+   const exams = useQuery({ queryKey: ['exams'], queryFn: fetchExams });
+-  const folders = useQuery({ queryKey: ['folders'], queryFn: fetchFolders });
+   const best = useQuery({ queryKey: ['best'], queryFn: fetchBestScores });
+   const reviewIds = useQuery({ queryKey: ['review-ids'], queryFn: fetchReviewIds });
+   const reviewCount = reviewIds.data?.length ?? 0;
+@@ -51,14 +46,6 @@ export default function HomePage() {
+     },
+   });
+ 
+-  const create = useMutation({
+-    mutationFn: ({ name, color }: { name: string; color: string }) => createFolder(name, color),
+-    onSuccess: () => {
+-      qc.invalidateQueries({ queryKey: ['folders'] });
+-      setCreating(false);
+-    },
+-  });
+-
+   const p = profile.data;
+   const xpInLevel = p ? p.xp - 100 * (p.level - 1) ** 2 : 0;
+   const xpForLevel = p ? 100 * p.level ** 2 - 100 * (p.level - 1) ** 2 : 100;
+@@ -67,7 +54,7 @@ export default function HomePage() {
+   return (
+     <div className="space-y-6 p-4">
+       <header className="flex items-center justify-between">
+-        <h1 className="text-2xl font-bold tracking-tight">Hola{p?.display_name ? `, ${p.display_name}` : ''}</h1>
++        <h1 className="text-2xl font-bold tracking-tight">Hola{p?.display_name ? `, ${p.display_name}` : ''} <span aria-hidden="true">👋</span></h1>
+         <span
+           className="flex items-center gap-1 text-sm font-semibold tabular-nums text-slate-600 dark:text-slate-300"
+           title="Racha de días"
+@@ -88,39 +75,6 @@ export default function HomePage() {
+         </div>
+       </section>
+ 
+-      <section>
+-        <div className="mb-2 flex items-center justify-between">
+-          <h2 className="section-title">Bibliotecas</h2>
+-          <button type="button" onClick={() => setCreating(true)} className="flex items-center gap-1 text-sm font-semibold text-sky-600 dark:text-sky-400">
+-            <Icon name="plus" size={16} strokeWidth={2.25} />
+-            Nueva
+-          </button>
+-        </div>
+-        <div className="-mx-4 flex gap-3 overflow-x-auto px-4 pb-2">
+-          {(folders.data ?? []).map((f) => {
+-            const count = (exams.data ?? []).filter((e) => e.folder_id === f.id).length;
+-            return (
+-              <button
+-                key={f.id}
+-                onClick={() => nav(`/folders/${f.id}`)}
+-                className="card w-36 shrink-0 p-4 text-left transition active:scale-[.98]"
+-              >
+-                <span className="mb-3 block h-1.5 w-8 rounded-full" style={{ backgroundColor: f.color ?? '#0ea5e9' }} />
+-                <p className="line-clamp-2 font-semibold leading-tight">{f.name}</p>
+-                <p className="mt-1.5 text-xs text-slate-500">
+-                  {count} {count === 1 ? 'simulacro' : 'simulacros'}
+-                </p>
+-              </button>
+-            );
+-          })}
+-          {!folders.data?.length && !folders.isLoading && (
+-            <p className="w-full rounded-2xl border border-dashed border-slate-300 px-4 py-6 text-sm text-slate-500 dark:border-slate-700">
+-              Aún no tienes bibliotecas. Pulsa «Nueva» para crear una, por ejemplo “Simulacros Química”.
+-            </p>
+-          )}
+-        </div>
+-      </section>
+-
+       <section>
+         <h2 className="section-title mb-2">Practicar</h2>
+         <div className="card divide-y divide-slate-100 overflow-hidden dark:divide-slate-700/60">
+@@ -182,15 +136,7 @@ export default function HomePage() {
+         {quick.isError && <p className="mt-2 text-center text-sm text-red-500">{(quick.error as Error).message}</p>}
+       </section>
+ 
+-      <section>
+-        <div className="mb-2 flex items-center justify-between">
+-          <h2 className="section-title">Simulacros recientes</h2>
+-          {!!recent.length && (
+-            <Link to="/library" className="text-sm font-semibold text-sky-600 dark:text-sky-400">
+-              Ver todos
+-            </Link>
+-          )}
+-        </div>
++      <Collapsible title="Simulacros recientes" count={recent.length || undefined} storageKey="home-recientes">
+         {!recent.length && (
+           <Link to="/new" className="block rounded-2xl border border-dashed border-slate-300 p-6 text-center text-slate-500 dark:border-slate-700">
+             Aún no tienes simulacros. ¡Crea o importa el primero!
+@@ -225,19 +171,15 @@ export default function HomePage() {
+             );
+           })}
+         </ul>
+-      </section>
+-
+-      {create.isError && <p className="text-center text-sm text-red-500">{(create.error as Error).message}</p>}
++        {!!recent.length && (
++          <Link to="/library" className="mt-3 block text-center text-sm font-semibold text-sky-600 dark:text-sky-400">
++            Ver todos
++          </Link>
++        )}
++      </Collapsible>
+ 
+       {sheet && <ExamStartSheet exam={sheet} onClose={() => setSheet(null)} />}
+ 
+-      {creating && (
+-        <CreateFolderDialog
+-          saving={create.isPending}
+-          onClose={() => setCreating(false)}
+-          onCreate={(name, color) => create.mutate({ name, color })}
+-        />
+-      )}
+     </div>
+   );
+ }
+diff --git a/src/features/exams/LibraryPage.tsx b/src/features/exams/LibraryPage.tsx
+index 52a5067..58b83cf 100644
+--- a/src/features/exams/LibraryPage.tsx
++++ b/src/features/exams/LibraryPage.tsx
+@@ -3,7 +3,8 @@ import { Link, useNavigate } from 'react-router-dom';
+ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+ import { supabase } from '@/lib/supabase';
+ import Icon from '@/components/Icon';
+-import { fetchBestScores, fetchExams, type Exam } from './api';
++import { createFolder, fetchBestScores, fetchExams, fetchFolders, type Exam } from './api';
++import CreateFolderDialog from './CreateFolderDialog';
+ import ExamStartSheet from './ExamStartSheet';
+ 
+ export default function LibraryPage() {
+@@ -11,10 +12,13 @@ export default function LibraryPage() {
+   const qc = useQueryClient();
+   const [q, setQ] = useState('');
+   const [subject, setSubject] = useState<string | null>(null);
+-  const [menu, setMenu] = useState<string | null>(null);
++  const [menu, setMenu] = useState<string | null>(null); // menú ⋮ de un simulacro
++  const [newMenu, setNewMenu] = useState(false); // menú del botón "Nuevo"
++  const [creating, setCreating] = useState(false); // diálogo de nueva biblioteca
+   const [sheet, setSheet] = useState<Exam | null>(null); // simulacro abierto: completo o repaso de las que tengo mal
+ 
+   const exams = useQuery({ queryKey: ['exams'], queryFn: fetchExams });
++  const folders = useQuery({ queryKey: ['folders'], queryFn: fetchFolders });
+   const best = useQuery({ queryKey: ['best'], queryFn: fetchBestScores });
+ 
+   const del = useMutation({
+@@ -25,21 +29,129 @@ export default function LibraryPage() {
+     onSuccess: () => qc.invalidateQueries({ queryKey: ['exams'] }),
+   });
+ 
+-  const subjects = useMemo(() => [...new Set((exams.data ?? []).map((e) => e.subject ?? 'Sin tema'))], [exams.data]);
+-  const list = (exams.data ?? []).filter(
+-    (e) =>
+-      (!subject || (e.subject ?? 'Sin tema') === subject) &&
+-      e.title.toLowerCase().includes(q.toLowerCase()),
+-  );
++  const create = useMutation({
++    mutationFn: ({ name, color }: { name: string; color: string }) => createFolder(name, color),
++    onSuccess: () => {
++      qc.invalidateQueries({ queryKey: ['folders'] });
++      setCreating(false);
++    },
++  });
++
++  const allExams = exams.data ?? [];
++  const allFolders = folders.data ?? [];
++  const folderName = useMemo(() => new Map(allFolders.map((f) => [f.id, f.name])), [allFolders]);
++  const term = q.trim().toLowerCase();
++  const searching = term.length > 0;
++
++  // Sin buscar: bibliotecas arriba y, debajo, solo los simulacros que no están en ninguna biblioteca.
++  // Buscando: se muestran los simulacros que coinciden, estén donde estén.
++  const independents = allExams.filter((e) => !e.folder_id);
++  const subjects = useMemo(() => [...new Set(independents.map((e) => e.subject ?? 'Sin tema'))], [independents]);
++  const activeSubject = subject && subjects.includes(subject) ? subject : null;
++  const matches = (e: Exam) => e.title.toLowerCase().includes(term);
++  const list = searching
++    ? allExams.filter(matches)
++    : independents.filter((e) => !activeSubject || (e.subject ?? 'Sin tema') === activeSubject);
++  const shownFolders = searching ? allFolders.filter((f) => f.name.toLowerCase().includes(term)) : allFolders;
++  const countIn = (id: string) => allExams.filter((e) => e.folder_id === id).length;
++  const empty = !exams.isLoading && !folders.isLoading && !shownFolders.length && !list.length;
++
++  const examRow = (e: Exam) => {
++    const score = best.data?.[e.id];
++    const where = searching && e.folder_id ? folderName.get(e.folder_id) : null;
++    return (
++      <li key={e.id} className="card relative flex items-center gap-1 pr-1.5">
++        <button className="min-w-0 flex-1 p-4 text-left" onClick={() => setSheet(e)}>
++          <p className="truncate font-semibold">{e.title}</p>
++          <p className="mt-0.5 truncate text-xs text-slate-500">
++            {where ? `${where} · ` : ''}
++            {e.subject ?? 'Sin tema'} · {e.question_count} preguntas
++          </p>
++        </button>
++        {score !== undefined && (
++          <span className="shrink-0 text-sm font-semibold tabular-nums text-sky-600 dark:text-sky-400">{Math.round(score)}%</span>
++        )}
++        <button
++          aria-label="Opciones"
++          aria-expanded={menu === e.id}
++          onClick={() => setMenu(menu === e.id ? null : e.id)}
++          className="shrink-0 rounded-lg p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-700"
++        >
++          <Icon name="more" size={20} strokeWidth={2.5} />
++        </button>
++
++        {menu === e.id && (
++          <>
++            <button aria-label="Cerrar menú" className="fixed inset-0 z-10 cursor-default" onClick={() => setMenu(null)} />
++            <div
++              role="menu"
++              className="absolute right-2 top-12 z-20 w-40 overflow-hidden rounded-xl bg-white py-1 text-sm shadow-lg ring-1 ring-slate-900/10 dark:bg-slate-800 dark:ring-white/10"
++            >
++              <button
++                role="menuitem"
++                onClick={() => nav(`/exams/${e.id}/edit`)}
++                className="flex w-full items-center gap-2 px-3 py-2.5 text-left hover:bg-slate-50 dark:hover:bg-slate-700"
++              >
++                <Icon name="pencil" size={16} /> Editar
++              </button>
++              <button
++                role="menuitem"
++                onClick={() => {
++                  setMenu(null);
++                  if (confirm(`¿Eliminar "${e.title}"?`)) del.mutate(e.id);
++                }}
++                className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-red-600 hover:bg-red-50 dark:hover:bg-red-950/40"
++              >
++                <Icon name="trash" size={16} /> Eliminar
++              </button>
++            </div>
++          </>
++        )}
++      </li>
++    );
++  };
+ 
+   return (
+-    <div className="space-y-4 p-4">
+-      <header className="flex items-center justify-between">
++    <div className="space-y-5 p-4">
++      <header className="relative flex items-center justify-between">
+         <h1 className="text-2xl font-bold tracking-tight">Simulacros</h1>
+-        <Link to="/new" className="btn-primary !px-3 !py-2">
++        <button
++          type="button"
++          aria-haspopup="menu"
++          aria-expanded={newMenu}
++          onClick={() => setNewMenu((v) => !v)}
++          className="btn-primary !px-3 !py-2"
++        >
+           <Icon name="plus" size={16} strokeWidth={2.25} />
+           Nuevo
+-        </Link>
++        </button>
++        {newMenu && (
++          <>
++            <button aria-label="Cerrar menú" className="fixed inset-0 z-10 cursor-default" onClick={() => setNewMenu(false)} />
++            <div
++              role="menu"
++              className="absolute right-0 top-full z-20 mt-2 w-52 overflow-hidden rounded-xl bg-white py-1 text-sm shadow-lg ring-1 ring-slate-900/10 dark:bg-slate-800 dark:ring-white/10"
++            >
++              <Link
++                role="menuitem"
++                to="/new"
++                className="flex items-center gap-2.5 px-3 py-3 hover:bg-slate-50 dark:hover:bg-slate-700"
++              >
++                <Icon name="file" size={18} className="text-sky-500" /> Nuevo simulacro
++              </Link>
++              <button
++                role="menuitem"
++                onClick={() => {
++                  setNewMenu(false);
++                  setCreating(true);
++                }}
++                className="flex w-full items-center gap-2.5 px-3 py-3 text-left hover:bg-slate-50 dark:hover:bg-slate-700"
++              >
++                <Icon name="folderPlus" size={18} className="text-sky-500" /> Nueva biblioteca
++              </button>
++            </div>
++          </>
++        )}
+       </header>
+ 
+       <div className="relative">
+@@ -47,88 +159,84 @@ export default function LibraryPage() {
+         <input
+           value={q}
+           onChange={(e) => setQ(e.target.value)}
+-          placeholder="Buscar simulacro…"
++          placeholder="Buscar simulacro o biblioteca…"
+           className="input !pl-9"
+         />
+       </div>
+ 
+-      {subjects.length > 1 && (
+-        <div className="-mx-4 flex gap-5 overflow-x-auto border-b border-slate-200/70 px-4 dark:border-slate-800">
+-          {[null, ...subjects].map((s) => (
+-            <button
+-              key={s ?? 'all'}
+-              onClick={() => setSubject(s)}
+-              className={`-mb-px shrink-0 border-b-2 pb-2 text-sm font-medium transition-colors ${
+-                subject === s
+-                  ? 'border-sky-500 text-sky-600 dark:text-sky-400'
+-                  : 'border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
+-              }`}
+-            >
+-              {s ?? 'Todos'}
+-            </button>
+-          ))}
+-        </div>
++      {!!shownFolders.length && (
++        <section>
++          <h2 className="section-title mb-2">Bibliotecas</h2>
++          <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-4">
++            {shownFolders.map((f) => {
++              const n = countIn(f.id);
++              return (
++                <button
++                  key={f.id}
++                  onClick={() => nav(`/folders/${f.id}`)}
++                  className="card p-5 text-left transition active:scale-[.98] md:hover:bg-slate-50 md:dark:hover:bg-slate-700/60"
++                >
++                  <span className="mb-3 block h-1.5 w-9 rounded-full" style={{ backgroundColor: f.color ?? '#0ea5e9' }} />
++                  <p className="line-clamp-2 text-lg font-semibold leading-tight">{f.name}</p>
++                  <p className="mt-1.5 text-sm text-slate-500">
++                    {n} {n === 1 ? 'simulacro' : 'simulacros'}
++                  </p>
++                </button>
++              );
++            })}
++          </div>
++        </section>
+       )}
+ 
+-      <ul className="space-y-2.5">
+-        {list.map((e) => {
+-          const score = best.data?.[e.id];
+-          return (
+-            <li key={e.id} className="card relative flex items-center gap-1 pr-1.5">
+-              <button className="min-w-0 flex-1 p-4 text-left" onClick={() => setSheet(e)}>
+-                <p className="truncate font-semibold">{e.title}</p>
+-                <p className="mt-0.5 truncate text-xs text-slate-500">
+-                  {e.subject ?? 'Sin tema'} · {e.question_count} preguntas
+-                </p>
+-              </button>
+-              {score !== undefined && (
+-                <span className="shrink-0 text-sm font-semibold tabular-nums text-sky-600 dark:text-sky-400">
+-                  {Math.round(score)}%
+-                </span>
+-              )}
+-              <button
+-                aria-label="Opciones"
+-                aria-expanded={menu === e.id}
+-                onClick={() => setMenu(menu === e.id ? null : e.id)}
+-                className="shrink-0 rounded-lg p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-700"
+-              >
+-                <Icon name="more" size={20} strokeWidth={2.5} />
+-              </button>
++      {(!!list.length || (!searching && !!allFolders.length)) && (
++        <section className="space-y-3">
++          <h2 className="section-title">{searching ? 'Simulacros' : 'Sin biblioteca'}</h2>
+ 
+-              {menu === e.id && (
+-                <>
+-                  <button aria-label="Cerrar menú" className="fixed inset-0 z-10 cursor-default" onClick={() => setMenu(null)} />
+-                  <div
+-                    role="menu"
+-                    className="absolute right-2 top-12 z-20 w-40 overflow-hidden rounded-xl bg-white py-1 text-sm shadow-lg ring-1 ring-slate-900/10 dark:bg-slate-800 dark:ring-white/10"
+-                  >
+-                    <button
+-                      role="menuitem"
+-                      onClick={() => nav(`/exams/${e.id}/edit`)}
+-                      className="flex w-full items-center gap-2 px-3 py-2.5 text-left hover:bg-slate-50 dark:hover:bg-slate-700"
+-                    >
+-                      <Icon name="pencil" size={16} /> Editar
+-                    </button>
+-                    <button
+-                      role="menuitem"
+-                      onClick={() => {
+-                        setMenu(null);
+-                        if (confirm(`¿Eliminar "${e.title}"?`)) del.mutate(e.id);
+-                      }}
+-                      className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-red-600 hover:bg-red-50 dark:hover:bg-red-950/40"
+-                    >
+-                      <Icon name="trash" size={16} /> Eliminar
+-                    </button>
+-                  </div>
+-                </>
+-              )}
+-            </li>
+-          );
+-        })}
+-        {!list.length && !exams.isLoading && <p className="py-8 text-center text-slate-500">Sin resultados.</p>}
+-      </ul>
++          {!searching && subjects.length > 1 && (
++            <div className="-mx-4 flex gap-5 overflow-x-auto border-b border-slate-200/70 px-4 dark:border-slate-800">
++              {[null, ...subjects].map((s) => (
++                <button
++                  key={s ?? 'all'}
++                  onClick={() => setSubject(s)}
++                  className={`-mb-px shrink-0 border-b-2 pb-2 text-sm font-medium transition-colors ${
++                    activeSubject === s
++                      ? 'border-sky-500 text-sky-600 dark:text-sky-400'
++                      : 'border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
++                  }`}
++                >
++                  {s ?? 'Todos'}
++                </button>
++              ))}
++            </div>
++          )}
++
++          {list.length ? (
++            <ul className="grid gap-2.5 md:grid-cols-2">{list.map(examRow)}</ul>
++          ) : (
++            <p className="rounded-2xl border border-dashed border-slate-300 p-5 text-center text-sm text-slate-500 dark:border-slate-700">
++              Todos tus simulacros están dentro de una biblioteca.
++            </p>
++          )}
++        </section>
++      )}
++
++      {empty && (
++        <p className="py-8 text-center text-slate-500">
++          {searching ? 'Sin resultados.' : 'Aún no tienes simulacros ni bibliotecas. Pulsa «Nuevo» para empezar.'}
++        </p>
++      )}
++
++      {create.isError && <p className="text-center text-sm text-red-500">{(create.error as Error).message}</p>}
+ 
+       {sheet && <ExamStartSheet exam={sheet} onClose={() => setSheet(null)} />}
++
++      {creating && (
++        <CreateFolderDialog
++          saving={create.isPending}
++          onClose={() => setCreating(false)}
++          onCreate={(name, color) => create.mutate({ name, color })}
++        />
++      )}
+     </div>
+   );
+ }
+diff --git a/src/features/import/ImportPage.tsx b/src/features/import/ImportPage.tsx
+index aec56b1..f0b7097 100644
+--- a/src/features/import/ImportPage.tsx
++++ b/src/features/import/ImportPage.tsx
+@@ -4,7 +4,9 @@ import { useState } from 'react';
+ import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+ import { useQuery, useQueryClient } from '@tanstack/react-query';
+ import { supabase } from '@/lib/supabase';
+-import { fetchFolders } from '@/features/exams/api';
++import { createFolder, fetchFolders } from '@/features/exams/api';
++import CreateFolderDialog from '@/features/exams/CreateFolderDialog';
++import Icon from '@/components/Icon';
+ import { ImageField, useImageUpload } from '@/components/ImageField';
+ import { ParsedQuestion, parseQuestions } from '@/lib/importParser';
+ 
+@@ -57,6 +59,23 @@ export default function ImportPage() {
+   const [items, setItems] = useState<ParsedQuestion[]>([]);
+   const [saving, setSaving] = useState(false);
+   const [error, setError] = useState('');
++  const [newFolder, setNewFolder] = useState(false); // diálogo de nueva biblioteca
++  const [creatingFolder, setCreatingFolder] = useState(false);
++
++  async function addFolder(name: string, color: string) {
++    setCreatingFolder(true);
++    try {
++      const f = await createFolder(name, color);
++      await qc.invalidateQueries({ queryKey: ['folders'] });
++      setFolderId(f.id); // el simulacro nuevo queda dentro de la biblioteca recién creada
++      setNewFolder(false);
++    } catch (e) {
++      setError((e as Error).message);
++      setNewFolder(false);
++    } finally {
++      setCreatingFolder(false);
++    }
++  }
+ 
+   const patch = (i: number, p: Partial<ParsedQuestion>) =>
+     setItems((xs) => xs.map((x, k) => (k === i ? { ...x, ...p } : x)));
+@@ -133,14 +152,22 @@ export default function ImportPage() {
+         <input className={field} placeholder="Descripción (opcional)" value={description} onChange={(e) => setDescription(e.target.value)} />
+       </div>
+       <TimedField enabled={timed} minutes={minutes} onChange={(e, m) => { setTimed(e); setMinutes(m); }} />
+-      <select className={field} value={folderId} onChange={(e) => setFolderId(e.target.value)}>
+-        <option value="">Sin biblioteca</option>
+-        {(folders.data ?? []).map((f) => (
+-          <option key={f.id} value={f.id}>
+-            {f.name}
+-          </option>
+-        ))}
+-      </select>
++      <div className="flex gap-2">
++        <select className={field} value={folderId} onChange={(e) => setFolderId(e.target.value)}>
++          <option value="">Sin biblioteca</option>
++          {(folders.data ?? []).map((f) => (
++            <option key={f.id} value={f.id}>
++              {f.name}
++            </option>
++          ))}
++        </select>
++        <button type="button" onClick={() => setNewFolder(true)} className="btn-secondary shrink-0">
++          <Icon name="folderPlus" size={18} />
++          <span className="hidden sm:inline">Nueva biblioteca</span>
++          <span className="sm:hidden">Nueva</span>
++        </button>
++      </div>
++      {newFolder && <CreateFolderDialog saving={creatingFolder} onClose={() => setNewFolder(false)} onCreate={addFolder} />}
+ 
+       <textarea
+         className={field + ' h-48 font-mono text-sm'}
+diff --git a/src/features/stats/StatsPage.tsx b/src/features/stats/StatsPage.tsx
+index f975ccb..75220cd 100644
+--- a/src/features/stats/StatsPage.tsx
++++ b/src/features/stats/StatsPage.tsx
+@@ -5,6 +5,7 @@ import { fetchFolders, fetchProfile } from '@/features/exams/api';
+ import { BarChart, LineChart } from './Charts';
+ import { accuracyByLibrary, lastAttempts, mostFailed, rangeStart, RANGES, trend, type AnswerRow, type Range } from './statsLogic';
+ import { useState } from 'react';
++import Collapsible from '@/components/Collapsible';
+ 
+ interface AttemptRow {
+   id: string;
+@@ -75,7 +76,7 @@ export default function StatsPage() {
+ 
+   return (
+     <div className="space-y-5 p-4">
+-      <h1 className="text-2xl font-bold">Progreso</h1>
++      <h1 className="text-2xl font-bold tracking-tight">Progreso</h1>
+ 
+       <div className="grid grid-cols-2 gap-3">
+         {tile(`🔥 ${p?.current_streak ?? 0}`, 'Racha actual (días)')}
+@@ -108,17 +109,15 @@ export default function StatsPage() {
+         <p className="text-sm text-red-500">No se pudieron cargar las estadísticas. Revisa tu conexión e inténtalo de nuevo.</p>
+       )}
+ 
+-      <section className="rounded-2xl bg-white p-4 shadow-sm dark:bg-slate-800">
+-        <h2 className="mb-3 font-bold">Aciertos por biblioteca</h2>
++      <Collapsible variant="card" title="Aciertos por biblioteca" storageKey="stats-bibliotecas" defaultOpen>
+         {bars.length ? (
+           <BarChart items={bars} />
+         ) : (
+           <p className="text-sm text-slate-500">{answers.isLoading ? 'Cargando…' : 'Aún no hay respuestas en este periodo.'}</p>
+         )}
+-      </section>
++      </Collapsible>
+ 
+-      <section className="rounded-2xl bg-white p-4 shadow-sm dark:bg-slate-800">
+-        <h2 className="mb-1 font-bold">Evolución (últimos {Math.min(points.length || 10, 10)} simulacros)</h2>
++      <Collapsible variant="card" title={`Evolución (últimos ${Math.min(points.length || 10, 10)} simulacros)`} storageKey="stats-evolucion">
+         {diff != null && (
+           <p className="mb-2 text-xs text-slate-500">
+             {diff === 0 ? 'Tu último resultado está igual que tu promedio anterior.' : `Tu último resultado está ${Math.abs(diff)} puntos ${diff > 0 ? 'por encima ↑' : 'por debajo ↓'} de tu promedio anterior.`}
+@@ -129,10 +128,9 @@ export default function StatsPage() {
+         ) : (
+           <p className="text-sm text-slate-500">{attempts.isLoading ? 'Cargando…' : 'Termina un simulacro para ver tu evolución.'}</p>
+         )}
+-      </section>
++      </Collapsible>
+ 
+-      <section className="rounded-2xl bg-white p-4 shadow-sm dark:bg-slate-800">
+-        <h2 className="mb-3 font-bold">Preguntas más falladas</h2>
++      <Collapsible variant="card" title="Preguntas más falladas" count={failed.length || undefined} storageKey="stats-falladas">
+         {failed.length ? (
+           <ol className="space-y-2 text-sm">
+             {failed.map((f, i) => (
+@@ -151,13 +149,12 @@ export default function StatsPage() {
+         ) : (
+           <p className="text-sm text-slate-500">{answers.isLoading ? 'Cargando…' : '¡No has fallado ninguna en este periodo! 🎉'}</p>
+         )}
+-      </section>
++      </Collapsible>
+ 
+-      <section>
+-        <h2 className="mb-2 font-bold">Historial de intentos</h2>
++      <Collapsible variant="card" title="Historial de intentos" count={list.length || undefined} storageKey="stats-historial">
+         <ul className="space-y-2">
+           {list.slice(0, 30).map((a) => (
+-            <li key={a.id} className="flex justify-between rounded-xl bg-white p-3 text-sm shadow-sm dark:bg-slate-800">
++            <li key={a.id} className="flex justify-between rounded-xl bg-slate-50 p-3 text-sm dark:bg-slate-900/40">
+               <span>
+                 <b>{a.mode === 'quick_review' ? '🧠 Repaso Rápido' : a.mode === 'surprise' ? '🎲 Simulacro Sorpresa' : (a.exams?.title ?? 'Simulacro eliminado')}</b>
+                 {a.time_limit_sec ? <span className="ml-1 rounded-full bg-slate-200 px-2 py-0.5 text-[10px] font-bold dark:bg-slate-700">⏱ Examen cronometrado</span> : null}
+@@ -168,7 +165,7 @@ export default function StatsPage() {
+             </li>
+           ))}
+         </ul>
+-      </section>
++      </Collapsible>
+     </div>
+   );
+ }

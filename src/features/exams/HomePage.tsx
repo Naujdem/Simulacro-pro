@@ -1,11 +1,9 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery } from '@tanstack/react-query';
 import {
-  createFolder,
   fetchBestScores,
   fetchExams,
-  fetchFolders,
   fetchProfile,
   fetchReviewIds,
   fetchWrongCount,
@@ -15,17 +13,14 @@ import {
 import { QUICK_REVIEW_ID, SURPRISE_ID, usePractice } from '@/features/practice/practiceStore';
 import { pendingProgress, setLastSlot } from '@/features/practice/progress';
 import { useProgressVersion } from '@/features/practice/progressSync';
-import CreateFolderDialog from './CreateFolderDialog';
 import ExamStartSheet from './ExamStartSheet';
 import Icon, { type IconName } from '@/components/Icon';
+import Collapsible from '@/components/Collapsible';
 
 export default function HomePage() {
   const nav = useNavigate();
-  const qc = useQueryClient();
-  const [creating, setCreating] = useState(false);
   const profile = useQuery({ queryKey: ['profile'], queryFn: fetchProfile });
   const exams = useQuery({ queryKey: ['exams'], queryFn: fetchExams });
-  const folders = useQuery({ queryKey: ['folders'], queryFn: fetchFolders });
   const best = useQuery({ queryKey: ['best'], queryFn: fetchBestScores });
   const reviewIds = useQuery({ queryKey: ['review-ids'], queryFn: fetchReviewIds });
   const reviewCount = reviewIds.data?.length ?? 0;
@@ -51,14 +46,6 @@ export default function HomePage() {
     },
   });
 
-  const create = useMutation({
-    mutationFn: ({ name, color }: { name: string; color: string }) => createFolder(name, color),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['folders'] });
-      setCreating(false);
-    },
-  });
-
   const p = profile.data;
   const xpInLevel = p ? p.xp - 100 * (p.level - 1) ** 2 : 0;
   const xpForLevel = p ? 100 * p.level ** 2 - 100 * (p.level - 1) ** 2 : 100;
@@ -67,7 +54,7 @@ export default function HomePage() {
   return (
     <div className="space-y-6 p-4">
       <header className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold tracking-tight">Hola{p?.display_name ? `, ${p.display_name}` : ''}</h1>
+        <h1 className="text-2xl font-bold tracking-tight">Hola{p?.display_name ? `, ${p.display_name}` : ''} <span aria-hidden="true">👋</span></h1>
         <span
           className="flex items-center gap-1 text-sm font-semibold tabular-nums text-slate-600 dark:text-slate-300"
           title="Racha de días"
@@ -85,39 +72,6 @@ export default function HomePage() {
         </div>
         <div className="h-1.5 overflow-hidden rounded-full bg-slate-200 dark:bg-slate-700">
           <div className="h-full rounded-full bg-sky-500 transition-all" style={{ width: `${Math.min(100, (xpInLevel / xpForLevel) * 100)}%` }} />
-        </div>
-      </section>
-
-      <section>
-        <div className="mb-2 flex items-center justify-between">
-          <h2 className="section-title">Bibliotecas</h2>
-          <button type="button" onClick={() => setCreating(true)} className="flex items-center gap-1 text-sm font-semibold text-sky-600 dark:text-sky-400">
-            <Icon name="plus" size={16} strokeWidth={2.25} />
-            Nueva
-          </button>
-        </div>
-        <div className="-mx-4 flex gap-3 overflow-x-auto px-4 pb-2">
-          {(folders.data ?? []).map((f) => {
-            const count = (exams.data ?? []).filter((e) => e.folder_id === f.id).length;
-            return (
-              <button
-                key={f.id}
-                onClick={() => nav(`/folders/${f.id}`)}
-                className="card w-36 shrink-0 p-4 text-left transition active:scale-[.98]"
-              >
-                <span className="mb-3 block h-1.5 w-8 rounded-full" style={{ backgroundColor: f.color ?? '#0ea5e9' }} />
-                <p className="line-clamp-2 font-semibold leading-tight">{f.name}</p>
-                <p className="mt-1.5 text-xs text-slate-500">
-                  {count} {count === 1 ? 'simulacro' : 'simulacros'}
-                </p>
-              </button>
-            );
-          })}
-          {!folders.data?.length && !folders.isLoading && (
-            <p className="w-full rounded-2xl border border-dashed border-slate-300 px-4 py-6 text-sm text-slate-500 dark:border-slate-700">
-              Aún no tienes bibliotecas. Pulsa «Nueva» para crear una, por ejemplo “Simulacros Química”.
-            </p>
-          )}
         </div>
       </section>
 
@@ -182,15 +136,7 @@ export default function HomePage() {
         {quick.isError && <p className="mt-2 text-center text-sm text-red-500">{(quick.error as Error).message}</p>}
       </section>
 
-      <section>
-        <div className="mb-2 flex items-center justify-between">
-          <h2 className="section-title">Simulacros recientes</h2>
-          {!!recent.length && (
-            <Link to="/library" className="text-sm font-semibold text-sky-600 dark:text-sky-400">
-              Ver todos
-            </Link>
-          )}
-        </div>
+      <Collapsible title="Simulacros recientes" count={recent.length || undefined} storageKey="home-recientes">
         {!recent.length && (
           <Link to="/new" className="block rounded-2xl border border-dashed border-slate-300 p-6 text-center text-slate-500 dark:border-slate-700">
             Aún no tienes simulacros. ¡Crea o importa el primero!
@@ -225,19 +171,15 @@ export default function HomePage() {
             );
           })}
         </ul>
-      </section>
-
-      {create.isError && <p className="text-center text-sm text-red-500">{(create.error as Error).message}</p>}
+        {!!recent.length && (
+          <Link to="/library" className="mt-3 block text-center text-sm font-semibold text-sky-600 dark:text-sky-400">
+            Ver todos
+          </Link>
+        )}
+      </Collapsible>
 
       {sheet && <ExamStartSheet exam={sheet} onClose={() => setSheet(null)} />}
 
-      {creating && (
-        <CreateFolderDialog
-          saving={create.isPending}
-          onClose={() => setCreating(false)}
-          onCreate={(name, color) => create.mutate({ name, color })}
-        />
-      )}
     </div>
   );
 }
