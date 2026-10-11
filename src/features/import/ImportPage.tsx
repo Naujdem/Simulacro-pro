@@ -4,7 +4,9 @@ import { useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
-import { fetchFolders } from '@/features/exams/api';
+import { createFolder, fetchFolders } from '@/features/exams/api';
+import CreateFolderDialog from '@/features/exams/CreateFolderDialog';
+import Icon from '@/components/Icon';
 import { ImageField, useImageUpload } from '@/components/ImageField';
 import { ParsedQuestion, parseQuestions } from '@/lib/importParser';
 
@@ -57,6 +59,23 @@ export default function ImportPage() {
   const [items, setItems] = useState<ParsedQuestion[]>([]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  const [newFolder, setNewFolder] = useState(false); // diálogo de nueva biblioteca
+  const [creatingFolder, setCreatingFolder] = useState(false);
+
+  async function addFolder(name: string, color: string) {
+    setCreatingFolder(true);
+    try {
+      const f = await createFolder(name, color);
+      await qc.invalidateQueries({ queryKey: ['folders'] });
+      setFolderId(f.id); // el simulacro nuevo queda dentro de la biblioteca recién creada
+      setNewFolder(false);
+    } catch (e) {
+      setError((e as Error).message);
+      setNewFolder(false);
+    } finally {
+      setCreatingFolder(false);
+    }
+  }
 
   const patch = (i: number, p: Partial<ParsedQuestion>) =>
     setItems((xs) => xs.map((x, k) => (k === i ? { ...x, ...p } : x)));
@@ -133,14 +152,22 @@ export default function ImportPage() {
         <input className={field} placeholder="Descripción (opcional)" value={description} onChange={(e) => setDescription(e.target.value)} />
       </div>
       <TimedField enabled={timed} minutes={minutes} onChange={(e, m) => { setTimed(e); setMinutes(m); }} />
-      <select className={field} value={folderId} onChange={(e) => setFolderId(e.target.value)}>
-        <option value="">Sin biblioteca</option>
-        {(folders.data ?? []).map((f) => (
-          <option key={f.id} value={f.id}>
-            {f.name}
-          </option>
-        ))}
-      </select>
+      <div className="flex gap-2">
+        <select className={field} value={folderId} onChange={(e) => setFolderId(e.target.value)}>
+          <option value="">Sin biblioteca</option>
+          {(folders.data ?? []).map((f) => (
+            <option key={f.id} value={f.id}>
+              {f.name}
+            </option>
+          ))}
+        </select>
+        <button type="button" onClick={() => setNewFolder(true)} className="btn-secondary shrink-0">
+          <Icon name="folderPlus" size={18} />
+          <span className="hidden sm:inline">Nueva biblioteca</span>
+          <span className="sm:hidden">Nueva</span>
+        </button>
+      </div>
+      {newFolder && <CreateFolderDialog saving={creatingFolder} onClose={() => setNewFolder(false)} onCreate={addFolder} />}
 
       <textarea
         className={field + ' h-48 font-mono text-sm'}
