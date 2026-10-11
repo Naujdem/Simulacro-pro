@@ -17,7 +17,7 @@ export interface ImportResult {
 
 type Err = { code?: string; message: string } | null;
 
-const SQL_HINT = 'Falta ejecutar en Supabase el SQL del importador (supabase/migrations/0007_importador_json.sql).';
+const SQL_HINT = 'Falta ejecutar en Supabase el SQL del importador (migraciones 0007_importador_json.sql y 0008_secciones.sql).';
 const explain = (e: Err): Error =>
   new Error(isMissingColumn(e) || e?.code === '23514' ? SQL_HINT + ` (${e?.message})` : e?.message ?? 'Error desconocido');
 
@@ -93,7 +93,7 @@ export async function runImport(plan: ImportPlan, existing: Folder[], onProgress
       if (exam.readings.length) {
         const { data: rs, error } = await supabase
           .from('reading_texts')
-          .insert(exam.readings.map((r, position) => ({ user_id: userId, exam_id: ex.id, position, title: r.title, body: r.body })))
+          .insert(exam.readings.map((r, position) => ({ user_id: userId, exam_id: ex.id, position, title: r.title, body: r.body, section: r.section })))
           .select('id,position');
         if (error) throw explain(error);
         for (const r of rs ?? []) readingIds[r.position as number] = r.id as string;
@@ -109,6 +109,7 @@ export async function runImport(plan: ImportPlan, existing: Folder[], onProgress
         options: q.options,
         answer: q.answer,
         explanation: q.explanation,
+        section: q.section,
         reading_id: q.readingIndex === null ? null : readingIds[q.readingIndex] ?? null,
       }));
       for (const part of chunks(rows, 200)) {

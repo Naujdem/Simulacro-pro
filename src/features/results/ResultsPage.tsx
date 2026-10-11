@@ -6,6 +6,7 @@ import { addToReview, fetchReviewIds, removeFromReview } from '@/features/exams/
 import QuestionImage from '@/components/QuestionImage';
 import AiPanel from '@/features/ai/AiPanel';
 import { correctText, type Question } from '@/lib/grading';
+import { sectionRanges, sectionStats } from '@/lib/sections';
 
 const fmt = (s: number) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
 
@@ -57,7 +58,10 @@ export default function ResultsPage() {
     nav(`/practice/${qExam}`);
   };
 
-  const items = queue.map((q, i) => ({ q, correct: results[i]?.correct ?? false }));
+  // Si terminaste en una pausa, solo se revisan las preguntas respondidas
+  const items = queue.slice(0, results.length).map((q, i) => ({ q, correct: results[i].correct }));
+  const partial = summary.planned > summary.total;
+  const bySection = usePractice.getState().mode === 'full' ? sectionRanges(queue).map((r) => sectionStats(r, results)) : [];
   const okCount = items.filter((x) => x.correct).length;
   const shown = items.filter((x) => filter === 'all' || (filter === 'ok' ? x.correct : !x.correct));
   const tabs: { id: Filter; label: string; count: number }[] = [
@@ -68,7 +72,14 @@ export default function ResultsPage() {
 
   return (
     <div className="mx-auto max-w-xl space-y-6 p-6">
-      <h1 className="text-center text-2xl font-extrabold">{pct >= 70 ? '¡Buen trabajo! 🎉' : 'Sigue practicando 💪'}</h1>
+      <h1 className="text-center text-2xl font-extrabold">
+        {partial ? 'Resultado parcial 📊' : pct >= 70 ? '¡Buen trabajo! 🎉' : 'Sigue practicando 💪'}
+      </h1>
+      {partial && (
+        <p className="text-center text-sm text-slate-500">
+          Respondiste {summary.total} de {summary.planned} preguntas. Este intento no cuenta para tu mejor porcentaje.
+        </p>
+      )}
 
       <div
         className="mx-auto flex h-40 w-40 items-center justify-center rounded-full text-4xl font-extrabold"
@@ -91,6 +102,22 @@ export default function ResultsPage() {
           </div>
         ))}
       </div>
+
+      {bySection.length > 0 && (
+        <section aria-label="Resultado por sección" className="space-y-2 rounded-2xl bg-white p-4 shadow-sm dark:bg-slate-800">
+          <p className="font-extrabold">Por sección</p>
+          <ul className="space-y-1 text-sm">
+            {bySection.map((s) => (
+              <li key={s.name} className="flex justify-between gap-2">
+                <span className="min-w-0 truncate">{s.name}</span>
+                <span className="shrink-0 font-bold text-slate-600 dark:text-slate-300">
+                  {s.answered ? `${s.correct}/${s.answered}` : 'sin responder'}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
 
       {!summary.answersSaved && (
         <p className="rounded-xl bg-amber-50 p-3 text-center text-xs text-amber-700 dark:bg-amber-950 dark:text-amber-300">

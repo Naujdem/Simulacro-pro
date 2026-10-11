@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { fetchFolders } from '@/features/exams/api';
-import { describeSummary, parseImportJson, type ParseResult } from '@/lib/jsonImport';
+import { describeSummary, examSections, parseImportJson, type ParseResult } from '@/lib/jsonImport';
 import { findFolder, runImport, type ImportResult } from './jsonImportApi';
 import { JSON_EXAMPLE, JSON_PROMPT } from './jsonPrompt';
 
@@ -13,6 +13,14 @@ const TYPE_NAMES: Record<string, string> = {
   order_words: 'ordenar palabras',
   transform: 'transformar',
 };
+
+// Secciones de un simulacro (solo se muestran si hay más de una)
+const Sections = ({ names }: { names: string[] }) =>
+  names.length > 1 ? (
+    <span className="block text-xs text-slate-500">
+      {names.length} secciones: {names.join(' → ')}
+    </span>
+  ) : null;
 
 const btn = 'rounded-xl px-4 py-3 text-sm font-extrabold disabled:opacity-50';
 
@@ -197,6 +205,7 @@ export default function JsonImportPage() {
                     <li key={e.title}>
                       {e.title} · {e.questions.length} {e.questions.length === 1 ? 'pregunta' : 'preguntas'}
                       {e.readings.length > 0 && ` · ${e.readings.length} ${e.readings.length === 1 ? 'lectura' : 'lecturas'}`}
+                      <Sections names={examSections(e)} />
                     </li>
                   ))}
                 </ul>
@@ -209,6 +218,7 @@ export default function JsonImportPage() {
                   {checked.plan.looseExams.map((e) => (
                     <li key={e.title}>
                       {e.title} · {e.questions.length} {e.questions.length === 1 ? 'pregunta' : 'preguntas'}
+                      <Sections names={examSections(e)} />
                     </li>
                   ))}
                 </ul>
