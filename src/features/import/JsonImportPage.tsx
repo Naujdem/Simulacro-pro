@@ -22,7 +22,7 @@ const Sections = ({ names }: { names: string[] }) =>
     </span>
   ) : null;
 
-const btn = 'rounded-xl px-4 py-3 text-sm font-extrabold disabled:opacity-50';
+const btn = 'rounded-xl px-4 py-3 text-sm font-bold disabled:opacity-50';
 
 export default function JsonImportPage() {
   const nav = useNavigate();
@@ -93,7 +93,7 @@ export default function JsonImportPage() {
     return (
       <div className="space-y-4 p-4">
         <div role="status" className="space-y-2 rounded-2xl bg-green-100 p-5 dark:bg-green-950">
-          <p className="text-xl font-extrabold text-green-800 dark:text-green-200">✅ ¡Importación completada!</p>
+          <p className="text-xl font-bold text-green-800 dark:text-green-200">✅ ¡Importación completada!</p>
           <ul className="list-inside list-disc text-sm text-green-900 dark:text-green-100">
             {parts.map((p) => (
               <li key={String(p)}>{p}</li>
@@ -107,11 +107,11 @@ export default function JsonImportPage() {
             </button>
           )}
           {done.cards > 0 && (
-            <button onClick={() => nav('/flashcards')} className={`${btn} bg-violet-500 text-white`}>
+            <button onClick={() => nav('/flashcards')} className={`${btn} bg-sky-500 text-white`}>
               Ir a las fichas
             </button>
           )}
-          <button onClick={() => setDone(null)} className={`${btn} border-2 border-slate-300 dark:border-slate-600`}>
+          <button onClick={() => setDone(null)} className={`${btn} border border-slate-300 dark:border-slate-600`}>
             Importar otro JSON
           </button>
         </div>
@@ -125,17 +125,17 @@ export default function JsonImportPage() {
         <Link to="/new" className="text-sm font-bold text-slate-500">
           ← Crear / Importar
         </Link>
-        <h1 className="text-2xl font-extrabold">Importar JSON</h1>
+        <h1 className="text-2xl font-bold">Importar JSON</h1>
         <p className="text-sm text-slate-500">
           Genera el JSON con ChatGPT o Claude, pégalo aquí y se crean bibliotecas, simulacros, preguntas, lecturas y fichas de una vez.
         </p>
       </header>
 
-      <details className="rounded-2xl border-2 border-slate-200 p-3 text-sm dark:border-slate-700">
+      <details className="rounded-2xl border border-slate-200 p-3 text-sm dark:border-slate-700">
         <summary className="cursor-pointer font-bold">¿Cómo le pido el JSON a la IA?</summary>
         <div className="mt-2 space-y-2">
           <p>Copia esta guía, pégala en ChatGPT o Claude y pega debajo tu material (temario, preguntas, vocabulario…).</p>
-          <button onClick={copyPrompt} className={`${btn} w-full bg-violet-500 text-white`}>
+          <button onClick={copyPrompt} className={`${btn} w-full bg-sky-500 text-white`}>
             {copied ? '✓ Copiada' : '📋 Copiar guía para la IA'}
           </button>
           <pre className="max-h-48 overflow-auto whitespace-pre-wrap rounded-xl bg-slate-100 p-3 text-xs dark:bg-slate-800">{JSON_PROMPT}</pre>
@@ -150,21 +150,21 @@ export default function JsonImportPage() {
         rows={14}
         spellCheck={false}
         placeholder={'Pega aquí el JSON…\n{\n  "version": 1,\n  "bibliotecas": [ … ]\n}'}
-        className="w-full rounded-xl border-2 border-slate-200 bg-transparent p-3 font-mono text-xs outline-none focus:border-sky-400 dark:border-slate-700"
+        className="w-full rounded-xl border border-slate-200 bg-transparent p-3 font-mono text-xs outline-none focus:border-sky-400 dark:border-slate-700"
       />
 
       <div className="flex gap-2">
         <button onClick={review} disabled={saving || !text.trim()} className={`${btn} flex-1 bg-sky-500 text-white`}>
           Revisar JSON
         </button>
-        <button onClick={() => edit(JSON_EXAMPLE)} disabled={saving} className={`${btn} border-2 border-slate-300 dark:border-slate-600`}>
+        <button onClick={() => edit(JSON_EXAMPLE)} disabled={saving} className={`${btn} border border-slate-300 dark:border-slate-600`}>
           Ver ejemplo
         </button>
       </div>
 
       {checked && !checked.ok && (
         <div role="alert" className="space-y-2 rounded-2xl bg-red-50 p-4 dark:bg-red-950">
-          <p className="font-extrabold text-red-700 dark:text-red-300">
+          <p className="font-bold text-red-700 dark:text-red-300">
             Hay {checked.errors.length === 1 ? '1 problema' : `${checked.errors.length} problemas`} que corregir:
           </p>
           <ul className="list-inside list-disc space-y-1 text-sm text-red-700 dark:text-red-300">
@@ -177,10 +177,10 @@ export default function JsonImportPage() {
       )}
 
       {checked?.ok && (
-        <section aria-label="Vista previa" className="space-y-3 rounded-2xl border-2 border-green-400 p-4">
+        <section aria-label="Vista previa" className="space-y-3 rounded-2xl border border-green-400 p-4">
           <div>
-            <p className="text-xs font-bold uppercase text-green-700 dark:text-green-300">Vista previa</p>
-            <p className="text-lg font-extrabold">{describeSummary(checked.summary)}</p>
+            <p className="text-xs font-bold text-green-700 dark:text-green-300">Vista previa</p>
+            <p className="text-lg font-bold">{describeSummary(checked.summary)}</p>
             {checked.summary.questions > 0 && (
               <p className="text-xs text-slate-500">
                 {Object.entries(checked.summary.byType)

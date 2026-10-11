@@ -117,13 +117,13 @@ export function QuestionCard({ question: q, examId, onNext, aiHelp = false, read
     <div className="mx-auto flex max-w-xl flex-col px-4 pb-72 pt-4">
       {reading && (
         <details open className="mb-4 rounded-2xl border-2 border-amber-300 bg-amber-50 p-3 dark:border-amber-800 dark:bg-amber-950/30">
-          <summary className="cursor-pointer text-sm font-extrabold">📖 {reading.title}</summary>
+          <summary className="cursor-pointer text-sm font-bold">📖 {reading.title}</summary>
           <ReadingText title={reading.title} body={reading.body} />
         </details>
       )}
       {q.imagen_url && <QuestionImage src={q.imagen_url} className="mb-4" />}
       {q.type === 'transform' && (
-        <p className="mb-1 text-sm font-bold text-violet-600 dark:text-violet-300">
+        <p className="mb-1 text-sm font-bold text-sky-500 dark:text-sky-300">
           Escríbela en forma {q.answer?.form ?? 'distinta'}:
         </p>
       )}
@@ -249,14 +249,14 @@ export function QuestionCard({ question: q, examId, onNext, aiHelp = false, read
 
       {checked && q.explanation && (
         <div className="mt-6 space-y-1 rounded-2xl border-2 border-sky-300 bg-sky-50 p-3 dark:border-sky-800 dark:bg-sky-950/40">
-          <p className="text-sm font-extrabold">📖 Explicación</p>
+          <p className="text-sm font-bold">📖 Explicación</p>
           <p className="whitespace-pre-line text-sm">{q.explanation}</p>
         </div>
       )}
 
       {showAi && (
-        <div ref={aiRef} className="mt-6 space-y-2 rounded-2xl border-2 border-violet-300 bg-violet-50 p-3 dark:border-violet-800 dark:bg-violet-950/40">
-          <p className="text-sm font-extrabold">¿No te quedó claro? Pide ayuda a la IA</p>
+        <div ref={aiRef} className="mt-6 space-y-2 rounded-2xl border-2 border-sky-300 bg-sky-50 p-3 dark:border-sky-800 dark:bg-sky-950/40">
+          <p className="text-sm font-bold">¿No te quedó claro? Pide ayuda a la IA</p>
           <AiPanel q={q} examId={examId} />
         </div>
       )}
@@ -275,7 +275,7 @@ export function QuestionCard({ question: q, examId, onNext, aiHelp = false, read
           {checked && (
             <div className="mb-3">
               <p
-                className={`text-lg font-extrabold ${
+                className={`text-lg font-bold ${
                   correct ? 'text-green-700 dark:text-green-300' : 'text-red-700 dark:text-red-300'
                 }`}
               >
@@ -292,7 +292,7 @@ export function QuestionCard({ question: q, examId, onNext, aiHelp = false, read
             <button
               disabled={!isReady(q, resp)}
               onClick={check}
-              className="w-full rounded-2xl bg-sky-500 py-4 text-base font-extrabold uppercase tracking-wide text-white active:bg-sky-600 disabled:bg-slate-300 disabled:text-slate-500"
+              className="w-full rounded-2xl bg-sky-500 py-4 text-base font-bold tracking-wide text-white active:bg-sky-600 disabled:bg-slate-300 disabled:text-slate-500"
             >
               Comprobar
             </button>
@@ -305,7 +305,7 @@ export function QuestionCard({ question: q, examId, onNext, aiHelp = false, read
                     key={t.id}
                     disabled={savingTag}
                     onClick={() => pickTag(t.id)}
-                    className={`rounded-2xl py-3 text-sm font-extrabold text-white disabled:opacity-50 ${t.className}`}
+                    className={`rounded-2xl py-3 text-sm font-bold text-white disabled:opacity-50 ${t.className}`}
                   >
                     {t.label}
                   </button>

@@ -140,11 +140,11 @@ export default function PracticePage() {
   if (timeUp) {
     return (
       <div className="mx-auto max-w-xl space-y-4 p-6 text-center">
-        <p className="text-2xl font-extrabold">⏰ ¡Se acabó el tiempo!</p>
+        <p className="text-2xl font-bold">⏰ ¡Se acabó el tiempo!</p>
         {timeUpError ? (
           <>
             <p className="text-sm text-red-500">{timeUpError}</p>
-            <button onClick={saveTimedOut} className="rounded-2xl bg-sky-500 px-6 py-3 font-extrabold text-white">
+            <button onClick={saveTimedOut} className="rounded-2xl bg-sky-500 px-6 py-3 font-bold text-white">
               Reintentar guardar
             </button>
           </>

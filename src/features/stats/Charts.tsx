@@ -12,7 +12,7 @@ export function BarChart({ items }: { items: BarItem[] }) {
         <li key={b.name} title={`${b.name}: ${b.correct} de ${b.answered} correctas`}>
           <div className="flex items-baseline justify-between gap-2 text-sm">
             <span className={`min-w-0 truncate font-bold ${INK}`}>{b.name}</span>
-            <span className={`shrink-0 font-extrabold ${INK}`}>
+            <span className={`shrink-0 font-bold ${INK}`}>
               {b.pct}% <span className="text-xs font-normal text-slate-500">· {b.answered} resp.</span>
             </span>
           </div>

@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { assignExamToFolder, fetchBestScores, fetchExams, fetchFolder, type Exam } from './api';
+import Icon from '@/components/Icon';
 import ExamStartSheet from './ExamStartSheet';
 
 export default function FolderPage() {
@@ -41,12 +42,12 @@ export default function FolderPage() {
   return (
     <div className="space-y-4 p-4">
       <header className="flex items-start gap-3">
-        <Link to="/" className="mt-1 rounded-xl px-2 py-1 text-lg" aria-label="Volver">
-          ←
+        <Link to="/" className="mt-1 rounded-xl p-2 text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800" aria-label="Volver">
+          <Icon name="back" size={20} />
         </Link>
         <div className="flex-1">
           <div className="mb-1 h-2 w-16 rounded-full" style={{ backgroundColor: color }} />
-          <h1 className="text-2xl font-extrabold">{folder.data?.name ?? '…'}</h1>
+          <h1 className="text-2xl font-bold tracking-tight">{folder.data?.name ?? '…'}</h1>
           <p className="text-sm text-slate-500">
             {inFolder.length} {inFolder.length === 1 ? 'simulacro' : 'simulacros'}
           </p>
@@ -56,15 +57,15 @@ export default function FolderPage() {
       <div className="grid grid-cols-2 gap-2">
         <button
           onClick={() => setAdding(true)}
-          className="rounded-2xl border-2 border-dashed py-3 text-sm font-bold text-slate-500"
+          className="btn-secondary border-dashed"
         >
-          + Añadir existentes
+          <Icon name="plus" size={16} /> Añadir existentes
         </button>
         <Link
           to={`/new?folder=${folderId}`}
-          className="rounded-2xl bg-sky-500 py-3 text-center text-sm font-extrabold text-white"
+          className="btn-primary"
         >
-          + Nuevo simulacro
+          <Icon name="plus" size={16} strokeWidth={2.25} /> Nuevo simulacro
         </Link>
       </div>
 
@@ -76,25 +77,29 @@ export default function FolderPage() {
 
       <ul className="space-y-3">
         {inFolder.map((e) => (
-          <li key={e.id} className="rounded-2xl bg-white p-4 shadow-sm dark:bg-slate-800">
+          <li key={e.id} className="card p-4">
             <div className="flex items-start justify-between gap-2">
               <button
                 className="flex-1 text-left"
                 onClick={() => setSheet(e)}
               >
-                <p className="font-bold">{e.title}</p>
+                <p className="font-semibold">{e.title}</p>
                 <p className="text-xs text-slate-500">
                   {e.subject ?? 'Sin tema'} · {e.question_count} preguntas
                   {best.data?.[e.id] !== undefined && ` · mejor ${Math.round(best.data[e.id])}%`}
                 </p>
               </button>
               <div className="flex shrink-0 items-center gap-3">
-                <button aria-label="Editar simulacro" onClick={() => nav(`/exams/${e.id}/edit`)} className="text-lg">
-                  ✏️
+                <button
+                  aria-label="Editar simulacro"
+                  onClick={() => nav(`/exams/${e.id}/edit`)}
+                  className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-700"
+                >
+                  <Icon name="pencil" size={18} />
                 </button>
                 <button
                   onClick={() => assign.mutate({ examId: e.id, id: null })}
-                  className="text-xs font-bold text-slate-400"
+                  className="text-xs font-medium text-slate-400 hover:text-slate-600"
                 >
                   Quitar
                 </button>
@@ -112,7 +117,7 @@ export default function FolderPage() {
             className="max-h-[70vh] w-full max-w-sm overflow-y-auto rounded-3xl bg-white p-5 shadow-xl dark:bg-slate-800"
             onClick={(e) => e.stopPropagation()}
           >
-            <h2 className="mb-3 text-lg font-extrabold">Añadir simulacros</h2>
+            <h2 className="mb-3 text-lg font-bold">Añadir simulacros</h2>
             {!others.length && <p className="text-sm text-slate-500">No hay más simulacros para añadir.</p>}
             <ul className="space-y-2">
               {others.map((e) => (
@@ -127,7 +132,7 @@ export default function FolderPage() {
                 </li>
               ))}
             </ul>
-            <button onClick={() => setAdding(false)} className="mt-4 w-full rounded-2xl border-2 py-3 font-bold">
+            <button onClick={() => setAdding(false)} className="mt-4 w-full rounded-2xl border py-3 font-bold">
               Cerrar
             </button>
           </div>

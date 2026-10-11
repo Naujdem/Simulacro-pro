@@ -11,7 +11,7 @@ interface Props {
 export default function TimedField({ enabled, minutes, onChange, label = 'Este es un examen cronometrado' }: Props) {
   const invalid = enabled && parseMinutes(minutes) === null;
   return (
-    <div className="space-y-2 rounded-xl border-2 border-slate-200 p-3 dark:border-slate-700">
+    <div className="space-y-2 rounded-xl border border-slate-200 p-3 dark:border-slate-700">
       <label className="flex items-center gap-3 text-sm font-bold">
         <input
           type="checkbox"
@@ -31,7 +31,7 @@ export default function TimedField({ enabled, minutes, onChange, label = 'Este e
             aria-label="Tiempo límite en minutos"
             value={minutes}
             onChange={(e) => onChange(true, e.target.value)}
-            className="w-24 rounded-lg border-2 border-slate-200 bg-transparent p-2 outline-none focus:border-sky-400 dark:border-slate-700"
+            className="w-24 rounded-lg border border-slate-200 bg-transparent p-2 outline-none focus:border-sky-400 dark:border-slate-700"
           />
           <span className="text-slate-500">minutos de tiempo límite</span>
         </div>

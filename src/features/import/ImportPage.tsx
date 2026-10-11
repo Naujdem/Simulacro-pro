@@ -113,16 +113,16 @@ export default function ImportPage() {
     }
   }
 
-  const field = 'w-full rounded-xl border-2 border-slate-200 bg-transparent p-3 outline-none focus:border-sky-400 dark:border-slate-700';
+  const field = 'w-full rounded-xl border border-slate-200 bg-transparent p-3 outline-none focus:border-sky-400 dark:border-slate-700';
   const validCount = items.filter(isValid).length;
 
   return (
     <div className="space-y-4 p-4">
-      <h1 className="text-2xl font-extrabold">Crear / Importar simulacro</h1>
+      <h1 className="text-2xl font-bold">Crear / Importar simulacro</h1>
 
       <Link
         to="/import-json"
-        className="block rounded-2xl border-2 border-violet-300 bg-violet-50 p-3 text-sm font-bold text-violet-800 dark:border-violet-800 dark:bg-violet-950/40 dark:text-violet-200"
+        className="block rounded-2xl border border-sky-300 bg-sky-50 p-3 text-sm font-bold text-sky-800 dark:border-sky-800 dark:bg-sky-950/40 dark:text-sky-200"
       >
         {'{ }'} Importar JSON · bibliotecas, simulacros, lecturas y fichas de una vez →
       </Link>
@@ -149,13 +149,13 @@ export default function ImportPage() {
         onChange={(e) => setText(e.target.value)}
       />
       <div className="flex gap-2">
-        <button onClick={analyze} disabled={!text.trim()} className="flex-1 rounded-2xl bg-sky-500 py-3 font-extrabold uppercase text-white disabled:opacity-50">
+        <button onClick={analyze} disabled={!text.trim()} className="flex-1 rounded-2xl bg-sky-500 py-3 font-bold text-white disabled:opacity-50">
           Analizar
         </button>
-        <button onClick={() => setText(EXAMPLE)} className="rounded-2xl border-2 px-4 font-bold">
+        <button onClick={() => setText(EXAMPLE)} className="rounded-2xl border px-4 font-bold">
           Ejemplo
         </button>
-        <button onClick={() => setItems((xs) => [...xs, blank()])} className="rounded-2xl border-2 px-4 font-bold">
+        <button onClick={() => setItems((xs) => [...xs, blank()])} className="rounded-2xl border px-4 font-bold">
           + Manual
         </button>
       </div>
@@ -173,7 +173,7 @@ export default function ImportPage() {
           <button
             onClick={save}
             disabled={saving || !title.trim() || validCount === 0}
-            className="w-full rounded-2xl bg-green-500 py-4 font-extrabold uppercase text-white disabled:opacity-50"
+            className="w-full rounded-2xl bg-green-500 py-4 font-bold text-white disabled:opacity-50"
           >
             {saving ? 'Guardando…' : `Guardar ${validCount} preguntas`}
           </button>
