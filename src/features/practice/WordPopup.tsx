@@ -18,6 +18,7 @@ export default function WordPopup({ word, sentence, onClose, onAdded }: Props) {
   const [translation, setTranslation] = useState('');
   const [loading, setLoading] = useState(true);
   const [aiError, setAiError] = useState('');
+  const [usedOther, setUsedOther] = useState<AiProvider | null>(null); // la IA elegida falló y respondió la otra
   const [provider, setProv] = useState<AiProvider>(getProvider);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
@@ -28,9 +29,12 @@ export default function WordPopup({ word, sentence, onClose, onAdded }: Props) {
     let cancelled = false;
     setLoading(true);
     setAiError('');
+    setUsedOther(null);
     translateWord(word, sentence, provider)
       .then((t) => {
-        if (!cancelled && !typed.current) setTranslation(t);
+        if (cancelled) return;
+        if (!typed.current) setTranslation(t.text);
+        if (t.provider !== provider) setUsedOther(t.provider);
       })
       .catch((e: Error) => !cancelled && setAiError(e.message))
       .finally(() => !cancelled && setLoading(false));
@@ -121,9 +125,14 @@ export default function WordPopup({ word, sentence, onClose, onAdded }: Props) {
                 className="w-full rounded-xl border-2 border-slate-200 bg-transparent p-3 text-lg font-semibold outline-none focus:border-sky-400 dark:border-slate-600"
               />
             </label>
+            {usedOther && !aiError && (
+              <p className="text-xs text-slate-500">
+                {PROVIDER_NAMES[provider]} no respondió; se tradujo con {PROVIDER_NAMES[usedOther]}.
+              </p>
+            )}
             {aiError && (
               <div className="space-y-2 rounded-lg bg-amber-50 p-2 text-xs text-amber-800 dark:bg-amber-950 dark:text-amber-200">
-                <p>{aiError}</p>
+                <p className="whitespace-pre-line">{aiError}</p>
                 <button onClick={() => choose(other)} className="rounded-lg bg-amber-600 px-3 py-1.5 font-extrabold text-white">
                   🔁 Probar con {PROVIDER_NAMES[other]}
                 </button>

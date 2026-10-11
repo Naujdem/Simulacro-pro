@@ -1,7 +1,8 @@
 // Traduce al español una palabra en inglés de una lectura, usando la frase donde aparece como contexto.
 // Se llama desde la app al tocar una palabra:
 //   supabase.functions.invoke('ia-traducir', { body: { palabra, frase, proveedor } })
-// "proveedor" es 'openrouter' (por defecto) o 'gemini' (alternativa cuando OpenRouter no funciona o no tiene saldo).
+// "proveedor" es la IA que se prefiere: 'openrouter' (por defecto) o 'gemini'. Si esa falla se prueba la otra
+// automáticamente; si fallan las dos, el mensaje de error explica el motivo de cada una.
 //
 // Despliegue:  supabase functions deploy ia-traducir
 // Secretos:    OPENROUTER_API_KEY  (la misma que ya usas en ia-pregunta)
@@ -46,23 +47,36 @@ Deno.serve(async (req) => {
   if (!palabra || palabra.length > 60) return reply({ ok: false, error: 'entrada', mensaje: 'Falta la palabra (máximo 60 letras).' });
   frase = frase.slice(0, 400);
 
-  try {
-    const texto = proveedor === 'gemini' ? await viaGemini(palabra, frase) : await viaOpenRouter(palabra, frase);
-    const json = texto.match(/\{[\s\S]*\}/)?.[0];
-    let traduccion = texto.trim();
-    if (json) {
-      try {
-        traduccion = String(JSON.parse(json).traduccion ?? '').trim();
-      } catch {
-        /* se usa el texto tal cual */
+  // Prueba primero la IA elegida y, si falla, la otra. Si fallan las dos, el mensaje cuenta POR QUÉ falló cada una.
+  const orden: ('openrouter' | 'gemini')[] = proveedor === 'gemini' ? ['gemini', 'openrouter'] : ['openrouter', 'gemini'];
+  const fallos: string[] = [];
+  for (const p of orden) {
+    try {
+      const texto = p === 'gemini' ? await viaGemini(palabra, frase) : await viaOpenRouter(palabra, frase);
+      const traduccion = extraerTraduccion(texto);
+      if (!traduccion) {
+        fallos.push(`${p === 'gemini' ? 'Gemini' : 'OpenRouter'}: no devolvió una traducción.`);
+        continue;
       }
+      return reply({ ok: true, traduccion: traduccion.slice(0, 200), proveedor: p, pedido: proveedor });
+    } catch (e) {
+      fallos.push((e as Error).message);
     }
-    if (!traduccion) return reply({ ok: false, error: 'vacio', mensaje: 'La IA no devolvió una traducción.' });
-    return reply({ ok: true, traduccion: traduccion.slice(0, 200), proveedor });
-  } catch (e) {
-    return reply({ ok: false, error: 'fallo', mensaje: (e as Error).message });
   }
+  return reply({ ok: false, error: 'fallo', mensaje: fallos.join('\n') });
 });
+
+function extraerTraduccion(texto: string): string {
+  const json = texto.match(/\{[\s\S]*\}/)?.[0];
+  if (json) {
+    try {
+      return String(JSON.parse(json).traduccion ?? '').trim();
+    } catch {
+      /* se usa el texto tal cual */
+    }
+  }
+  return texto.trim();
+}
 
 const userText = (palabra: string, frase: string) => `Palabra: ${palabra}\nFrase: ${frase || palabra}`;
 
