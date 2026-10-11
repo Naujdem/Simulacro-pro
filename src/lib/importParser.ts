@@ -1,6 +1,13 @@
 import { norm, toBool } from './text';
 
-export type QType = 'multiple_choice' | 'true_false' | 'fill_blank' | 'short_answer';
+export type QType =
+  | 'multiple_choice'
+  | 'true_false'
+  | 'fill_blank'
+  | 'short_answer'
+  // Del importador JSON: ordenar palabras y transformar una oración (se contesta escribiendo, como short_answer)
+  | 'order_words'
+  | 'transform';
 
 export interface ParsedQuestion {
   type: QType;

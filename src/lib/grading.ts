@@ -11,13 +11,17 @@ export interface Question {
   answer: any;
   explanation?: string | null;
   imagen_url?: string | null;
+  /** Lectura (texto) a la que pertenece la pregunta, si es de comprensión lectora. */
+  reading_id?: string | null;
 }
 
 export type Response =
   | { type: 'multiple_choice'; selected: string[] }
   | { type: 'true_false'; value: boolean | null }
   | { type: 'fill_blank'; blanks: string[] }
-  | { type: 'short_answer'; text: string };
+  | { type: 'short_answer'; text: string }
+  /** Ids de las palabras (opciones) en el orden en que el estudiante las puso. */
+  | { type: 'order_words'; order: string[] };
 
 function lev(a: string, b: string): number {
   const d: number[][] = Array.from({ length: a.length + 1 }, (_, i) => [i, ...Array(b.length).fill(0)]);
@@ -52,6 +56,12 @@ export function checkAnswer(q: Question, r: Response): boolean {
       );
     case 'short_answer':
       return (q.answer.accepted as string[]).some((a) => close(a, r.text));
+    case 'order_words': {
+      // Se compara la oración armada con la correcta ignorando mayúsculas, tildes y puntuación
+      const words = new Map((q.options ?? []).map((o) => [o.id, o.text]));
+      const given = norm(r.order.map((id) => words.get(id) ?? '').join(' '));
+      return (q.answer.accepted as string[]).some((a) => norm(a) === given);
+    }
   }
 }
 

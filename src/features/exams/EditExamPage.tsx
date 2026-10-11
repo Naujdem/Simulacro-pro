@@ -3,6 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { ImageField, useImageUpload } from '@/components/ImageField';
 import type { QType } from '@/lib/importParser';
+import { norm } from '@/lib/text';
 import { fetchExamForEdit, saveExamEdits, type EditableQuestion } from './api';
 
 // Cada pregunta del formulario lleva una "key" propia para que React no se confunda al borrar o agregar.
@@ -13,6 +14,8 @@ const TYPE_LABEL: Record<QType, string> = {
   true_false: 'Verdadero / Falso',
   fill_blank: 'Completar espacios',
   short_answer: 'Respuesta corta',
+  order_words: 'Ordenar palabras',
+  transform: 'Transformar oración',
 };
 
 const LETTERS = 'abcdefghij'.split('');
@@ -29,6 +32,10 @@ const blankQuestion = (type: QType): EditableQuestion => {
       return { ...base, options: null, answer: { value: true } };
     case 'fill_blank':
       return { ...base, options: null, answer: { blanks: [] } };
+    case 'order_words':
+      return { ...base, prompt: 'Ordena las palabras para formar la oración', options: [], answer: { accepted: [] } };
+    case 'transform':
+      return { ...base, options: null, answer: { accepted: [], form: 'negativa' } };
     default:
       return { ...base, options: null, answer: { accepted: [] } };
   }
@@ -54,6 +61,13 @@ const problem = (q: EditableQuestion): string | null => {
       if (blanks.length !== slots)
         return `el enunciado tiene ${slots} espacio(s) pero hay ${blanks.length} respuesta(s) (sepáralas con ;).`;
       return null;
+    }
+    case 'order_words': {
+      const sentence = ((q.answer?.accepted ?? []) as string[])[0] ?? '';
+      const words = (q.options ?? []).map((o) => norm(o.text)).filter(Boolean).sort().join('|');
+      const want = sentence.split(/\s+/).map((w) => norm(w)).filter(Boolean).sort().join('|');
+      if (!sentence.trim()) return 'escribe la oración correcta.';
+      return words === want ? null : 'las palabras deben ser exactamente las de la oración correcta.';
     }
     default:
       return ((q.answer?.accepted ?? []) as string[]).length ? null : 'escribe al menos una respuesta aceptada.';
@@ -386,14 +400,46 @@ function QuestionEditor({
         </select>
       )}
 
-      {q.type === 'short_answer' && (
+      {q.type === 'order_words' && (
         <RawInput
           className={f}
-          placeholder="Respuestas aceptadas (separa con |)"
+          placeholder="Palabras desordenadas (separa con |)"
+          initial={opts.map((o) => o.text).join(' | ')}
+          onParsed={(raw) =>
+            onPatch({
+              options: raw
+                .split('|')
+                .map((s) => s.trim())
+                .filter(Boolean)
+                .map((text, i) => ({ id: `w${i + 1}`, text })),
+            })
+          }
+        />
+      )}
+
+      {q.type === 'transform' && (
+        <select
+          className={f}
+          value={(q.answer?.form as string) ?? 'negativa'}
+          onChange={(e) => onPatch({ answer: { ...q.answer, form: e.target.value } })}
+        >
+          {['afirmativa', 'negativa', 'interrogativa'].map((x) => (
+            <option key={x} value={x}>
+              Forma {x}
+            </option>
+          ))}
+        </select>
+      )}
+
+      {(q.type === 'short_answer' || q.type === 'transform' || q.type === 'order_words') && (
+        <RawInput
+          className={f}
+          placeholder={q.type === 'order_words' ? 'Oración correcta' : 'Respuestas aceptadas (separa con |)'}
           initial={((q.answer?.accepted ?? []) as string[]).join(' | ')}
           onParsed={(raw) =>
             onPatch({
               answer: {
+                ...q.answer,
                 accepted: raw
                   .split('|')
                   .map((s) => s.trim())
