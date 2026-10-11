@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { fetchProfile } from '@/features/exams/api';
@@ -57,6 +58,11 @@ export default function StatsPage() {
         {tile(totalQ, 'Preguntas respondidas')}
         {tile(`${Math.round(totalSec / 60)} min`, 'Tiempo total')}
       </div>
+
+      <Link to="/suggestions" className="flex items-center justify-between rounded-2xl bg-white p-4 font-extrabold shadow-sm dark:bg-slate-800">
+        <span>💡 Sugerencias guardadas</span>
+        <span className="text-slate-400">›</span>
+      </Link>
 
       <section>
         <h2 className="mb-2 font-extrabold">Acierto por tema</h2>

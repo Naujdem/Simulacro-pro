@@ -1,3 +1,5 @@
+import SuggestionPage from '@/features/suggestions/SuggestionPage';
+import SuggestionsListPage from '@/features/suggestions/SuggestionsListPage';
 import { Navigate, Route, Routes } from 'react-router-dom';
 import { useSession } from '@/lib/useSession';
 import Layout from '@/components/Layout';
@@ -33,11 +35,14 @@ export default function App() {
         <Route path="new" element={<ImportPage />} />
         <Route path="import-json" element={<JsonImportPage />} />
         <Route path="stats" element={<StatsPage />} />
+        <Route path="suggestions" element={<SuggestionsListPage />} />
+        <Route path="suggestions/:id" element={<SuggestionPage />} />
         <Route path="profile" element={<ProfilePage />} />
       </Route>
       <Route path="practice/:examId" element={<PracticePage />} />
       <Route path="flashcards/study" element={<StudyPage />} />
       <Route path="results" element={<ResultsPage />} />
+      <Route path="suggestion" element={<SuggestionPage />} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );
