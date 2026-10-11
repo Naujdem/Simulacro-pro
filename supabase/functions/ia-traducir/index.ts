@@ -5,7 +5,7 @@
 //
 // Despliegue:  supabase functions deploy ia-traducir
 // Secretos:    OPENROUTER_API_KEY  (la misma que ya usas en ia-pregunta)
-//              OPENROUTER_MODEL    (opcional; si no existe se usa openai/gpt-4o-mini)
+//              OPENROUTER_MODEL    (opcional; si no existe se usa openrouter/free, el mismo modelo gratuito que ia-pregunta)
 //              GEMINI_API_KEY      (clave gratuita de Google AI Studio: https://aistudio.google.com/apikey)
 //              GEMINI_MODEL        (opcional; si no existe se usa gemini-3.5-flash-lite)
 // Seguridad:   verify_jwt activo por defecto: solo pueden llamarla usuarios con sesión iniciada.
@@ -73,7 +73,7 @@ async function viaOpenRouter(palabra: string, frase: string): Promise<string> {
     method: 'POST',
     headers: { authorization: `Bearer ${key}`, 'content-type': 'application/json', 'x-title': 'SimulaPro' },
     body: JSON.stringify({
-      model: Deno.env.get('OPENROUTER_MODEL') || 'openai/gpt-4o-mini',
+      model: Deno.env.get('OPENROUTER_MODEL') || 'openrouter/free',
       temperature: 0,
       max_tokens: 120,
       messages: [
