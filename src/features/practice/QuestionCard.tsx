@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Question, Response, checkAnswer, correctText } from '@/lib/grading';
 import QuestionImage from '@/components/QuestionImage';
 import AiPanel from '@/features/ai/AiPanel';
+import ReadingText from './ReadingText';
 import { saveQuestionTag, type QuestionTag } from '@/features/exams/api';
 
 type Props = {
@@ -115,7 +116,7 @@ export function QuestionCard({ question: q, examId, onNext, aiHelp = false, read
       {reading && (
         <details open className="mb-4 rounded-2xl border-2 border-amber-300 bg-amber-50 p-3 dark:border-amber-800 dark:bg-amber-950/30">
           <summary className="cursor-pointer text-sm font-extrabold">📖 {reading.title}</summary>
-          <p className="mt-2 max-h-56 overflow-y-auto whitespace-pre-line text-sm leading-relaxed">{reading.body}</p>
+          <ReadingText title={reading.title} body={reading.body} />
         </details>
       )}
       {q.imagen_url && <QuestionImage src={q.imagen_url} className="mb-4" />}

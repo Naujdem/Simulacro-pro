@@ -207,3 +207,43 @@ describe('secciones ("seccion")', () => {
     expect(ok(exam(Array.from({ length: 21 }, (_, i) => q({ seccion: i < 10 ? 'A' : 'B' })))).warnings).toEqual([]);
   });
 });
+
+describe('prompt para la IA: sus ejemplos son fiables', () => {
+  it('cada ejemplo ✅ CORRECTO del prompt pasa la validación', async () => {
+    const { JSON_PROMPT } = await import('@/features/import/jsonPrompt');
+    const blocks = [...JSON_PROMPT.matchAll(/✅ CORRECTO \((\w+)\):\n([\s\S]*?)\n\n❌/g)];
+    expect(blocks.map((b) => b[1])).toEqual(['multiple_choice', 'true_false', 'fill_blank', 'order_words', 'transform']);
+    for (const [, tipo, json] of blocks) {
+      const r = ok({ simulacros: [{ titulo: 'T', preguntas: [JSON.parse(json)] }] });
+      expect(r.plan.looseExams[0].questions[0].type).toBe(tipo);
+      expect(r.warnings, tipo).toEqual([]);
+    }
+  });
+  it('los ejemplos ❌ INCORRECTO que son JSON válido se rechazan', async () => {
+    const { JSON_PROMPT } = await import('@/features/import/jsonPrompt');
+    const bad = [...JSON_PROMPT.matchAll(/❌ INCORRECTO:\n([\s\S]*?)\n\(/g)].map((b) => b[1]);
+    expect(bad.length).toBe(5);
+    for (const json of bad) {
+      let q: unknown;
+      try {
+        q = JSON.parse(json);
+      } catch {
+        continue; // con paréntesis en vez de corchetes ya ni siquiera es JSON
+      }
+      errs({ simulacros: [{ titulo: 'T', preguntas: [q] }] });
+    }
+  });
+  it('las advertencias de errores comunes llegan al texto (palabras sueltas, ___)', async () => {
+    const { JSON_PROMPT } = await import('@/features/import/jsonPrompt');
+    expect(JSON_PROMPT).toContain('"in the evening"');
+    expect(JSON_PROMPT).toContain('SIEMPRE debe tener ___');
+    expect(JSON_PROMPT).toContain('NO escapes los corchetes con \\.');
+  });
+  it('order_words con una frase compuesta en "palabras" se rechaza con un mensaje claro', () => {
+    const e = errs(oneQ({ tipo: 'order_words', palabras: ['She', 'goes', 'in the evening'], correcta: 'She goes in the evening' }));
+    expect(e[0]).toMatch(/no coinciden/);
+  });
+  it('fill_blank sin ___ se rechaza', () => {
+    expect(errs(oneQ({ tipo: 'fill_blank', enunciado: 'She watches TV.', correcta: 'watches' }))[0]).toMatch(/___/);
+  });
+});
