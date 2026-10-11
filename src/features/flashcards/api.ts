@@ -66,6 +66,32 @@ export async function saveDeckSettings(name: string, s: DeckSettings): Promise<v
   }
 }
 
+/* ───────────── Vocabulario desde las lecturas ───────────── */
+
+/** Mazo donde caen las palabras que tocas en las lecturas (se crea solo la primera vez). */
+export const VOCAB_DECK = 'Vocabulario Reading';
+
+/**
+ * Crea una ficha de vocabulario. Si ya tienes esa palabra en el mazo no la duplica ('duplicate').
+ * El mazo y sus opciones (nuevas por día, etc.) se crean solos si todavía no existen.
+ */
+export async function addVocabularyCard(front: string, back: string, deck: string = VOCAB_DECK): Promise<'added' | 'duplicate'> {
+  const word = front.trim();
+  const { data: dup, error: e0 } = await supabase
+    .from('flashcards')
+    .select('id')
+    .eq('deck', deck)
+    .ilike('front', word.replace(/[\\%_]/g, (c) => '\\' + c))
+    .limit(1);
+  if (e0) throw new Error(e0.message);
+  if (dup?.length) return 'duplicate';
+
+  const { error } = await supabase.from('flashcards').insert({ front: word, back: back.trim(), deck });
+  if (error) throw new Error(error.message);
+  await ensureDeckSettings([deck], DEFAULT_SETTINGS); // nunca falla: solo avisa en consola
+  return 'added';
+}
+
 /** Crea las opciones de los mazos que aún no tienen (no pisa las que ya cambiaste). Nunca lanza error. */
 export async function ensureDeckSettings(names: string[], s: DeckSettings): Promise<void> {
   try {
