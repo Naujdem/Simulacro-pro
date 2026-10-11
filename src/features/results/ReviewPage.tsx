@@ -5,6 +5,7 @@ import { fetchReviewEntries, removeFromReview, type ReviewEntry } from '@/featur
 import QuestionImage from '@/components/QuestionImage';
 import { usePractice } from '@/features/practice/practiceStore';
 import { pendingProgress, setLastSlot } from '@/features/practice/progress';
+import { useProgressVersion } from '@/features/practice/progressSync';
 import type { Question } from '@/lib/grading';
 
 // En las preguntas de "completar espacios" muestra ____ en lugar de {{1}}
@@ -13,6 +14,7 @@ const showPrompt = (p: string) => p.replace(/\{\{\d+\}\}/g, '____');
 export default function ReviewPage() {
   const nav = useNavigate();
   const qc = useQueryClient();
+  useProgressVersion((s) => s.version); // se vuelve a dibujar cuando llega avance de otro dispositivo
   const entries = useQuery({ queryKey: ['review-entries'], queryFn: fetchReviewEntries, refetchOnMount: 'always' });
 
   const remove = useMutation({
