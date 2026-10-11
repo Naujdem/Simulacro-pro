@@ -13,6 +13,7 @@ interface AttemptRow {
   duration_sec: number;
   finished_at: string;
   mode: string;
+  time_limit_sec: number | null;
   exams: { title: string } | null;
 }
 
@@ -43,7 +44,7 @@ export default function StatsPage() {
     queryFn: async () => {
       let q = supabase
         .from('attempts')
-        .select('id,score,total,duration_sec,finished_at,mode,exams(title)')
+        .select('id,score,total,duration_sec,finished_at,mode,time_limit_sec,exams(title)')
         .not('finished_at', 'is', null)
         .order('finished_at', { ascending: false })
         .limit(500);
@@ -158,7 +159,8 @@ export default function StatsPage() {
           {list.slice(0, 30).map((a) => (
             <li key={a.id} className="flex justify-between rounded-xl bg-white p-3 text-sm shadow-sm dark:bg-slate-800">
               <span>
-                <b>{a.mode === 'quick_review' ? '🧠 Repaso Rápido' : (a.exams?.title ?? 'Simulacro eliminado')}</b>
+                <b>{a.mode === 'quick_review' ? '🧠 Repaso Rápido' : a.mode === 'surprise' ? '🎲 Simulacro Sorpresa' : (a.exams?.title ?? 'Simulacro eliminado')}</b>
+                {a.time_limit_sec ? <span className="ml-1 rounded-full bg-slate-200 px-2 py-0.5 text-[10px] font-extrabold dark:bg-slate-700">⏱ Examen cronometrado</span> : null}
                 <br />
                 <span className="text-xs text-slate-500">{new Date(a.finished_at).toLocaleString()}</span>
               </span>

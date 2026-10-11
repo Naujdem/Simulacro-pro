@@ -9,6 +9,8 @@ export interface Result {
   response: Response;
   correct: boolean;
   timeMs: number;
+  /** Sin responder porque se acabó el tiempo. */
+  skipped?: boolean;
 }
 
 export interface Summary {
@@ -21,10 +23,19 @@ export interface Summary {
   answersSaved: boolean; // false si falló el guardado del detalle de respuestas
   /** Preguntas que tenía la sesión; si es mayor que `total`, el resultado es parcial (terminaste en una pausa). */
   planned: number;
+  /** Límite del Examen Cronometrado en segundos (null = sin límite). */
+  limitSec: number | null;
+  /** Se acabó el tiempo: las preguntas sin responder cuentan como incorrectas. */
+  timedOut: boolean;
+  unanswered: number;
 }
 
 // Id especial para la sesión de Repaso Rápido (mezcla preguntas de varios simulacros)
 export const QUICK_REVIEW_ID = 'quick';
+// Id especial para el Simulacro Sorpresa (preguntas al azar de varias bibliotecas, sin simulacro propio)
+export const SURPRISE_ID = 'surprise';
+/** Sesiones que mezclan preguntas de varios simulacros: no tienen simulacro propio. */
+export const isMixedSession = (id: string) => id === QUICK_REVIEW_ID || id === SURPRISE_ID;
 
 type Mode = SavedMode;
 
@@ -35,6 +46,8 @@ interface PracticeState {
   /** Sesión dentro del simulacro ('full', 'wrong', 'saved'…): decide dónde se guarda el avance para continuar. */
   slot: string;
   parentAttemptId?: string;
+  /** Tiempo límite en segundos (Examen Cronometrado); null = sin límite. */
+  limitSec: number | null;
   allQuestions: Question[];
   queue: Question[];
   index: number;
@@ -44,14 +57,15 @@ interface PracticeState {
   startedAt: number;
   questionStartedAt: number;
   summary: Summary | null;
-  start(examId: string, questions: Question[], mode?: Mode, parent?: string, slot?: string): void;
+  start(examId: string, questions: Question[], mode?: Mode, parent?: string, slot?: string, limitSec?: number | null): void;
   /** Continúa una sesión guardada. Devuelve false si no hay nada que continuar. */
   resume(examId: string, slot: string): Promise<boolean>;
   record(response: Response, correct: boolean): void;
   /** "Continuar" en la pausa entre secciones. */
   continueSection(): void;
   retryWrongQueue(): Question[];
-  finish(): Promise<Summary>;
+  /** Guarda el intento. Con `timedOut`, las preguntas sin responder se guardan como incorrectas. */
+  finish(opts?: { timedOut?: boolean }): Promise<Summary>;
   reset(): void;
 }
 
@@ -81,6 +95,7 @@ export const usePractice = create<PracticeState>((set, get) => {
       allIds: s.allQuestions.map((q) => q.id),
       results: s.results,
       elapsedMs: Date.now() - s.startedAt,
+      ...(s.limitSec ? { limitSec: s.limitSec, startedAt: s.startedAt } : {}),
       savedAt: Date.now(),
     });
   };
@@ -90,6 +105,7 @@ export const usePractice = create<PracticeState>((set, get) => {
     examId: '',
     mode: 'full',
     slot: 'full',
+    limitSec: null,
     allQuestions: [],
     queue: [],
     index: 0,
@@ -99,7 +115,7 @@ export const usePractice = create<PracticeState>((set, get) => {
     questionStartedAt: 0,
     summary: null,
 
-    start: (examId, questions, mode = 'full', parent, slot = mode) => {
+    start: (examId, questions, mode = 'full', parent, slot = mode, limitSec = null) => {
       clearProgress(examId, slot); // empezar de nuevo descarta el avance viejo de esa sesión
       // El simulacro completo se hace por secciones (cada una seguida); los repasos no
       if (mode === 'full') questions = groupBySection(questions);
@@ -109,8 +125,9 @@ export const usePractice = create<PracticeState>((set, get) => {
         mode,
         slot,
         parentAttemptId: parent,
+        limitSec,
         // Al repetir solo las falladas se conserva la lista completa original
-        allQuestions: mode === 'retry_wrong' || (mode === 'quick_review' && parent) ? s.allQuestions : questions,
+        allQuestions: mode === 'retry_wrong' || ((mode === 'quick_review' || mode === 'surprise') && parent) ? s.allQuestions : questions,
         queue: questions,
         index: 0,
         results: [],
@@ -142,13 +159,15 @@ export const usePractice = create<PracticeState>((set, get) => {
         mode: saved.mode,
         slot,
         parentAttemptId: saved.parentAttemptId,
+        limitSec: saved.limitSec ?? null,
         allQuestions: allQuestions.length ? allQuestions : queue,
         queue,
         index: results.length, // cada respuesta avanza una pregunta: la siguiente es la que sigue
         results,
         ack: -1, // si saliste en una pausa entre secciones, vuelves a ella
         summary: null,
-        startedAt: Date.now() - saved.elapsedMs, // el tiempo fuera de la app no cuenta
+        // El tiempo fuera de la app no cuenta, salvo en el Examen Cronometrado: ahí el reloj sigue corriendo
+        startedAt: saved.limitSec && saved.startedAt ? saved.startedAt : Date.now() - saved.elapsedMs,
         questionStartedAt: Date.now(),
       });
       return true;
@@ -174,28 +193,36 @@ export const usePractice = create<PracticeState>((set, get) => {
       return queue.filter((q) => wrong.has(q.id));
     },
 
-    finish: async () => {
+    finish: async (opts) => {
       const s = get();
       const { data: u } = await supabase.auth.getUser();
       const userId = u.user!.id;
 
-      const total = s.results.length;
-      const correct = s.results.filter((r) => r.correct).length;
+      // Se acabó el tiempo: lo que no se alcanzó a responder cuenta como incorrecto
+      const timedOut = !!opts?.timedOut && !!s.limitSec;
+      const skipped: Result[] = timedOut
+        ? s.queue.slice(s.results.length).map((q) => ({ questionId: q.id, response: { type: 'skipped' }, correct: false, timeMs: 0, skipped: true }))
+        : [];
+      const all = [...s.results, ...skipped];
+
+      const total = all.length;
+      const correct = all.filter((r) => r.correct).length;
       const score = total ? Math.round((correct / total) * 10000) / 100 : 0;
-      const durationSec = Math.round((Date.now() - s.startedAt) / 1000);
+      const elapsedSec = Math.round((Date.now() - s.startedAt) / 1000);
+      const durationSec = timedOut ? Math.min(elapsedSec, s.limitSec!) : elapsedSec;
       // Terminar un simulacro a medias ("Terminar aquí") se guarda como práctica parcial ('custom'):
-      // no cuenta para el "mejor %" ni da el bono por completarlo.
+      // no cuenta para el "mejor %" ni da el bono por completarlo. Si se acabó el tiempo, el examen sí cuenta entero.
       const partial = s.mode === 'full' && total < s.queue.length;
       const mode: Mode = partial ? 'custom' : s.mode;
-      // Practicar preguntas sueltas ('custom') no da bono por completar, para no regalar XP
-      const bonus = mode === 'custom' || mode === 'quick_review' ? 0 : 20 + (score >= 90 ? 30 : 0);
+      // Practicar preguntas sueltas ('custom') o mezcladas no da bono por completar, para no regalar XP
+      const bonus = mode === 'custom' || mode === 'quick_review' || mode === 'surprise' ? 0 : 20 + (score >= 90 ? 30 : 0);
       const xp = correct * 10 + bonus;
 
       const { data: attempt, error } = await supabase
         .from('attempts')
         .insert({
           user_id: userId,
-          exam_id: s.examId === QUICK_REVIEW_ID ? null : s.examId, // el Repaso Rápido no pertenece a un solo simulacro
+          exam_id: isMixedSession(s.examId) ? null : s.examId, // el Repaso Rápido y el Sorpresa no pertenecen a un solo simulacro
           mode,
           parent_attempt_id: s.parentAttemptId ?? null,
           started_at: new Date(s.startedAt).toISOString(),
@@ -205,6 +232,7 @@ export const usePractice = create<PracticeState>((set, get) => {
           correct,
           score,
           xp_earned: xp,
+          time_limit_sec: s.limitSec,
         })
         .select('id')
         .single();
@@ -214,13 +242,13 @@ export const usePractice = create<PracticeState>((set, get) => {
       clearProgress(s.examId, s.slot);
 
       const { error: answersError } = await supabase.from('attempt_answers').insert(
-        s.results.map((r) => ({
+        all.map((r) => ({
           attempt_id: attempt.id,
           user_id: userId,
           question_id: r.questionId,
           response: r.response,
           is_correct: r.correct,
-          time_ms: r.timeMs,
+          time_ms: r.skipped ? null : r.timeMs,
         })),
       );
       if (answersError) console.error('No se pudo guardar el detalle de respuestas:', answersError);
@@ -235,13 +263,16 @@ export const usePractice = create<PracticeState>((set, get) => {
         xp,
         answersSaved: !answersError,
         planned: s.queue.length,
+        limitSec: s.limitSec,
+        timedOut,
+        unanswered: skipped.length,
       };
-      set({ summary });
+      set({ summary, results: all });
       return summary;
     },
 
     // Salir NO borra el avance guardado: así puedes volver y continuar
     reset: () =>
-      set({ active: false, queue: [], allQuestions: [], results: [], index: 0, ack: -1, summary: null, parentAttemptId: undefined }),
+      set({ active: false, queue: [], allQuestions: [], results: [], index: 0, ack: -1, summary: null, parentAttemptId: undefined, limitSec: null }),
   };
 });

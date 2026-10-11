@@ -4,7 +4,9 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { fetchReadings } from '@/features/exams/api';
 import type { Question } from '@/lib/grading';
-import { QUICK_REVIEW_ID, usePractice } from './practiceStore';
+import { isMixedSession, QUICK_REVIEW_ID, SURPRISE_ID, usePractice } from './practiceStore';
+import TimerBar from './TimerBar';
+import { remainingSec } from '@/lib/timer';
 import { lastSlotFor } from './progress';
 import { QuestionCard } from './QuestionCard';
 import SectionPause from './SectionPause';
@@ -13,7 +15,7 @@ import { boundaryAt, sectionRanges, sectionStats } from '@/lib/sections';
 export default function PracticePage() {
   const { examId } = useParams();
   const nav = useNavigate();
-  const { active, examId: current, mode, queue, index, record, results, ack, continueSection } = usePractice();
+  const { active, examId: current, mode, queue, index, record, results, ack, continueSection, limitSec, startedAt } = usePractice();
   const finishing = useRef(false);
   const [resumedAt, setResumedAt] = useState<number | null>(null);
 
@@ -25,7 +27,7 @@ export default function PracticePage() {
     let cancelled = false;
 
     (async () => {
-      const slot = lastSlotFor(examId!) ?? (examId === QUICK_REVIEW_ID ? 'quick_review' : 'full');
+      const slot = lastSlotFor(examId!) ?? (examId === QUICK_REVIEW_ID ? 'quick_review' : examId === SURPRISE_ID ? 'surprise' : 'full');
       const resumed = await usePractice.getState().resume(examId!, slot).catch(() => false);
       if (cancelled) return;
       if (resumed) {
@@ -33,15 +35,19 @@ export default function PracticePage() {
         return;
       }
 
-      // El Repaso Rápido no se puede reconstruir sin avance guardado: vuelve al inicio
-      if (examId === QUICK_REVIEW_ID) {
+      // El Repaso Rápido y el Sorpresa no se pueden reconstruir sin avance guardado: vuelve al inicio
+      if (isMixedSession(examId!)) {
         nav('/', { replace: true });
         return;
       }
       const { data } = await supabase.from('questions').select('*').eq('exam_id', examId!).order('position');
       if (cancelled) return;
       if (!data?.length) return nav('/library');
-      usePractice.getState().start(examId!, data as Question[]);
+      // Examen cronometrado: el tiempo límite lo define el simulacro
+      const { data: ex } = await supabase.from('exams').select('time_limit_min').eq('id', examId!).maybeSingle();
+      if (cancelled) return;
+      const limit = ex?.time_limit_min ? Number(ex.time_limit_min) * 60 : null;
+      usePractice.getState().start(examId!, data as Question[], 'full', undefined, 'full', limit);
     })();
 
     return () => {
@@ -85,6 +91,36 @@ export default function PracticePage() {
     return () => clearTimeout(t);
   }, [resumedAt]);
 
+  // Examen cronometrado: reloj que corre cada segundo; al llegar a 0 se cierra y se guarda solo
+  const [now, setNow] = useState(() => Date.now());
+  const [timeUp, setTimeUp] = useState(false);
+  const [timeUpError, setTimeUpError] = useState('');
+  useEffect(() => {
+    if (!active || !limitSec) return;
+    setNow(Date.now());
+    const t = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(t);
+  }, [active, limitSec]);
+  const remaining = limitSec ? remainingSec(startedAt, limitSec, now) : null;
+  const saveTimedOut = () => {
+    if (finishing.current) return;
+    finishing.current = true;
+    setTimeUp(true);
+    setTimeUpError('');
+    usePractice
+      .getState()
+      .finish({ timedOut: true })
+      .then(() => nav('/results', { replace: true }))
+      .catch((e) => {
+        finishing.current = false;
+        setTimeUpError(e.message || 'No se pudo guardar el intento.');
+      });
+  };
+  useEffect(() => {
+    if (active && queue.length && remaining === 0 && !finishing.current && !timeUpError) saveTimedOut();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [active, queue.length, remaining, timeUpError]);
+
   // Al terminar la cola: guardar y mostrar resultados
   useEffect(() => {
     if (active && queue.length && index >= queue.length && !finishing.current) {
@@ -101,12 +137,32 @@ export default function PracticePage() {
   }, [active, queue.length, index, nav]);
 
   if (!active || current !== examId || !queue.length) return <p className="p-6">Cargando…</p>;
+  if (timeUp) {
+    return (
+      <div className="mx-auto max-w-xl space-y-4 p-6 text-center">
+        <p className="text-2xl font-extrabold">⏰ ¡Se acabó el tiempo!</p>
+        {timeUpError ? (
+          <>
+            <p className="text-sm text-red-500">{timeUpError}</p>
+            <button onClick={saveTimedOut} className="rounded-2xl bg-sky-500 px-6 py-3 font-extrabold text-white">
+              Reintentar guardar
+            </button>
+          </>
+        ) : (
+          <p className="text-slate-500">Guardando tus resultados. Las preguntas sin responder cuentan como incorrectas.</p>
+        )}
+      </div>
+    );
+  }
   if (index >= queue.length) return <p className="p-6">Guardando resultados…</p>;
 
   // Pausa entre secciones: aparece al empezar una sección nueva (y se queda hasta elegir)
   const boundary = boundaryAt(ranges, index);
+  const timerBar = limitSec && remaining !== null ? <TimerBar remaining={remaining} limitSec={limitSec} /> : null;
   if (boundary >= 0 && ack !== index) {
     return (
+      <>
+      {timerBar}
       <SectionPause
         done={sectionStats(ranges[boundary - 1], results)}
         next={{ name: ranges[boundary].name, total: ranges[boundary].end - ranges[boundary].start }}
@@ -124,12 +180,14 @@ export default function PracticePage() {
           nav('/library');
         }}
       />
+      </>
     );
   }
   const currentRange = ranges.find((r) => index >= r.start && index < r.end);
 
   return (
     <div className="min-h-dvh">
+      {timerBar}
       <header className="mx-auto flex max-w-xl items-center gap-3 px-4 pt-4">
         <button
           aria-label="Salir"

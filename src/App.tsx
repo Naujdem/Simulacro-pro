@@ -1,3 +1,4 @@
+import SurprisePage from '@/features/exams/SurprisePage';
 import SuggestionPage from '@/features/suggestions/SuggestionPage';
 import SuggestionsListPage from '@/features/suggestions/SuggestionsListPage';
 import { Navigate, Route, Routes } from 'react-router-dom';
@@ -32,6 +33,7 @@ export default function App() {
         <Route path="folders/:folderId" element={<FolderPage />} />
         <Route path="exams/:examId/edit" element={<EditExamPage />} />
         <Route path="review" element={<ReviewPage />} />
+        <Route path="surprise" element={<SurprisePage />} />
         <Route path="new" element={<ImportPage />} />
         <Route path="import-json" element={<JsonImportPage />} />
         <Route path="stats" element={<StatsPage />} />

@@ -11,7 +11,7 @@ import type { Response } from '@/lib/grading';
  * que si editaste el simulacro entre tanto se usa la versión actual.
  */
 
-export type SavedMode = 'full' | 'retry_wrong' | 'custom' | 'quick_review';
+export type SavedMode = 'full' | 'retry_wrong' | 'custom' | 'quick_review' | 'surprise';
 
 export interface SavedResult {
   questionId: string;
@@ -34,6 +34,9 @@ export interface SavedProgress {
   results: SavedResult[];
   /** Tiempo activo acumulado (no cuenta el tiempo que estuviste fuera). */
   elapsedMs: number;
+  /** Examen cronometrado: tiempo límite en segundos y momento exacto de inicio (el reloj sigue corriendo aunque salgas). */
+  limitSec?: number;
+  startedAt?: number;
   savedAt: number;
 }
 

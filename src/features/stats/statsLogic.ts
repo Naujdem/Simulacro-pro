@@ -95,7 +95,7 @@ export function lastAttempts(rows: { id: string; score: number | string | null; 
       id: r.id,
       score: Math.round(Number(r.score)),
       finished_at: r.finished_at!,
-      title: r.mode === 'quick_review' ? 'Repaso Rápido' : (r.exams?.title ?? 'Simulacro eliminado'),
+      title: r.mode === 'quick_review' ? 'Repaso Rápido' : r.mode === 'surprise' ? 'Simulacro Sorpresa' : (r.exams?.title ?? 'Simulacro eliminado'),
     }));
 }
 

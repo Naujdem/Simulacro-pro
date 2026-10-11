@@ -1,3 +1,5 @@
+import TimedField from '@/components/TimedField';
+import { parseMinutes } from '@/lib/timer';
 import { useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -49,6 +51,8 @@ export default function ImportPage() {
   const [title, setTitle] = useState('');
   const [subject, setSubject] = useState('');
   const [description, setDescription] = useState('');
+  const [timed, setTimed] = useState(false);
+  const [minutes, setMinutes] = useState('60');
   const [text, setText] = useState('');
   const [items, setItems] = useState<ParsedQuestion[]>([]);
   const [saving, setSaving] = useState(false);
@@ -60,6 +64,11 @@ export default function ImportPage() {
   const analyze = () => setItems(parseQuestions(text));
 
   async function save() {
+    const limit = timed ? parseMinutes(minutes) : null;
+    if (timed && limit === null) {
+      setError('Escribe un tiempo límite entre 1 y 600 minutos.');
+      return;
+    }
     setSaving(true);
     setError('');
     try {
@@ -74,6 +83,7 @@ export default function ImportPage() {
           subject: subject.trim() || null,
           description: description.trim() || null,
           folder_id: folderId || null,
+          time_limit_min: limit,
           question_count: valid.length,
         })
         .select('id')
@@ -122,6 +132,7 @@ export default function ImportPage() {
         <input className={field} placeholder="Tema / asignatura" value={subject} onChange={(e) => setSubject(e.target.value)} />
         <input className={field} placeholder="Descripción (opcional)" value={description} onChange={(e) => setDescription(e.target.value)} />
       </div>
+      <TimedField enabled={timed} minutes={minutes} onChange={(e, m) => { setTimed(e); setMinutes(m); }} />
       <select className={field} value={folderId} onChange={(e) => setFolderId(e.target.value)}>
         <option value="">Sin biblioteca</option>
         {(folders.data ?? []).map((f) => (

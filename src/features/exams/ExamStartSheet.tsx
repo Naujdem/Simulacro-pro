@@ -70,6 +70,11 @@ export default function ExamStartSheet({ exam, onClose }: Props) {
         <div className={card}>
           <p className="font-extrabold">📝 Simulacro completo</p>
           <p className="text-xs text-slate-500">Todas las preguntas del simulacro.</p>
+          {exam.time_limit_min ? (
+            <p className="rounded-lg bg-amber-50 p-2 text-xs font-bold text-amber-800 dark:bg-amber-950 dark:text-amber-200">
+              ⏱ Examen cronometrado: {exam.time_limit_min} minutos. Al acabarse el tiempo se cierra solo y las preguntas sin responder cuentan como incorrectas.
+            </p>
+          ) : null}
           {pendingFull ? (
             <>
               <button onClick={() => go('full')} className={primary}>
@@ -81,7 +86,7 @@ export default function ExamStartSheet({ exam, onClose }: Props) {
             </>
           ) : (
             <button onClick={startFull} className={primary}>
-              Practicar simulacro completo
+              {exam.time_limit_min ? '⏱ Empezar examen cronometrado' : 'Practicar simulacro completo'}
             </button>
           )}
         </div>

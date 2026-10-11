@@ -11,6 +11,8 @@ export interface Exam {
   folder_id: string | null;
   /** Orden dentro de su biblioteca (lo pone el importador JSON); null = sin orden. */
   position?: number | null;
+  /** Examen cronometrado: tiempo límite en minutos (null = sin límite). */
+  time_limit_min?: number | null;
   created_at: string;
 }
 
@@ -137,6 +139,8 @@ export interface ExamEdits {
   title: string;
   subject: string;
   description: string;
+  /** Minutos del examen cronometrado; null = sin límite. */
+  timeLimitMin: number | null;
 }
 
 export const fetchExamForEdit = async (examId: string): Promise<{ exam: Exam; questions: EditableQuestion[] }> => {
@@ -218,6 +222,7 @@ export const saveExamEdits = async (
       title: edits.title.trim(),
       subject: edits.subject.trim() || null,
       description: edits.description.trim() || null,
+      time_limit_min: edits.timeLimitMin,
       question_count: questions.length,
       updated_at: new Date().toISOString(),
     })
