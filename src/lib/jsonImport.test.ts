@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { cleanJsonText, describeSummary, parseImportJson } from './jsonImport';
+import { cleanJsonText, describeSummary, examSections, parseImportJson } from './jsonImport';
 
 const FULL = {
   version: 1,
@@ -69,7 +69,7 @@ describe('parseImportJson: caso completo', () => {
     expect(ow.answer).toEqual({ accepted: ['She has lived here.'] });
     expect(tr).toMatchObject({ prompt: 'She has finished.', answer: { accepted: ['She has not finished.'], form: 'negativa' } });
     expect(rd).toMatchObject({ readingIndex: 0, answer: { correct: ['b'] } });
-    expect(r.plan.folders[0].exams[0].readings).toEqual([{ title: 'Trip', body: 'Tom went to London.' }]);
+    expect(r.plan.folders[0].exams[0].readings).toEqual([{ title: 'Trip', body: 'Tom went to London.', section: 'General' }]);
   });
   it('fichas: mazo opcional', () => {
     expect(r.plan.cards).toEqual([{ front: 'f', back: 'r', deck: 'Inglés::Gramática' }, { front: 'f2', back: 'r2', deck: null }]);
@@ -162,5 +162,48 @@ describe('ejemplo y guía de la pantalla', () => {
     expect(r.summary.byType).toMatchObject({ multiple_choice: 2, true_false: 2, fill_blank: 1, order_words: 1, transform: 1 });
     expect(r.summary).toMatchObject({ folders: 1, exams: 1, readings: 1, cards: 1 });
     expect(r.warnings).toEqual([]);
+    expect(examSections(r.plan.folders[0].exams[0])).toEqual(['Gramática', 'Lectura 1: A Trip to London']);
+  });
+});
+
+describe('secciones ("seccion")', () => {
+  const q = (extra: object = {}) => ({ tipo: 'true_false', enunciado: 'x', correcta: true, ...extra });
+  const exam = (preguntas: object[], lecturas?: object[]) => ({ simulacros: [{ titulo: 'T', preguntas, lecturas }] });
+  const sections = (x: unknown) => ok(x).plan.looseExams[0].questions.map((p) => p.section);
+
+  it('sin "seccion" todo es "General"', () => {
+    expect(sections(exam([q(), q()]))).toEqual(['General', 'General']);
+  });
+  it('acepta "seccion" en cada pregunta y la recorta', () => {
+    expect(sections(exam([q({ seccion: ' Gramática ' }), q({ seccion: 'Vocabulario' })]))).toEqual(['Gramática', 'Vocabulario']);
+  });
+  it('las preguntas de una lectura heredan la sección de la lectura, y pueden tener la suya', () => {
+    const r = ok(
+      exam(
+        [q({ seccion: 'Gramática' })],
+        [{ titulo: 'L', texto: 't', seccion: 'Lectura 1: Tom', preguntas: [q(), q({ seccion: 'Otra' })] }],
+      ),
+    );
+    const e = r.plan.looseExams[0];
+    expect(e.readings[0].section).toBe('Lectura 1: Tom');
+    expect(e.questions.map((p) => p.section)).toEqual(['Gramática', 'Lectura 1: Tom', 'Otra']);
+  });
+  it('lectura sin "seccion" → "General"', () => {
+    expect(sections(exam([], [{ titulo: 'L', texto: 't', preguntas: [q()] }]))).toEqual(['General']);
+  });
+  it('agrupa: las preguntas de cada sección quedan juntas, en el orden de primera aparición', () => {
+    const r = ok(exam([q({ seccion: 'B', enunciado: '1' }), q({ seccion: 'A', enunciado: '2' }), q({ seccion: 'B', enunciado: '3' }), q({ seccion: 'A', enunciado: '4' })]));
+    const qs = r.plan.looseExams[0].questions;
+    expect(qs.map((p) => `${p.section}${p.prompt}`)).toEqual(['B1', 'B3', 'A2', 'A4']);
+    expect(examSections(r.plan.looseExams[0])).toEqual(['B', 'A']);
+  });
+  it('"seccion" que no es texto da error con ubicación', () => {
+    expect(errs(exam([q({ seccion: 3 })]))[0]).toMatch(/Pregunta 1: "seccion" debe ser un texto/);
+    expect(errs(exam([], [{ titulo: 'L', texto: 't', seccion: [], preguntas: [q()] }]))[0]).toMatch(/Lectura 1: "seccion" debe ser un texto/);
+  });
+  it('avisa si hay más de 20 preguntas en una sola sección', () => {
+    const r = ok(exam(Array.from({ length: 21 }, () => q())));
+    expect(r.warnings.join()).toMatch(/21 preguntas en una sola sección/);
+    expect(ok(exam(Array.from({ length: 21 }, (_, i) => q({ seccion: i < 10 ? 'A' : 'B' })))).warnings).toEqual([]);
   });
 });

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
@@ -7,11 +7,13 @@ import type { Question } from '@/lib/grading';
 import { QUICK_REVIEW_ID, usePractice } from './practiceStore';
 import { lastSlotFor } from './progress';
 import { QuestionCard } from './QuestionCard';
+import SectionPause from './SectionPause';
+import { boundaryAt, sectionRanges, sectionStats } from '@/lib/sections';
 
 export default function PracticePage() {
   const { examId } = useParams();
   const nav = useNavigate();
-  const { active, examId: current, mode, queue, index, record } = usePractice();
+  const { active, examId: current, mode, queue, index, record, results, ack, continueSection } = usePractice();
   const finishing = useRef(false);
   const [resumedAt, setResumedAt] = useState<number | null>(null);
 
@@ -56,6 +58,26 @@ export default function PracticePage() {
     staleTime: Infinity,
   });
 
+  // Secciones: solo el simulacro completo se hace por secciones (los repasos mezclan preguntas)
+  const ranges = useMemo(() => (mode === 'full' ? sectionRanges(queue) : []), [mode, queue]);
+  const [finishingNow, setFinishingNow] = useState(false);
+
+  // "Terminar aquí": guarda lo respondido hasta ahora como resultado parcial
+  const finishHere = () => {
+    if (finishing.current) return;
+    finishing.current = true;
+    setFinishingNow(true);
+    usePractice
+      .getState()
+      .finish()
+      .then(() => nav('/results', { replace: true }))
+      .catch((e) => {
+        finishing.current = false;
+        setFinishingNow(false);
+        alert('No se pudo guardar el intento: ' + e.message);
+      });
+  };
+
   // El aviso de "continuando…" se quita solo
   useEffect(() => {
     if (resumedAt === null) return;
@@ -81,6 +103,31 @@ export default function PracticePage() {
   if (!active || current !== examId || !queue.length) return <p className="p-6">Cargando…</p>;
   if (index >= queue.length) return <p className="p-6">Guardando resultados…</p>;
 
+  // Pausa entre secciones: aparece al empezar una sección nueva (y se queda hasta elegir)
+  const boundary = boundaryAt(ranges, index);
+  if (boundary >= 0 && ack !== index) {
+    return (
+      <SectionPause
+        done={sectionStats(ranges[boundary - 1], results)}
+        next={{ name: ranges[boundary].name, total: ranges[boundary].end - ranges[boundary].start }}
+        nextNumber={boundary + 1}
+        sectionCount={ranges.length}
+        answered={results.length}
+        total={queue.length}
+        correct={results.filter((r) => r.correct).length}
+        finishing={finishingNow}
+        onContinue={continueSection}
+        onFinish={finishHere}
+        onExit={() => {
+          // El avance ya está guardado: al volver a abrir el simulacro vuelves a esta pausa
+          usePractice.getState().reset();
+          nav('/library');
+        }}
+      />
+    );
+  }
+  const currentRange = ranges.find((r) => index >= r.start && index < r.end);
+
   return (
     <div className="min-h-dvh">
       <header className="mx-auto flex max-w-xl items-center gap-3 px-4 pt-4">
@@ -102,6 +149,11 @@ export default function PracticePage() {
           {index + 1}/{queue.length}
         </span>
       </header>
+      {currentRange && (
+        <p className="mx-auto mt-2 max-w-xl px-4 text-xs font-bold text-slate-500">
+          {currentRange.name} · {index - currentRange.start + 1}/{currentRange.end - currentRange.start}
+        </p>
+      )}
       {resumedAt !== null && (
         <p role="status" className="mx-auto mt-3 max-w-xl rounded-xl bg-sky-100 px-4 py-2 text-center text-sm font-bold text-sky-800 dark:bg-sky-950 dark:text-sky-200">
           Continuando donde te quedaste: pregunta {resumedAt}

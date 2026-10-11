@@ -13,6 +13,8 @@ export interface Question {
   imagen_url?: string | null;
   /** Lectura (texto) a la que pertenece la pregunta, si es de comprensión lectora. */
   reading_id?: string | null;
+  /** Sección del simulacro ("Gramática", "Lectura 1"…); null en los simulacros sin secciones. */
+  section?: string | null;
 }
 
 export type Response =

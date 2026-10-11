@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { Question, Response } from '@/lib/grading';
 import { supabase, todayLocal } from '@/lib/supabase';
 import { clearProgress, loadProgress, saveProgress, type SavedMode } from './progress';
+import { groupBySection } from '@/lib/sections';
 
 export interface Result {
   questionId: string;
@@ -18,6 +19,8 @@ export interface Summary {
   durationSec: number;
   xp: number;
   answersSaved: boolean; // false si falló el guardado del detalle de respuestas
+  /** Preguntas que tenía la sesión; si es mayor que `total`, el resultado es parcial (terminaste en una pausa). */
+  planned: number;
 }
 
 // Id especial para la sesión de Repaso Rápido (mezcla preguntas de varios simulacros)
@@ -36,6 +39,8 @@ interface PracticeState {
   queue: Question[];
   index: number;
   results: Result[];
+  /** Índice de la pausa entre secciones que ya se aceptó con "Continuar" (-1 = ninguna). */
+  ack: number;
   startedAt: number;
   questionStartedAt: number;
   summary: Summary | null;
@@ -43,6 +48,8 @@ interface PracticeState {
   /** Continúa una sesión guardada. Devuelve false si no hay nada que continuar. */
   resume(examId: string, slot: string): Promise<boolean>;
   record(response: Response, correct: boolean): void;
+  /** "Continuar" en la pausa entre secciones. */
+  continueSection(): void;
   retryWrongQueue(): Question[];
   finish(): Promise<Summary>;
   reset(): void;
@@ -87,12 +94,15 @@ export const usePractice = create<PracticeState>((set, get) => {
     queue: [],
     index: 0,
     results: [],
+    ack: -1,
     startedAt: 0,
     questionStartedAt: 0,
     summary: null,
 
     start: (examId, questions, mode = 'full', parent, slot = mode) => {
       clearProgress(examId, slot); // empezar de nuevo descarta el avance viejo de esa sesión
+      // El simulacro completo se hace por secciones (cada una seguida); los repasos no
+      if (mode === 'full') questions = groupBySection(questions);
       set((s) => ({
         active: true,
         examId,
@@ -104,6 +114,7 @@ export const usePractice = create<PracticeState>((set, get) => {
         queue: questions,
         index: 0,
         results: [],
+        ack: -1,
         summary: null,
         startedAt: Date.now(),
         questionStartedAt: Date.now(),
@@ -135,6 +146,7 @@ export const usePractice = create<PracticeState>((set, get) => {
         queue,
         index: results.length, // cada respuesta avanza una pregunta: la siguiente es la que sigue
         results,
+        ack: -1, // si saliste en una pausa entre secciones, vuelves a ella
         summary: null,
         startedAt: Date.now() - saved.elapsedMs, // el tiempo fuera de la app no cuenta
         questionStartedAt: Date.now(),
@@ -154,6 +166,8 @@ export const usePractice = create<PracticeState>((set, get) => {
       persist();
     },
 
+    continueSection: () => set((s) => ({ ack: s.index })),
+
     retryWrongQueue: () => {
       const { queue, results } = get();
       const wrong = new Set(results.filter((r) => !r.correct).map((r) => r.questionId));
@@ -169,8 +183,12 @@ export const usePractice = create<PracticeState>((set, get) => {
       const correct = s.results.filter((r) => r.correct).length;
       const score = total ? Math.round((correct / total) * 10000) / 100 : 0;
       const durationSec = Math.round((Date.now() - s.startedAt) / 1000);
+      // Terminar un simulacro a medias ("Terminar aquí") se guarda como práctica parcial ('custom'):
+      // no cuenta para el "mejor %" ni da el bono por completarlo.
+      const partial = s.mode === 'full' && total < s.queue.length;
+      const mode: Mode = partial ? 'custom' : s.mode;
       // Practicar preguntas sueltas ('custom') no da bono por completar, para no regalar XP
-      const bonus = s.mode === 'custom' || s.mode === 'quick_review' ? 0 : 20 + (score >= 90 ? 30 : 0);
+      const bonus = mode === 'custom' || mode === 'quick_review' ? 0 : 20 + (score >= 90 ? 30 : 0);
       const xp = correct * 10 + bonus;
 
       const { data: attempt, error } = await supabase
@@ -178,7 +196,7 @@ export const usePractice = create<PracticeState>((set, get) => {
         .insert({
           user_id: userId,
           exam_id: s.examId === QUICK_REVIEW_ID ? null : s.examId, // el Repaso Rápido no pertenece a un solo simulacro
-          mode: s.mode,
+          mode,
           parent_attempt_id: s.parentAttemptId ?? null,
           started_at: new Date(s.startedAt).toISOString(),
           finished_at: new Date().toISOString(),
@@ -216,6 +234,7 @@ export const usePractice = create<PracticeState>((set, get) => {
         durationSec,
         xp,
         answersSaved: !answersError,
+        planned: s.queue.length,
       };
       set({ summary });
       return summary;
@@ -223,6 +242,6 @@ export const usePractice = create<PracticeState>((set, get) => {
 
     // Salir NO borra el avance guardado: así puedes volver y continuar
     reset: () =>
-      set({ active: false, queue: [], allQuestions: [], results: [], index: 0, summary: null, parentAttemptId: undefined }),
+      set({ active: false, queue: [], allQuestions: [], results: [], index: 0, ack: -1, summary: null, parentAttemptId: undefined }),
   };
 });

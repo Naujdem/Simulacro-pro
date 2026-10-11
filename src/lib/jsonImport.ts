@@ -1,4 +1,5 @@
 import { norm } from './text';
+import { DEFAULT_SECTION, groupBySection } from './sections';
 
 /*
  * Importador JSON: el usuario genera el JSON por fuera (ChatGPT / Claude) y lo pega en la app.
@@ -19,12 +20,15 @@ export interface PlanQuestion {
   options: { id: string; text: string }[] | null;
   answer: Record<string, unknown>;
   explanation: string | null;
+  /** Sección del simulacro ("Gramática", "Lectura 1: …"); "General" si el JSON no la trae. */
+  section: string;
   /** Índice de la lectura (dentro del simulacro) a la que pertenece, o null si es una pregunta suelta. */
   readingIndex: number | null;
 }
 export interface PlanReading {
   title: string;
   body: string;
+  section: string;
 }
 export interface PlanExam {
   title: string;
@@ -122,7 +126,7 @@ class Ctx {
 
 const tokens = (s: string) => s.split(/\s+/).map((w) => norm(w)).filter(Boolean);
 
-function validateQuestion(raw: unknown, path: string, readingIndex: number | null, c: Ctx): PlanQuestion | null {
+function validateQuestion(raw: unknown, path: string, readingIndex: number | null, c: Ctx, fallbackSection = DEFAULT_SECTION): PlanQuestion | null {
   if (!isObj(raw)) {
     c.err(path, 'debe ser un objeto { … }.');
     return null;
@@ -136,9 +140,11 @@ function validateQuestion(raw: unknown, path: string, readingIndex: number | nul
   const explanation = optStr(raw.explicacion);
   if (raw.explicacion !== undefined && raw.explicacion !== null && typeof raw.explicacion !== 'string')
     c.err(path, '"explicacion" debe ser un texto.');
+  if (raw.seccion !== undefined && raw.seccion !== null && typeof raw.seccion !== 'string') c.err(path, '"seccion" debe ser un texto (por ejemplo "Gramática").');
+  const section = optStr(raw.seccion) ?? fallbackSection; // si no trae, hereda la de su lectura o es "General"
   const errBefore = c.errors.length;
   const prompt = str(raw.enunciado);
-  const base = { type, explanation, readingIndex };
+  const base = { type, explanation, readingIndex, section };
 
   switch (type) {
     case 'multiple_choice': {
@@ -285,7 +291,7 @@ function validateQuestion(raw: unknown, path: string, readingIndex: number | nul
   return null;
 }
 
-function validateQuestions(raw: unknown, path: string, readingIndex: number | null, c: Ctx): PlanQuestion[] {
+function validateQuestions(raw: unknown, path: string, readingIndex: number | null, c: Ctx, fallbackSection = DEFAULT_SECTION): PlanQuestion[] {
   if (raw === undefined || raw === null) return [];
   if (!Array.isArray(raw)) {
     c.err(path, 'debe ser una lista [ … ].');
@@ -293,7 +299,7 @@ function validateQuestions(raw: unknown, path: string, readingIndex: number | nu
   }
   const out: PlanQuestion[] = [];
   raw.forEach((q, i) => {
-    const r = validateQuestion(q, `${path} › Pregunta ${i + 1}`, readingIndex, c);
+    const r = validateQuestion(q, `${path} › Pregunta ${i + 1}`, readingIndex, c, fallbackSection);
     if (r) out.push(r);
   });
   return out;
@@ -329,10 +335,12 @@ function validateExam(raw: unknown, path: string, c: Ctx): { exam: PlanExam; ord
         const body = str(l.texto);
         if (!lt) c.err(lp, 'falta "titulo".');
         if (!body) c.err(lp, 'falta "texto".');
-        const qs = validateQuestions(l.preguntas, `${lp} › preguntas`, readings.length, c);
+        if (l.seccion !== undefined && l.seccion !== null && typeof l.seccion !== 'string') c.err(lp, '"seccion" debe ser un texto (por ejemplo "Lectura 1").');
+        const ls = optStr(l.seccion) ?? DEFAULT_SECTION;
+        const qs = validateQuestions(l.preguntas, `${lp} › preguntas`, readings.length, c, ls);
         if (!Array.isArray(l.preguntas) || !l.preguntas.length) c.err(lp, '"preguntas" debe tener al menos 1 pregunta de comprensión.');
         if (lt && body) {
-          readings.push({ title: lt, body });
+          readings.push({ title: lt, body, section: ls });
           questions.push(...qs);
         }
       });
@@ -340,11 +348,18 @@ function validateExam(raw: unknown, path: string, c: Ctx): { exam: PlanExam; ord
 
   if (title && !questions.length && c.errors.length === errStart) c.err(where, 'no tiene preguntas ni lecturas.');
   if (!title) return null;
+  // Las preguntas de cada sección quedan juntas, en el orden en que aparece cada sección
+  const grouped = groupBySection(questions);
+  if (grouped.length > 20 && new Set(grouped.map((q) => q.section)).size === 1)
+    c.warn(where, `tiene ${grouped.length} preguntas en una sola sección; con "seccion" puedes dividirlas y hacer pausas entre partes.`);
   return {
-    exam: { title, subject: optStr(raw.tema), description: optStr(raw.descripcion), position: 0, readings, questions },
+    exam: { title, subject: optStr(raw.tema), description: optStr(raw.descripcion), position: 0, readings, questions: grouped },
     orden,
   };
 }
+
+/** Nombres de las secciones de un simulacro, en orden. */
+export const examSections = (e: PlanExam): string[] => [...new Set(e.questions.map((q) => q.section))];
 
 /** Ordena por "orden" (los que no lo traen, según su lugar en la lista) y numera la posición 0, 1, 2… */
 function orderExams(list: { exam: PlanExam; orden: number | null }[]): PlanExam[] {
