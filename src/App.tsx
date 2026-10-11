@@ -7,6 +7,7 @@ import LibraryPage from '@/features/exams/LibraryPage';
 import FolderPage from '@/features/exams/FolderPage';
 import EditExamPage from '@/features/exams/EditExamPage';
 import ImportPage from '@/features/import/ImportPage';
+import JsonImportPage from '@/features/import/JsonImportPage';
 import PracticePage from '@/features/practice/PracticePage';
 import ResultsPage from '@/features/results/ResultsPage';
 import ReviewPage from '@/features/results/ReviewPage';
@@ -30,6 +31,7 @@ export default function App() {
         <Route path="exams/:examId/edit" element={<EditExamPage />} />
         <Route path="review" element={<ReviewPage />} />
         <Route path="new" element={<ImportPage />} />
+        <Route path="import-json" element={<JsonImportPage />} />
         <Route path="stats" element={<StatsPage />} />
         <Route path="profile" element={<ProfilePage />} />
       </Route>

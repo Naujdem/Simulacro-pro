@@ -8,6 +8,8 @@ type Props = {
   question: Question;
   examId: string;
   onNext: (r: Response, correct: boolean) => void;
+  /** Texto de lectura al que pertenece la pregunta (comprensión lectora). */
+  reading?: { title: string; body: string } | null;
   /** Muestra "Explicación con IA / Preguntas similares" en cuanto te equivocas (se usa en los repasos). */
   aiHelp?: boolean;
 };
@@ -25,24 +27,28 @@ const emptyResponse = (q: Question): Response => {
       return { type: 'multiple_choice', selected: [] };
     case 'true_false':
       return { type: 'true_false', value: null };
+    case 'order_words':
+      return { type: 'order_words', order: [] };
     case 'fill_blank':
       return {
         type: 'fill_blank',
         blanks: Array((q.prompt.match(/\{\{\d+\}\}/g) ?? []).length).fill(''),
       };
     default:
-      return { type: 'short_answer', text: '' };
+      return { type: 'short_answer', text: '' }; // short_answer y transform
   }
 };
 
-const isReady = (r: Response) =>
+const isReady = (q: Question, r: Response) =>
   r.type === 'multiple_choice'
     ? r.selected.length > 0
     : r.type === 'true_false'
       ? r.value !== null
       : r.type === 'fill_blank'
         ? r.blanks.every((b) => b.trim())
-        : r.text.trim().length > 0;
+        : r.type === 'order_words'
+          ? r.order.length === (q.options?.length ?? 0)
+          : r.text.trim().length > 0;
 
 const base = 'w-full rounded-2xl border-2 p-4 text-left font-semibold transition active:scale-[.98] ';
 const styles = {
@@ -54,7 +60,7 @@ const styles = {
 } as const;
 type S = keyof typeof styles;
 
-export function QuestionCard({ question: q, examId, onNext, aiHelp = false }: Props) {
+export function QuestionCard({ question: q, examId, onNext, aiHelp = false, reading = null }: Props) {
   const [resp, setResp] = useState<Response>(() => emptyResponse(q)); // usar key={q.id} en el padre
   const [correct, setCorrect] = useState<boolean | null>(null);
   const [savingTag, setSavingTag] = useState(false);
@@ -106,7 +112,18 @@ export function QuestionCard({ question: q, examId, onNext, aiHelp = false }: Pr
 
   return (
     <div className="mx-auto flex max-w-xl flex-col px-4 pb-72 pt-4">
+      {reading && (
+        <details open className="mb-4 rounded-2xl border-2 border-amber-300 bg-amber-50 p-3 dark:border-amber-800 dark:bg-amber-950/30">
+          <summary className="cursor-pointer text-sm font-extrabold">📖 {reading.title}</summary>
+          <p className="mt-2 max-h-56 overflow-y-auto whitespace-pre-line text-sm leading-relaxed">{reading.body}</p>
+        </details>
+      )}
       {q.imagen_url && <QuestionImage src={q.imagen_url} className="mb-4" />}
+      {q.type === 'transform' && (
+        <p className="mb-1 text-sm font-bold text-violet-600 dark:text-violet-300">
+          Escríbela en forma {q.answer?.form ?? 'distinta'}:
+        </p>
+      )}
       {q.type !== 'fill_blank' && (
         <h2 className="mb-6 text-xl font-bold leading-snug">
           {q.prompt}
@@ -173,14 +190,54 @@ export function QuestionCard({ question: q, examId, onNext, aiHelp = false }: Pr
         </p>
       )}
 
-      {q.type === 'short_answer' && resp.type === 'short_answer' && (
+      {q.type === 'order_words' && resp.type === 'order_words' && (
+        <div className="space-y-4">
+          <div
+            aria-label="Tu oración"
+            className={`flex min-h-16 flex-wrap gap-2 rounded-2xl border-2 border-dashed p-3 ${
+              checked ? (correct ? 'border-green-500' : 'border-red-500') : 'border-slate-300 dark:border-slate-600'
+            }`}
+          >
+            {!resp.order.length && <span className="text-sm text-slate-400">Toca las palabras en orden…</span>}
+            {resp.order.map((id) => (
+              <button
+                key={id}
+                disabled={checked}
+                onClick={() => setResp({ ...resp, order: resp.order.filter((x) => x !== id) })}
+                className="rounded-xl border-2 border-sky-400 bg-sky-50 px-3 py-2 font-semibold dark:bg-sky-950"
+              >
+                {q.options!.find((o) => o.id === id)?.text}
+              </button>
+            ))}
+          </div>
+          <div aria-label="Palabras" className="flex flex-wrap gap-2">
+            {q.options!.map((o) => {
+              const used = resp.order.includes(o.id);
+              return (
+                <button
+                  key={o.id}
+                  disabled={checked || used}
+                  onClick={() => setResp({ ...resp, order: [...resp.order, o.id] })}
+                  className={`rounded-xl border-2 px-3 py-2 font-semibold ${
+                    used ? 'border-slate-200 opacity-30 dark:border-slate-700' : 'border-slate-300 bg-white dark:border-slate-600 dark:bg-slate-800'
+                  }`}
+                >
+                  {o.text}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {(q.type === 'short_answer' || q.type === 'transform') && resp.type === 'short_answer' && (
         <input
           autoFocus
           value={resp.text}
           disabled={checked}
           placeholder="Escribe tu respuesta…"
           onChange={(e) => setResp({ type: 'short_answer', text: e.target.value })}
-          onKeyDown={(e) => e.key === 'Enter' && isReady(resp) && !checked && check()}
+          onKeyDown={(e) => e.key === 'Enter' && isReady(q, resp) && !checked && check()}
           className={`w-full rounded-2xl border-2 bg-transparent p-4 text-lg outline-none ${
             checked ? (correct ? 'border-green-500' : 'border-red-500') : 'border-slate-300 focus:border-sky-400'
           }`}
@@ -230,7 +287,7 @@ export function QuestionCard({ question: q, examId, onNext, aiHelp = false }: Pr
           )}
           {!checked ? (
             <button
-              disabled={!isReady(resp)}
+              disabled={!isReady(q, resp)}
               onClick={check}
               className="w-full rounded-2xl bg-sky-500 py-4 text-base font-extrabold uppercase tracking-wide text-white active:bg-sky-600 disabled:bg-slate-300 disabled:text-slate-500"
             >

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { fetchFolders } from '@/features/exams/api';
@@ -109,6 +109,13 @@ export default function ImportPage() {
   return (
     <div className="space-y-4 p-4">
       <h1 className="text-2xl font-extrabold">Crear / Importar simulacro</h1>
+
+      <Link
+        to="/import-json"
+        className="block rounded-2xl border-2 border-violet-300 bg-violet-50 p-3 text-sm font-bold text-violet-800 dark:border-violet-800 dark:bg-violet-950/40 dark:text-violet-200"
+      >
+        {'{ }'} Importar JSON · bibliotecas, simulacros, lecturas y fichas de una vez →
+      </Link>
 
       <input className={field} placeholder="Título" value={title} onChange={(e) => setTitle(e.target.value)} />
       <div className="grid grid-cols-2 gap-2">

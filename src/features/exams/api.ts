@@ -9,12 +9,15 @@ export interface Exam {
   subject: string | null;
   question_count: number;
   folder_id: string | null;
+  /** Orden dentro de su biblioteca (lo pone el importador JSON); null = sin orden. */
+  position?: number | null;
   created_at: string;
 }
 
 export interface Folder {
   id: string;
   name: string;
+  description?: string | null;
   color: string | null;
   created_at: string;
 }
@@ -34,6 +37,23 @@ export const fetchExams = async (): Promise<Exam[]> => {
   const { data, error } = await supabase.from('exams').select('*').order('created_at', { ascending: false });
   if (error) throw error;
   return data as Exam[];
+};
+
+export interface Reading {
+  id: string;
+  title: string;
+  body: string;
+}
+
+// Textos de lectura de las preguntas que se van a practicar (si falta la tabla, se practica sin el texto)
+export const fetchReadings = async (ids: string[]): Promise<Record<string, Reading>> => {
+  const out: Record<string, Reading> = {};
+  for (let i = 0; i < ids.length; i += 80) {
+    const { data, error } = await supabase.from('reading_texts').select('id,title,body').in('id', ids.slice(i, i + 80));
+    if (error) throw error;
+    for (const r of (data ?? []) as Reading[]) out[r.id] = r;
+  }
+  return out;
 };
 
 export const fetchProfile = async (): Promise<Profile> => {

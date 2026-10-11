@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
+import { fetchReadings } from '@/features/exams/api';
 import type { Question } from '@/lib/grading';
 import { QUICK_REVIEW_ID, usePractice } from './practiceStore';
 import { lastSlotFor } from './progress';
@@ -44,6 +46,15 @@ export default function PracticePage() {
       cancelled = true;
     };
   }, [examId, nav]);
+
+  // Textos de lectura de las preguntas de esta sesión (comprensión lectora)
+  const readingIds = [...new Set(queue.map((q) => q.reading_id).filter((x): x is string => !!x))];
+  const readings = useQuery({
+    queryKey: ['readings', readingIds.join(',')],
+    queryFn: () => fetchReadings(readingIds),
+    enabled: readingIds.length > 0,
+    staleTime: Infinity,
+  });
 
   // El aviso de "continuando…" se quita solo
   useEffect(() => {
@@ -103,6 +114,7 @@ export default function PracticePage() {
         examId={queue[index].exam_id ?? examId!}
         onNext={record}
         aiHelp={mode !== 'full'}
+        reading={queue[index].reading_id ? readings.data?.[queue[index].reading_id!] ?? null : null}
       />
     </div>
   );
