@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { translateWord } from '@/features/ai/translate';
+import { PROVIDER_NAMES, getProvider, setProvider, translateWord, type AiProvider } from '@/features/ai/translate';
 import { VOCAB_DECK, addVocabularyCard } from '@/features/flashcards/api';
 
 interface Props {
@@ -18,6 +18,7 @@ export default function WordPopup({ word, sentence, onClose, onAdded }: Props) {
   const [translation, setTranslation] = useState('');
   const [loading, setLoading] = useState(true);
   const [aiError, setAiError] = useState('');
+  const [provider, setProv] = useState<AiProvider>(getProvider);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [done, setDone] = useState<Done>(null);
@@ -25,7 +26,9 @@ export default function WordPopup({ word, sentence, onClose, onAdded }: Props) {
 
   useEffect(() => {
     let cancelled = false;
-    translateWord(word, sentence)
+    setLoading(true);
+    setAiError('');
+    translateWord(word, sentence, provider)
       .then((t) => {
         if (!cancelled && !typed.current) setTranslation(t);
       })
@@ -34,7 +37,16 @@ export default function WordPopup({ word, sentence, onClose, onAdded }: Props) {
     return () => {
       cancelled = true;
     };
-  }, [word, sentence]);
+  }, [word, sentence, provider]);
+
+  // Cambiar de IA: se recuerda para las siguientes palabras
+  const choose = (p: AiProvider) => {
+    if (p === provider) return;
+    setProvider(p);
+    if (!typed.current) setTranslation('');
+    setProv(p);
+  };
+  const other: AiProvider = provider === 'openrouter' ? 'gemini' : 'openrouter';
 
   // Tras guardar, se cierra sola para seguir leyendo
   useEffect(() => {
@@ -82,6 +94,21 @@ export default function WordPopup({ word, sentence, onClose, onAdded }: Props) {
           </p>
         ) : (
           <>
+            <div className="flex items-center gap-2 text-xs" role="group" aria-label="IA para traducir">
+              <span className="font-bold uppercase text-slate-500">Traducir con</span>
+              {(['openrouter', 'gemini'] as const).map((p) => (
+                <button
+                  key={p}
+                  onClick={() => choose(p)}
+                  aria-pressed={provider === p}
+                  className={`rounded-full border-2 px-3 py-1 font-bold ${
+                    provider === p ? 'border-sky-500 bg-sky-500 text-white' : 'border-slate-300 text-slate-600 dark:border-slate-600 dark:text-slate-300'
+                  }`}
+                >
+                  {PROVIDER_NAMES[p]}
+                </button>
+              ))}
+            </div>
             <label className="block space-y-1">
               <span className="text-xs font-bold uppercase text-slate-500">Traducción</span>
               <input
@@ -95,9 +122,13 @@ export default function WordPopup({ word, sentence, onClose, onAdded }: Props) {
               />
             </label>
             {aiError && (
-              <p className="rounded-lg bg-amber-50 p-2 text-xs text-amber-800 dark:bg-amber-950 dark:text-amber-200">
-                {aiError} Puedes escribir la traducción tú.
-              </p>
+              <div className="space-y-2 rounded-lg bg-amber-50 p-2 text-xs text-amber-800 dark:bg-amber-950 dark:text-amber-200">
+                <p>{aiError}</p>
+                <button onClick={() => choose(other)} className="rounded-lg bg-amber-600 px-3 py-1.5 font-extrabold text-white">
+                  🔁 Probar con {PROVIDER_NAMES[other]}
+                </button>
+                <p>O escribe la traducción tú.</p>
+              </div>
             )}
 
             {sentence && (
