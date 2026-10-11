@@ -43,6 +43,22 @@ const PREFIX = 'simulapro:progress:v1:';
 const MAX_AGE_MS = 30 * 24 * 3600 * 1000;
 
 let userId = 'anon';
+export const currentProgressUser = () => userId;
+
+/** Aviso de cambios locales (guardar / borrar) para copiarlos a la nube; ver progressSync.ts. */
+export type ProgressEvent = { kind: 'save'; p: SavedProgress } | { kind: 'clear'; examId: string; slot: string };
+let listener: ((e: ProgressEvent) => void) | null = null;
+export const setProgressListener = (fn: ((e: ProgressEvent) => void) | null) => {
+  listener = fn;
+};
+const notify = (e: ProgressEvent) => {
+  try {
+    listener?.(e);
+  } catch {
+    /* la nube nunca debe romper el guardado local */
+  }
+};
+
 /** Se llama al iniciar sesión: cada usuario tiene su propio avance guardado en el mismo dispositivo. */
 export const setProgressUser = (id: string | null | undefined) => {
   userId = id || 'anon';
@@ -86,6 +102,45 @@ export function saveProgress(p: SavedProgress, store: Store | null = defaultStor
   } catch {
     /* sin espacio o sin permiso: se sigue sin guardar */
   }
+  notify({ kind: 'save', p });
+}
+
+/** Escribe un avance que llegó de la nube (no vuelve a avisar, para no rebotar). Deja que "Continuar" lo encuentre. */
+export function writeProgressLocal(p: SavedProgress, store: Store | null = defaultStore()): void {
+  if (!store) return;
+  try {
+    store.setItem(keyOf(p.examId, p.slot), JSON.stringify(p));
+    if (!readJson(store, lastKey())) store.setItem(lastKey(), JSON.stringify({ examId: p.examId, slot: p.slot }));
+  } catch {
+    /* nada */
+  }
+}
+
+/** Quita un avance local sin avisar a la nube (porque la nube ya dice que se borró). */
+export function removeProgressLocal(examId: string, slot: string, store: Store | null = defaultStore()): void {
+  if (!store) return;
+  try {
+    store.removeItem(keyOf(examId, slot));
+    const last = readJson(store, lastKey()) as { examId?: string; slot?: string } | null;
+    if (last?.examId === examId && last?.slot === slot) store.removeItem(lastKey());
+  } catch {
+    /* nada */
+  }
+}
+
+/** Todos los avances válidos de este usuario guardados en el dispositivo. */
+export function listProgressLocal(now: number = Date.now(), store: Store | null = defaultStore()): SavedProgress[] {
+  const st = store as Partial<Storage> | null;
+  if (!st || typeof st.length !== 'number' || !st.key) return [];
+  const prefix = `${PREFIX}${userId}:`;
+  const out: SavedProgress[] = [];
+  for (let i = 0; i < st.length; i++) {
+    const k = st.key(i);
+    if (!k || !k.startsWith(prefix) || k === lastKey()) continue;
+    const p = readJson(store!, k) as Partial<SavedProgress> | null;
+    if (p && typeof p.examId === 'string' && typeof p.slot === 'string' && isValid(p, p.examId, p.slot, now)) out.push(p);
+  }
+  return out;
 }
 
 export function loadProgress(
@@ -115,6 +170,7 @@ export function clearProgress(examId: string, slot: string, store: Store | null 
   } catch {
     /* nada */
   }
+  notify({ kind: 'clear', examId, slot });
 }
 
 /** La última sesión que se estaba haciendo: al recargar /practice/<simulacro> se continúa esa. */

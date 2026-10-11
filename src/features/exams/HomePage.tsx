@@ -14,6 +14,7 @@ import {
 } from './api';
 import { QUICK_REVIEW_ID, usePractice } from '@/features/practice/practiceStore';
 import { pendingProgress, setLastSlot } from '@/features/practice/progress';
+import { useProgressVersion } from '@/features/practice/progressSync';
 import CreateFolderDialog from './CreateFolderDialog';
 import ExamStartSheet from './ExamStartSheet';
 
@@ -30,6 +31,7 @@ export default function HomePage() {
   const wrongCount = useQuery({ queryKey: ['wrong-count'], queryFn: fetchWrongCount });
   const [quickMsg, setQuickMsg] = useState('');
   const [sheet, setSheet] = useState<Exam | null>(null); // simulacro abierto: completo o repaso de las que tengo mal
+  useProgressVersion((s) => s.version); // se vuelve a dibujar cuando llega avance de otro dispositivo
   const savedQuick = pendingProgress(QUICK_REVIEW_ID, 'quick_review'); // Repaso Rápido dejado a medias
 
   // Repaso Rápido: busca TODAS las preguntas con etiqueta "Mal" y las practica en una sola sesión

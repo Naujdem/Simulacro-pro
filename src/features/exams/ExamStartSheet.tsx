@@ -1,9 +1,10 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { fetchExamWrongQuestions, type Exam } from './api';
 import { usePractice } from '@/features/practice/practiceStore';
 import { clearProgress, pendingProgress, setLastSlot } from '@/features/practice/progress';
+import { syncProgress, useProgressVersion } from '@/features/practice/progressSync';
 
 interface Props {
   exam: Exam;
@@ -21,8 +22,14 @@ const secondary = 'w-full rounded-xl border-2 border-slate-300 py-2.5 text-sm fo
 export default function ExamStartSheet({ exam, onClose }: Props) {
   const nav = useNavigate();
   const wrong = useQuery({ queryKey: ['exam-wrong', exam.id], queryFn: () => fetchExamWrongQuestions(exam.id) });
-  const pendingFull = useMemo(() => pendingProgress(exam.id, 'full'), [exam.id]);
-  const pendingWrong = useMemo(() => pendingProgress(exam.id, 'wrong'), [exam.id]);
+  const version = useProgressVersion((s) => s.version); // cambia cuando llega avance de otro dispositivo
+  useEffect(() => {
+    void syncProgress();
+  }, []);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const pendingFull = useMemo(() => pendingProgress(exam.id, 'full'), [exam.id, version]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const pendingWrong = useMemo(() => pendingProgress(exam.id, 'wrong'), [exam.id, version]);
   const wrongCount = wrong.data?.length ?? 0;
 
   // Continuar: la página de práctica retoma el avance guardado de esa sesión
