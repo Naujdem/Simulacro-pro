@@ -1,3 +1,5 @@
+import TimedField from '@/components/TimedField';
+import { parseMinutes } from '@/lib/timer';
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -99,6 +101,8 @@ export default function EditExamPage() {
   const [title, setTitle] = useState('');
   const [subject, setSubject] = useState('');
   const [description, setDescription] = useState('');
+  const [timed, setTimed] = useState(false);
+  const [minutes, setMinutes] = useState('60');
   const [drafts, setDrafts] = useState<Draft[]>([]);
   const [deleted, setDeleted] = useState<string[]>([]);
   const [dirty, setDirty] = useState(false);
@@ -113,6 +117,8 @@ export default function EditExamPage() {
     setTitle(exam.title);
     setSubject(exam.subject ?? '');
     setDescription(exam.description ?? '');
+    setTimed(!!exam.time_limit_min);
+    setMinutes(exam.time_limit_min ? String(exam.time_limit_min) : '60');
     setDrafts(questions.map((q) => ({ key: q.id!, q })));
     setLoaded(true);
   }, [data.data, loaded]);
@@ -160,11 +166,15 @@ export default function EditExamPage() {
       return;
     }
 
+    if (timed && parseMinutes(minutes) === null) {
+      setError('Escribe un tiempo límite entre 1 y 600 minutos (o desmarca “examen cronometrado”).');
+      return;
+    }
     setSaving(true);
     try {
       await saveExamEdits(
         examId!,
-        { title, subject, description },
+        { title, subject, description, timeLimitMin: timed ? parseMinutes(minutes) : null },
         drafts.map((d) => clean(d.q)),
         deleted,
       );
@@ -219,6 +229,8 @@ export default function EditExamPage() {
           onChange={(e) => { setDescription(e.target.value); setDirty(true); }}
         />
       </div>
+
+      <TimedField enabled={timed} minutes={minutes} onChange={(e, m) => { setTimed(e); setMinutes(m); setDirty(true); }} />
 
       <p className="text-sm font-bold text-slate-500">
         {drafts.length} {drafts.length === 1 ? 'pregunta' : 'preguntas'}

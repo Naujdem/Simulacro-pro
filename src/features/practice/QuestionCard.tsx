@@ -49,7 +49,9 @@ const isReady = (q: Question, r: Response) =>
         ? r.blanks.every((b) => b.trim())
         : r.type === 'order_words'
           ? r.order.length === (q.options?.length ?? 0)
-          : r.text.trim().length > 0;
+          : r.type === 'short_answer'
+            ? r.text.trim().length > 0
+            : false;
 
 const base = 'w-full rounded-2xl border-2 p-4 text-left font-semibold transition active:scale-[.98] ';
 const styles = {

@@ -23,7 +23,9 @@ export type Response =
   | { type: 'fill_blank'; blanks: string[] }
   | { type: 'short_answer'; text: string }
   /** Ids de las palabras (opciones) en el orden en que el estudiante las puso. */
-  | { type: 'order_words'; order: string[] };
+  | { type: 'order_words'; order: string[] }
+  /** Pregunta sin responder porque se acabó el tiempo del Examen Cronometrado: cuenta como incorrecta. */
+  | { type: 'skipped' };
 
 function lev(a: string, b: string): number {
   const d: number[][] = Array.from({ length: a.length + 1 }, (_, i) => [i, ...Array(b.length).fill(0)]);
@@ -64,6 +66,8 @@ export function checkAnswer(q: Question, r: Response): boolean {
       const given = norm(r.order.map((id) => words.get(id) ?? '').join(' '));
       return (q.answer.accepted as string[]).some((a) => norm(a) === given);
     }
+    case 'skipped':
+      return false;
   }
 }
 

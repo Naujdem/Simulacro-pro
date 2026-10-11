@@ -12,7 +12,7 @@ import {
   fetchWrongQuestions,
   type Exam,
 } from './api';
-import { QUICK_REVIEW_ID, usePractice } from '@/features/practice/practiceStore';
+import { QUICK_REVIEW_ID, SURPRISE_ID, usePractice } from '@/features/practice/practiceStore';
 import { pendingProgress, setLastSlot } from '@/features/practice/progress';
 import { useProgressVersion } from '@/features/practice/progressSync';
 import CreateFolderDialog from './CreateFolderDialog';
@@ -33,6 +33,7 @@ export default function HomePage() {
   const [sheet, setSheet] = useState<Exam | null>(null); // simulacro abierto: completo o repaso de las que tengo mal
   useProgressVersion((s) => s.version); // se vuelve a dibujar cuando llega avance de otro dispositivo
   const savedQuick = pendingProgress(QUICK_REVIEW_ID, 'quick_review'); // Repaso Rápido dejado a medias
+  const savedSurprise = pendingProgress(SURPRISE_ID, 'surprise'); // Simulacro Sorpresa dejado a medias
 
   // Repaso Rápido: busca TODAS las preguntas con etiqueta "Mal" y las practica en una sola sesión
   const quick = useMutation({
@@ -141,6 +142,28 @@ export default function HomePage() {
                 : 'Practicar ›'}
           </span>
         </button>
+        {savedSurprise && (
+          <button
+            onClick={() => {
+              setLastSlot(SURPRISE_ID, 'surprise');
+              usePractice.getState().reset();
+              nav(`/practice/${SURPRISE_ID}`);
+            }}
+            className="flex w-full items-center justify-between rounded-2xl border-2 border-fuchsia-600 p-4 text-left font-extrabold text-fuchsia-700 active:scale-[.98] dark:text-fuchsia-300"
+          >
+            <span>▶ Continuar Simulacro Sorpresa</span>
+            <span className="text-sm font-bold">
+              pregunta {savedSurprise.done + 1} de {savedSurprise.total}
+            </span>
+          </button>
+        )}
+        <Link
+          to="/surprise"
+          className="flex w-full items-center justify-between rounded-2xl bg-fuchsia-600 p-4 text-left text-white shadow-sm active:scale-[.98]"
+        >
+          <span className="font-extrabold">🎲 Simulacro Sorpresa</span>
+          <span className="text-sm font-bold text-white/80">Preguntas al azar ›</span>
+        </Link>
         {quickMsg && (
           <p className="rounded-xl bg-green-100 p-3 text-center text-sm font-bold text-green-800 dark:bg-green-950 dark:text-green-200">
             {quickMsg}

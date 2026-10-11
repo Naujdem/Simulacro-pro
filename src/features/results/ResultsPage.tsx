@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Navigate, useNavigate } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { QUICK_REVIEW_ID, usePractice } from '@/features/practice/practiceStore';
+import { isMixedSession, QUICK_REVIEW_ID, SURPRISE_ID, usePractice } from '@/features/practice/practiceStore';
 import { addToReview, fetchExams, fetchReviewIds, removeFromReview } from '@/features/exams/api';
 import { generateSuggestion, MIN_FAILED, providerName } from '@/features/suggestions/api';
 import { useDraft } from '@/features/suggestions/draftStore';
@@ -38,9 +38,10 @@ export default function ResultsPage() {
     mutationFn: (provider: AiProvider) => {
       const st = usePractice.getState();
       const answered = st.queue.slice(0, st.results.length);
-      const failed = answered.filter((_, i) => !st.results[i].correct);
-      const quick = st.examId === QUICK_REVIEW_ID;
-      const title = quick ? 'Repaso rápido' : (exams.data?.find((e) => e.id === st.examId)?.title ?? 'Simulacro');
+      // Las que no se alcanzaron a responder por falta de tiempo no dicen qué no sabe el usuario: no entran
+      const failed = answered.filter((_, i) => !st.results[i].correct && !st.results[i].skipped);
+      const quick = isMixedSession(st.examId);
+      const title = st.examId === QUICK_REVIEW_ID ? 'Repaso rápido' : st.examId === SURPRISE_ID ? 'Simulacro Sorpresa' : (exams.data?.find((e) => e.id === st.examId)?.title ?? 'Simulacro');
       const sections = [...new Set(answered.map((q) => q.section).filter((x): x is string => !!x))];
       return generateSuggestion({ examId: quick ? null : st.examId, examTitle: title, failed, sections, provider });
     },
@@ -58,6 +59,7 @@ export default function ResultsPage() {
   if (!summary) return <Navigate to="/" replace />;
 
   const wrong = results.filter((r) => !r.correct).length;
+  const wrongAnswered = results.filter((r) => !r.correct && !r.skipped).length; // sin contar las que se quedaron sin responder por el tiempo
   const pct = Math.round(summary.score);
   const savedIds = new Set(reviewIds.data ?? []);
 
@@ -65,10 +67,13 @@ export default function ResultsPage() {
     const st = usePractice.getState();
     // En Repaso Rápido, repetir sigue siendo Repaso Rápido (mezcla de simulacros).
     // Un repaso parcial ('custom') tampoco se convierte en simulacro completo: no debe inflar el "mejor %".
-    const m = examId === QUICK_REVIEW_ID ? 'quick_review' : mode === 'full' && st.mode === 'custom' ? 'custom' : mode;
+    const m =
+      examId === QUICK_REVIEW_ID ? 'quick_review' : examId === SURPRISE_ID ? 'surprise' : mode === 'full' && st.mode === 'custom' ? 'custom' : mode;
     // Cada tipo de sesión guarda su avance aparte para poder continuarla
-    const slot = m === 'quick_review' ? 'quick_review' : mode === 'retry_wrong' ? 'retry_wrong' : m === 'full' ? 'full' : st.slot;
-    st.start(examId, questions, m, summary.attemptId, slot);
+    const slot = m === 'quick_review' || m === 'surprise' ? m : mode === 'retry_wrong' ? 'retry_wrong' : m === 'full' ? 'full' : st.slot;
+    // Repetir un examen cronometrado vuelve a poner el reloj; repasar solo las falladas no
+    const limit = m === 'full' || m === 'surprise' ? summary.limitSec : null;
+    st.start(examId, questions, m, summary.attemptId, slot, limit);
     nav(`/practice/${examId}`);
   };
 
@@ -79,7 +84,7 @@ export default function ResultsPage() {
   };
 
   // Si terminaste en una pausa, solo se revisan las preguntas respondidas
-  const items = queue.slice(0, results.length).map((q, i) => ({ q, correct: results[i].correct }));
+  const items = queue.slice(0, results.length).map((q, i) => ({ q, correct: results[i].correct, skipped: !!results[i].skipped }));
   const partial = summary.planned > summary.total;
   const bySection = usePractice.getState().mode === 'full' ? sectionRanges(queue).map((r) => sectionStats(r, results)) : [];
   const okCount = items.filter((x) => x.correct).length;
@@ -95,6 +100,18 @@ export default function ResultsPage() {
       <h1 className="text-center text-2xl font-extrabold">
         {partial ? 'Resultado parcial 📊' : pct >= 70 ? '¡Buen trabajo! 🎉' : 'Sigue practicando 💪'}
       </h1>
+      {(summary.limitSec || examId === SURPRISE_ID) && (
+        <p className="flex flex-wrap justify-center gap-2 text-xs font-extrabold">
+          {summary.limitSec ? <span className="rounded-full bg-slate-800 px-3 py-1 text-white dark:bg-slate-600">⏱ Examen cronometrado · {Math.round(summary.limitSec / 60)} min</span> : null}
+          {examId === SURPRISE_ID ? <span className="rounded-full bg-violet-600 px-3 py-1 text-white">🎲 Simulacro Sorpresa</span> : null}
+        </p>
+      )}
+      {summary.timedOut && (
+        <p role="status" className="rounded-xl bg-red-50 p-3 text-center text-sm text-red-700 dark:bg-red-950 dark:text-red-300">
+          ⏰ Se acabó el tiempo. Respondiste {summary.total - summary.unanswered} de {summary.total};{' '}
+          {summary.unanswered === 1 ? 'la pregunta sin responder cuenta' : `las ${summary.unanswered} preguntas sin responder cuentan`} como incorrecta{summary.unanswered === 1 ? '' : 's'}.
+        </p>
+      )}
       {partial && (
         <p className="text-center text-sm text-slate-500">
           Respondiste {summary.total} de {summary.planned} preguntas. Este intento no cuenta para tu mejor porcentaje.
@@ -151,7 +168,7 @@ export default function ResultsPage() {
             Repetir solo las falladas ({wrong})
           </button>
         )}
-        {wrong >= MIN_FAILED && (
+        {wrongAnswered >= MIN_FAILED && (
           <div className="space-y-2">
             <button
               disabled={suggest.isPending}
@@ -219,7 +236,7 @@ export default function ResultsPage() {
           )}
 
           <ul className="space-y-2">
-            {shown.map(({ q, correct }) => {
+            {shown.map(({ q, correct, skipped }) => {
               const saved = savedIds.has(q.id);
               return (
                 <li
@@ -231,6 +248,7 @@ export default function ResultsPage() {
                   <p>
                     {correct ? '✔' : '✖'} {showPrompt(q.prompt)}
                   </p>
+                  {skipped && <p className="text-xs font-bold text-red-700 dark:text-red-300">⏰ Sin responder (se acabó el tiempo)</p>}
                   {q.imagen_url && <QuestionImage src={q.imagen_url} />}
                   {!correct && (
                     <>
