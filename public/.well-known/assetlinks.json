@@ -1,0 +1,8 @@
+[{
+      "relation": ["delegate_permission/common.handle_all_urls"],
+      "target": {
+        "namespace": "android_app",
+        "package_name": "app.vercel.simulacro_pro.twa",
+        "sha256_cert_fingerprints": ["A7:39:00:54:18:B0:C7:1A:CF:3D:6B:4D:3E:7E:33:3B:8A:18:DC:B2:CA:56:34:D4:A3:63:CF:92:A5:FD:18:B9"]
+      }
+    }]
