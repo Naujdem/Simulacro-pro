@@ -1,6 +1,6 @@
 import { supabase } from '@/lib/supabase';
 import type { QType } from '@/lib/importParser';
-import type { Question } from '@/lib/grading';
+import type { Question, QuestionOption } from '@/lib/grading';
 
 export interface Exam {
   id: string;
@@ -166,7 +166,7 @@ export interface EditableQuestion {
   id: string | null;
   type: QType;
   prompt: string;
-  options: { id: string; text: string; imagen_url?: string | null }[] | null;
+  options: QuestionOption[] | null;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   answer: any;
   explanation: string | null;
@@ -358,4 +358,8 @@ export const fetchWrongQuestions = async (): Promise<Question[]> => {
     .map((r) => r.questions)
     .filter((q): q is Question => q !== null);
   for (let i = list.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i 
+    const j = Math.floor(Math.random() * (i + 1));
+    [list[i], list[j]] = [list[j], list[i]];
+  }
+  return list;
+};
