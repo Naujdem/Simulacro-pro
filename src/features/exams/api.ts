@@ -1,6 +1,6 @@
 import { supabase } from '@/lib/supabase';
 import type { QType } from '@/lib/importParser';
-import type { Question } from '@/lib/grading';
+import type { Question, QuestionOption } from '@/lib/grading';
 
 export interface Exam {
   id: string;
@@ -166,7 +166,7 @@ export interface EditableQuestion {
   id: string | null;
   type: QType;
   prompt: string;
-  options: { id: string; text: string }[] | null;
+  options: QuestionOption[] | null;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   answer: any;
   explanation: string | null;

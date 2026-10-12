@@ -48,9 +48,9 @@ const problem = (q: EditableQuestion): string | null => {
   if (!q.prompt.trim()) return 'falta el enunciado.';
   switch (q.type) {
     case 'multiple_choice': {
-      const filled = (q.options ?? []).filter((o) => o.text.trim());
+      const filled = (q.options ?? []).filter((o) => o.text.trim() || o.imagen_url);
       const correct = (q.answer?.correct ?? []) as string[];
-      if (filled.length < 2) return 'necesita al menos 2 opciones con texto.';
+      if (filled.length < 2) return 'necesita al menos 2 opciones con texto o imagen.';
       if (!correct.some((id) => filled.some((o) => o.id === id))) return 'marca al menos una respuesta correcta.';
       return null;
     }
@@ -67,7 +67,12 @@ const problem = (q: EditableQuestion): string | null => {
     case 'order_words': {
       const sentence = ((q.answer?.accepted ?? []) as string[])[0] ?? '';
       const words = (q.options ?? []).map((o) => norm(o.text)).filter(Boolean).sort().join('|');
-      const want = sentence.split(/\s+/).map((w) => norm(w)).filter(Boolean).sort().join('|');
+      const want = sentence
+        .split(/\s+/)
+        .map((w) => norm(w))
+        .filter(Boolean)
+        .sort()
+        .join('|');
       if (!sentence.trim()) return 'escribe la oración correcta.';
       return words === want ? null : 'las palabras deben ser exactamente las de la oración correcta.';
     }
@@ -79,7 +84,13 @@ const problem = (q: EditableQuestion): string | null => {
 // Limpia la pregunta antes de guardar: quita opciones vacías y respuestas correctas que ya no existen.
 const clean = (q: EditableQuestion): EditableQuestion => {
   if (q.type !== 'multiple_choice') return q;
-  const opts = (q.options ?? []).filter((o) => o.text.trim()).map((o) => ({ id: o.id, text: o.text.trim() }));
+  const opts = (q.options ?? [])
+    .filter((o) => o.text.trim() || o.imagen_url)
+    .map((o) => ({
+      id: o.id,
+      text: o.text.trim(),
+      imagen_url: o.imagen_url || null,
+    }));
   const correct = ((q.answer?.correct ?? []) as string[]).filter((id) => opts.some((o) => o.id === id));
   return { ...q, options: opts, answer: { correct } };
 };
@@ -214,23 +225,45 @@ export default function EditExamPage() {
         <h1 className="text-2xl font-bold">Editar simulacro</h1>
       </header>
 
-      <input className={field} placeholder="Título" value={title} onChange={(e) => { setTitle(e.target.value); setDirty(true); }} />
+      <input
+        className={field}
+        placeholder="Título"
+        value={title}
+        onChange={(e) => {
+          setTitle(e.target.value);
+          setDirty(true);
+        }}
+      />
       <div className="grid grid-cols-2 gap-2">
         <input
           className={field}
           placeholder="Tema / asignatura"
           value={subject}
-          onChange={(e) => { setSubject(e.target.value); setDirty(true); }}
+          onChange={(e) => {
+            setSubject(e.target.value);
+            setDirty(true);
+          }}
         />
         <input
           className={field}
           placeholder="Descripción (opcional)"
           value={description}
-          onChange={(e) => { setDescription(e.target.value); setDirty(true); }}
+          onChange={(e) => {
+            setDescription(e.target.value);
+            setDirty(true);
+          }}
         />
       </div>
 
-      <TimedField enabled={timed} minutes={minutes} onChange={(e, m) => { setTimed(e); setMinutes(m); setDirty(true); }} />
+      <TimedField
+        enabled={timed}
+        minutes={minutes}
+        onChange={(e, m) => {
+          setTimed(e);
+          setMinutes(m);
+          setDirty(true);
+        }}
+      />
 
       <p className="text-sm font-bold text-slate-500">
         {drafts.length} {drafts.length === 1 ? 'pregunta' : 'preguntas'}
@@ -301,6 +334,56 @@ function RawInput({
   );
 }
 
+function OptionEditor({
+  option,
+  isCorrect,
+  canRemove,
+  fieldClass,
+  onToggleCorrect,
+  onTextChange,
+  onImageChange,
+  onRemove,
+}: {
+  option: { id: string; text: string; imagen_url?: string | null };
+  isCorrect: boolean;
+  canRemove: boolean;
+  fieldClass: string;
+  onToggleCorrect: (checked: boolean) => void;
+  onTextChange: (text: string) => void;
+  onImageChange: (url: string | null) => void;
+  onRemove: () => void;
+}) {
+  const up = useImageUpload(option.imagen_url ?? null, onImageChange);
+
+  return (
+    <div className="space-y-2 rounded-xl border border-slate-200 p-2 dark:border-slate-700">
+      <div className="flex items-center gap-2">
+        <input
+          type="checkbox"
+          aria-label={`Opción ${option.id.toUpperCase()} es correcta`}
+          checked={isCorrect}
+          onChange={(e) => onToggleCorrect(e.target.checked)}
+        />
+        <span className="w-5 text-sm font-bold">{option.id}</span>
+        <input
+          className={fieldClass}
+          value={option.text}
+          placeholder={`Opción ${option.id.toUpperCase()} (texto opcional si hay imagen)`}
+          onChange={(e) => onTextChange(e.target.value)}
+        />
+        {canRemove && (
+          <button aria-label={`Quitar opción ${option.id.toUpperCase()}`} className="px-1 text-slate-400" onClick={onRemove}>
+            ✕
+          </button>
+        )}
+      </div>
+      <div onPaste={up.onPaste}>
+        <ImageField up={up} />
+      </div>
+    </div>
+  );
+}
+
 function QuestionEditor({
   index,
   d,
@@ -352,46 +435,47 @@ function QuestionEditor({
         <ImageField up={up} />
       </div>
       {q.type === 'fill_blank' && (
-        <p className="text-xs text-slate-500">Escribe {'{{1}}'}, {'{{2}}'}… en el enunciado donde van los espacios.</p>
+        <p className="text-xs text-slate-500">
+          Escribe {'{{1}}'}, {'{{2}}'}… en el enunciado donde van los espacios.
+        </p>
       )}
 
       {q.type === 'multiple_choice' && (
-        <div className="space-y-2">
-          <p className="text-xs text-slate-500">Marca ✔ la(s) respuesta(s) correcta(s).</p>
+        <div className="space-y-3">
+          <p className="text-xs text-slate-500">
+            Marca ✔ la(s) respuesta(s) correcta(s). Puedes añadir imagen a cada opción.
+          </p>
           {opts.map((o) => (
-            <div key={o.id} className="flex items-center gap-2">
-              <input
-                type="checkbox"
-                aria-label={`Opción ${o.id.toUpperCase()} es correcta`}
-                checked={correct.includes(o.id)}
-                onChange={(e) =>
-                  onPatch({
-                    answer: { correct: e.target.checked ? [...correct, o.id] : correct.filter((x) => x !== o.id) },
-                  })
-                }
-              />
-              <span className="w-5 text-sm font-bold">{o.id}</span>
-              <input
-                className={f}
-                value={o.text}
-                placeholder={`Opción ${o.id.toUpperCase()}`}
-                onChange={(e) => onPatch({ options: opts.map((x) => (x.id === o.id ? { ...x, text: e.target.value } : x)) })}
-              />
-              {opts.length > 2 && (
-                <button
-                  aria-label={`Quitar opción ${o.id.toUpperCase()}`}
-                  className="px-1 text-slate-400"
-                  onClick={() =>
-                    onPatch({
-                      options: opts.filter((x) => x.id !== o.id),
-                      answer: { correct: correct.filter((x) => x !== o.id) },
-                    })
-                  }
-                >
-                  ✕
-                </button>
-              )}
-            </div>
+            <OptionEditor
+              key={o.id}
+              option={o}
+              isCorrect={correct.includes(o.id)}
+              canRemove={opts.length > 2}
+              fieldClass={f}
+              onToggleCorrect={(checked) =>
+                onPatch({
+                  answer: {
+                    correct: checked ? [...correct, o.id] : correct.filter((x) => x !== o.id),
+                  },
+                })
+              }
+              onTextChange={(text) =>
+                onPatch({
+                  options: opts.map((x) => (x.id === o.id ? { ...x, text } : x)),
+                })
+              }
+              onImageChange={(imagen_url) =>
+                onPatch({
+                  options: opts.map((x) => (x.id === o.id ? { ...x, imagen_url } : x)),
+                })
+              }
+              onRemove={() =>
+                onPatch({
+                  options: opts.filter((x) => x.id !== o.id),
+                  answer: { correct: correct.filter((x) => x !== o.id) },
+                })
+              }
+            />
           ))}
           {opts.length < LETTERS.length && (
             <button onClick={addOption} className="text-sm font-bold text-sky-600">

@@ -183,11 +183,19 @@ export function QuestionCard({ question: q, examId, onNext, aiHelp = false, read
           {q.type === 'multiple_choice' && (
             <div className={`grid grid-cols-1 gap-3 ${cols}`}>
               {q.options!.map((o) => (
-                <button key={o.id} onClick={() => pick(o.id)} disabled={checked} className={base + styles[optionState(o.id)]}>
+                <button
+                  key={o.id}
+                  onClick={() => pick(o.id)}
+                  disabled={checked}
+                  className={base + styles[optionState(o.id)]}
+                >
                   <span className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border text-sm uppercase">
                     {o.id}
                   </span>
-                  <span className="min-w-0 flex-1">{o.text}</span>
+                  <span className="min-w-0 flex-1 space-y-2">
+                    {o.text ? <span className="block">{o.text}</span> : null}
+                    {o.imagen_url ? <QuestionImage src={o.imagen_url} className="max-h-40" /> : null}
+                  </span>
                 </button>
               ))}
             </div>
@@ -266,7 +274,9 @@ export function QuestionCard({ question: q, examId, onNext, aiHelp = false, read
                       disabled={checked || used}
                       onClick={() => setResp({ ...resp, order: [...resp.order, o.id] })}
                       className={`rounded-xl border-2 px-3 py-2 font-semibold ${
-                        used ? 'border-slate-200 opacity-30 dark:border-slate-700' : 'border-slate-300 bg-white dark:border-slate-600 dark:bg-slate-800'
+                        used
+                          ? 'border-slate-200 opacity-30 dark:border-slate-700'
+                          : 'border-slate-300 bg-white dark:border-slate-600 dark:bg-slate-800'
                       }`}
                     >
                       {o.text}

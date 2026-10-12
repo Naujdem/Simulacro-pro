@@ -1,12 +1,19 @@
 import { norm } from './text';
 import type { QType } from './importParser';
 
+export interface QuestionOption {
+  id: string;
+  text: string;
+  /** Imagen opcional de la opción (URL pública). Una opción puede tener solo imagen. */
+  imagen_url?: string | null;
+}
+
 export interface Question {
   id: string;
   exam_id?: string; // simulacro al que pertenece (lo necesita el Repaso Rápido, que mezcla varios)
   type: QType;
   prompt: string;
-  options: { id: string; text: string }[] | null;
+  options: QuestionOption[] | null;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   answer: any;
   explanation?: string | null;
@@ -71,12 +78,15 @@ export function checkAnswer(q: Question, r: Response): boolean {
   }
 }
 
+/** Nombre legible de una opción: su texto o, si solo tiene imagen, "Opción B". */
+export const optionLabel = (o: QuestionOption): string => o.text.trim() || `Opción ${o.id.toUpperCase()}`;
+
 export function correctText(q: Question): string {
   switch (q.type) {
     case 'multiple_choice':
       return q
         .options!.filter((o) => q.answer.correct.includes(o.id))
-        .map((o) => o.text)
+        .map(optionLabel)
         .join(' · ');
     case 'true_false':
       return q.answer.value ? 'Verdadero' : 'Falso';
