@@ -7,3 +7,6 @@ dist
 
 *.patch
 android/.idea/
+
+*.patch
+android/.idea/
