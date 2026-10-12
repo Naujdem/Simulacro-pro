@@ -1,12 +1,18 @@
 import { norm } from './text';
 import type { QType } from './importParser';
 
+export interface QuestionOption {
+  id: string;
+  text: string;
+  imagen_url?: string | null;
+}
+
 export interface Question {
   id: string;
   exam_id?: string; // simulacro al que pertenece (lo necesita el Repaso Rápido, que mezcla varios)
   type: QType;
   prompt: string;
-  options: { id: string; text: string }[] | null;
+  options: QuestionOption[] | null;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   answer: any;
   explanation?: string | null;
