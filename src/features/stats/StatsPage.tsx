@@ -88,6 +88,10 @@ export default function StatsPage() {
         <span>💡 Sugerencias guardadas</span>
         <span className="text-slate-400">›</span>
       </Link>
+      <Link to="/shared" className="flex items-center justify-between rounded-2xl bg-white p-4 font-extrabold shadow-sm dark:bg-slate-800">
+        <span>🔗 Simulacros compartidos</span>
+        <span className="text-slate-400">›</span>
+      </Link>
 
       <div className="grid grid-cols-3 gap-2" role="tablist" aria-label="Periodo">
         {RANGES.map((r) => (

@@ -232,6 +232,8 @@ export function imageUrlFor(ref: string): Promise<string> {
   let p = urlCache.get(id);
   if (!p) {
     p = (async () => {
+      // Mirando un simulacro compartido: el archivo es del creador y se pide a su enlace (no hace falta tener Drive)
+      if (shareContext) return URL.createObjectURL(await fetchSharedFile(shareContext, ref));
       const token = await getToken();
       const r = await fetch(`https://www.googleapis.com/drive/v3/files/${id}?alt=media`, {
         headers: { Authorization: `Bearer ${token}` },
@@ -248,4 +250,124 @@ export function imageUrlFor(ref: string): Promise<string> {
 // Convertir una referencia gd:<id> a una URL blob jugable para <audio>
 export function audioUrlFor(ref: string): Promise<string> {
   return imageUrlFor(ref);
+}
+
+/* ───────────── Simulacros compartidos por enlace ───────────── */
+
+// Mientras se mira /s/<enlace>, las imágenes y audios se piden a la función "drive-public" con ese enlace.
+let shareContext: string | null = null;
+export function setShareContext(shortId: string | null): void {
+  if (shareContext !== shortId) urlCache.clear(); // no mezclar archivos de enlaces distintos
+  shareContext = shortId;
+}
+
+/** Descarga un archivo del creador a través de su enlace (la función del servidor comprueba que pertenezca a ese simulacro). */
+export async function fetchSharedFile(shortId: string, ref: string): Promise<Blob> {
+  const id = driveIdOf(ref);
+  if (!id) throw new DriveError('other', 'referencia inválida');
+  const key = import.meta.env.VITE_SUPABASE_ANON_KEY as string;
+  const { data } = await supabase.auth.getSession();
+  let r: Response;
+  try {
+    r = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/drive-public`, {
+      method: 'POST',
+      headers: { apikey: key, Authorization: `Bearer ${data.session?.access_token ?? key}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ short_id: shortId, file_id: id }),
+    });
+  } catch {
+    throw new DriveError('other', 'Sin conexión con el servidor de archivos.');
+  }
+  if (!r.ok) throw new DriveError('other', `No se pudo leer el archivo (${r.status}).`);
+  const blob = await r.blob();
+  if (!blob.size || blob.type.startsWith('text/')) throw new DriveError('other', 'El archivo no es accesible.');
+  return blob;
+}
+
+const EXT: Record<string, string> = {
+  'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp', 'image/gif': 'gif',
+  'audio/mpeg': 'mp3', 'audio/mp3': 'mp3', 'audio/mp4': 'm4a', 'audio/x-m4a': 'm4a', 'audio/aac': 'aac',
+  'audio/wav': 'wav', 'audio/x-wav': 'wav', 'audio/ogg': 'ogg', 'audio/webm': 'webm',
+};
+
+/** Sube un archivo tal cual (sin reducirlo) a la carpeta SimulaPro del usuario actual. */
+async function uploadRaw(blob: Blob, prefix: string): Promise<string> {
+  const token = await getToken();
+  const parent = await ensureFolder(token);
+  const mime = blob.type || 'application/octet-stream';
+  const boundary = `simulapro${Date.now()}${Math.random().toString(36).slice(2, 8)}`;
+  const meta = { name: `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 6)}.${EXT[mime] ?? 'bin'}`, mimeType: mime, parents: [parent] };
+  const body = new Blob([
+    `--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${JSON.stringify(meta)}\r\n`,
+    `--${boundary}\r\nContent-Type: ${mime}\r\n\r\n`,
+    blob,
+    `\r\n--${boundary}--`,
+  ]);
+  const r = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}`, 'Content-Type': `multipart/related; boundary=${boundary}` },
+    body,
+  });
+  if (r.status === 401) cached = null;
+  if (!r.ok) throw new DriveError('other', `Drive respondió ${r.status} al subir el archivo.`);
+  return makeRef(((await r.json()) as { id: string }).id);
+}
+
+/**
+ * Copia un archivo (imagen o audio) del Drive del creador al Drive del usuario actual y devuelve la referencia nueva.
+ * Se descarga con el enlace compartido (el creador deja sus archivos legibles por enlace al compartir) y se sube
+ * con el permiso del usuario actual. `shortId` es el enlace del simulacro (por defecto, el que se está viendo).
+ */
+export async function copyDriveFile(oldRef: string, shortId: string | null = shareContext): Promise<string> {
+  if (!shortId) throw new DriveError('other', 'Falta el enlace del simulacro.');
+  const blob = await fetchSharedFile(shortId, oldRef);
+  return uploadRaw(blob, blob.type.startsWith('audio/') ? 'audio' : 'img');
+}
+
+/** ¿Tiene el usuario actual su Drive conectado? (no abre ninguna ventana) */
+export async function driveConnected(): Promise<boolean> {
+  try {
+    await getToken();
+    return true;
+  } catch (e) {
+    if (e instanceof DriveError && (e.code === 'noconnect' || e.code === 'reconnect')) return false;
+    throw e;
+  }
+}
+
+/**
+ * El creador deja sus archivos legibles (o ya no) por quien tenga el enlace. Es lo que permite copiarlos sin
+ * pedirle nada al creador. Devuelve cuántos se pudieron cambiar y cuántos no.
+ */
+export async function setFilesPublic(refs: string[], on: boolean): Promise<{ done: number; failed: number }> {
+  const token = await getToken();
+  const auth = { Authorization: `Bearer ${token}` };
+  let done = 0;
+  let failed = 0;
+  const one = async (ref: string) => {
+    const id = driveIdOf(ref);
+    if (!id) return;
+    try {
+      if (on) {
+        const r = await fetch(`https://www.googleapis.com/drive/v3/files/${id}/permissions`, {
+          method: 'POST',
+          headers: { ...auth, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ role: 'reader', type: 'anyone' }),
+        });
+        if (!r.ok) throw new Error(String(r.status));
+      } else {
+        const l = await fetch(`https://www.googleapis.com/drive/v3/files/${id}/permissions?fields=permissions(id,type)`, { headers: auth });
+        if (!l.ok) throw new Error(String(l.status));
+        const list = ((await l.json()) as { permissions?: { id: string; type: string }[] }).permissions ?? [];
+        for (const perm of list.filter((x) => x.type === 'anyone')) {
+          const d = await fetch(`https://www.googleapis.com/drive/v3/files/${id}/permissions/${perm.id}`, { method: 'DELETE', headers: auth });
+          if (!d.ok && d.status !== 404) throw new Error(String(d.status));
+        }
+      }
+      done++;
+    } catch {
+      failed++;
+    }
+  };
+  for (let i = 0; i < refs.length; i += 4) await Promise.all(refs.slice(i, i + 4).map(one));
+  return { done, failed };
 }
