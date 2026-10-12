@@ -22,7 +22,7 @@ const parseLimit = (v: string): number | null => {
 };
 
 const inputCls =
-  'w-full rounded-2xl border-2 border-slate-200 bg-transparent p-3 outline-none focus:border-sky-400 dark:border-slate-600';
+  'w-full rounded-2xl border border-slate-200 bg-transparent p-3 outline-none focus:border-sky-400 dark:border-slate-600';
 
 export function DeckOptionsDialog({ name, hasOwnCards, allNames, settings, cardCount, onClose, onSaved, onDeleted }: Props) {
   const qc = useQueryClient();
@@ -86,7 +86,7 @@ export function DeckOptionsDialog({ name, hasOwnCards, allNames, settings, cardC
         onClick={(e) => e.stopPropagation()}
         onSubmit={save}
       >
-        <h2 className="text-lg font-extrabold">Opciones del mazo</h2>
+        <h2 className="text-lg font-bold">Opciones del mazo</h2>
 
         {hasOwnCards && (
           <div className="space-y-3">
@@ -132,10 +132,10 @@ export function DeckOptionsDialog({ name, hasOwnCards, allNames, settings, cardC
         {error && <p className="text-sm font-bold text-red-500">{error}</p>}
 
         <div className="flex gap-2">
-          <button type="button" onClick={onClose} disabled={busy} className="flex-1 rounded-2xl border-2 py-3 font-bold disabled:opacity-50">
+          <button type="button" onClick={onClose} disabled={busy} className="flex-1 rounded-2xl border py-3 font-bold disabled:opacity-50">
             Cancelar
           </button>
-          <button type="submit" disabled={busy} className="flex-1 rounded-2xl bg-sky-500 py-3 font-extrabold text-white disabled:opacity-50">
+          <button type="submit" disabled={busy} className="flex-1 rounded-2xl bg-sky-500 py-3 font-bold text-white disabled:opacity-50">
             {busy ? 'Guardando…' : 'Guardar'}
           </button>
         </div>

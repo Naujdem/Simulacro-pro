@@ -55,7 +55,7 @@ export function AudioButton({ src, size = 'md', className = '' }: Props) {
       onClick={toggle}
       title={TITLE[state]}
       aria-label={TITLE[state]}
-      className={`inline-flex shrink-0 items-center justify-center rounded-full border-2 ${
+      className={`inline-flex shrink-0 items-center justify-center rounded-full border ${
         state === 'error' ? 'border-red-400' : 'border-sky-400'
       } ${dims} ${className}`}
     >

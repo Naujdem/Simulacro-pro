@@ -3,6 +3,7 @@ import { Question, Response, checkAnswer, correctText } from '@/lib/grading';
 import QuestionImage from '@/components/QuestionImage';
 import AiPanel from '@/features/ai/AiPanel';
 import ReadingText from './ReadingText';
+import FullscreenOverlay, { ExpandButton } from '@/components/FullscreenText';
 import { saveQuestionTag, type QuestionTag } from '@/features/exams/api';
 
 type Props = {
@@ -55,7 +56,10 @@ const isReady = (q: Question, r: Response) =>
             ? r.text.trim().length > 0
             : false;
 
-const base = 'w-full rounded-2xl border-2 p-4 text-left font-semibold transition active:scale-[.98] ';
+const base = 'flex h-full w-full items-start gap-3 rounded-2xl border-2 p-4 text-left font-semibold transition active:scale-[.98] ';
+
+/** Desde esta cantidad de caracteres el enunciado se considera «largo» (caja con scroll + pantalla completa). */
+const LONG_PROMPT = 380;
 const styles = {
   idle: 'border-slate-200 bg-white hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800',
   selected: 'border-sky-400 bg-sky-50 dark:bg-sky-950',
@@ -73,6 +77,7 @@ export function QuestionCard({ question: q, examId, onNext, aiHelp = false, read
   const checked = correct !== null;
   const check = () => setCorrect(checkAnswer(q, resp));
   const aiRef = useRef<HTMLDivElement>(null);
+  const [full, setFull] = useState<'reading' | 'prompt' | null>(null); // texto largo a pantalla completa
   const showAi = aiHelp && checked && correct === false;
 
   // Al fallar, lleva la vista a la ayuda de IA (la barra de abajo tapa el final de la página)
@@ -94,6 +99,7 @@ export function QuestionCard({ question: q, examId, onNext, aiHelp = false, read
   }
 
   const multi = q.type === 'multiple_choice' && q.answer.correct.length > 1;
+  const longPrompt = q.type !== 'fill_blank' && q.prompt.length > LONG_PROMPT;
 
   function pick(id: string) {
     if (checked || resp.type !== 'multiple_choice') return;
@@ -115,152 +121,201 @@ export function QuestionCard({ question: q, examId, onNext, aiHelp = false, read
     return sel ? 'selected' : 'idle';
   };
 
+  // En PC las opciones se ordenan en mosaico (en el móvil siguen en una columna).
+  // Con texto de lectura al lado, la columna de preguntas es más angosta: 2 por fila.
+  const n = q.options?.length ?? 0;
+  const cols = reading
+    ? 'md:grid-cols-2'
+    : n <= 2
+      ? 'md:grid-cols-2'
+      : n === 3
+        ? 'md:grid-cols-3'
+        : n === 4
+          ? 'md:grid-cols-2 xl:grid-cols-4'
+          : 'md:grid-cols-2 lg:grid-cols-3';
+
+  const promptNode = q.type !== 'fill_blank' && (
+    <div className="mb-5 md:mb-6">
+      {longPrompt && (
+        <div className="mb-1 flex justify-end">
+          <ExpandButton onClick={() => setFull('prompt')} />
+        </div>
+      )}
+      <h2
+        className={
+          longPrompt
+            ? 'max-h-[42dvh] overflow-y-auto rounded-2xl bg-slate-100/70 p-4 text-base font-semibold leading-relaxed md:max-h-[36dvh] dark:bg-slate-800/60'
+            : 'text-xl font-bold leading-snug md:text-2xl'
+        }
+      >
+        {q.prompt}
+      </h2>
+      {multi && <span className="mt-1 block text-sm font-normal text-slate-500">Selecciona todas las correctas</span>}
+    </div>
+  );
+
   return (
-    <div className="mx-auto flex max-w-xl flex-col px-4 pb-72 pt-4">
-      {reading && (
-        <details open className="mb-4 rounded-2xl border-2 border-amber-300 bg-amber-50 p-3 dark:border-amber-800 dark:bg-amber-950/30">
-          <summary className="cursor-pointer text-sm font-extrabold">📖 {reading.title}</summary>
-          <ReadingText title={reading.title} body={reading.body} />
-        </details>
-      )}
-      {q.imagen_url && <QuestionImage src={q.imagen_url} className="mb-4" />}
-      {q.type === 'transform' && (
-        <p className="mb-1 text-sm font-bold text-violet-600 dark:text-violet-300">
-          Escríbela en forma {q.answer?.form ?? 'distinta'}:
-        </p>
-      )}
-      {q.type !== 'fill_blank' && (
-        <h2 className="mb-6 text-xl font-bold leading-snug">
-          {q.prompt}
-          {multi && (
-            <span className="mt-1 block text-sm font-normal text-slate-500">Selecciona todas las correctas</span>
-          )}
-        </h2>
-      )}
-
-      {q.type === 'multiple_choice' && (
-        <div className="space-y-3">
-          {q.options!.map((o) => (
-            <button key={o.id} onClick={() => pick(o.id)} disabled={checked} className={base + styles[optionState(o.id)]}>
-              <span className="mr-3 inline-flex h-7 w-7 items-center justify-center rounded-lg border text-sm uppercase">
-                {o.id}
-              </span>
-              {o.text}
-            </button>
-          ))}
-        </div>
-      )}
-
-      {q.type === 'true_false' && resp.type === 'true_false' && (
-        <div className="grid grid-cols-2 gap-3">
-          {([true, false] as const).map((v) => {
-            const sel = resp.value === v;
-            const right = q.answer.value === v;
-            const s: S = checked ? (right ? 'right' : sel ? 'wrong' : 'dim') : sel ? 'selected' : 'idle';
-            return (
-              <button
-                key={String(v)}
-                disabled={checked}
-                onClick={() => setResp({ type: 'true_false', value: v })}
-                className={base + 'py-8 text-center text-lg ' + styles[s]}
-              >
-                {v ? 'Verdadero' : 'Falso'}
-              </button>
-            );
-          })}
-        </div>
-      )}
-
-      {q.type === 'fill_blank' && resp.type === 'fill_blank' && (
-        <p className="text-xl leading-loose">
-          {q.prompt.split(/(\{\{\d+\}\})/).map((part, k) => {
-            const m = part.match(/^\{\{(\d+)\}\}$/);
-            if (!m) return <span key={k}>{part}</span>;
-            const i = Number(m[1]) - 1;
-            return (
-              <input
-                key={k}
-                value={resp.blanks[i] ?? ''}
-                disabled={checked}
-                onChange={(e) =>
-                  setResp({ ...resp, blanks: resp.blanks.map((b, j) => (j === i ? e.target.value : b)) })
-                }
-                className={`mx-1 w-32 rounded-lg border-b-4 bg-transparent px-2 text-center outline-none ${
-                  checked ? (correct ? 'border-green-500' : 'border-red-500') : 'border-sky-400'
-                }`}
-                aria-label={`Espacio ${i + 1}`}
-              />
-            );
-          })}
-        </p>
-      )}
-
-      {q.type === 'order_words' && resp.type === 'order_words' && (
-        <div className="space-y-4">
-          <div
-            aria-label="Tu oración"
-            className={`flex min-h-16 flex-wrap gap-2 rounded-2xl border-2 border-dashed p-3 ${
-              checked ? (correct ? 'border-green-500' : 'border-red-500') : 'border-slate-300 dark:border-slate-600'
-            }`}
+    <div className="mx-auto flex max-w-xl flex-col px-4 pb-72 pt-4 md:max-w-6xl md:pb-56">
+      {/* PC: con lectura, texto a la izquierda y preguntas a la derecha; sin lectura, todo el ancho */}
+      <div className={reading ? 'md:grid md:grid-cols-[minmax(0,5fr)_minmax(0,6fr)] md:items-start md:gap-6' : ''}>
+        {reading && (
+          <details
+            open
+            className="mb-4 rounded-2xl border-2 border-amber-300 bg-amber-50 p-3 md:sticky md:top-4 md:mb-0 dark:border-amber-800 dark:bg-amber-950/30"
           >
-            {!resp.order.length && <span className="text-sm text-slate-400">Toca las palabras en orden…</span>}
-            {resp.order.map((id) => (
-              <button
-                key={id}
-                disabled={checked}
-                onClick={() => setResp({ ...resp, order: resp.order.filter((x) => x !== id) })}
-                className="rounded-xl border-2 border-sky-400 bg-sky-50 px-3 py-2 font-semibold dark:bg-sky-950"
-              >
-                {q.options!.find((o) => o.id === id)?.text}
-              </button>
-            ))}
-          </div>
-          <div aria-label="Palabras" className="flex flex-wrap gap-2">
-            {q.options!.map((o) => {
-              const used = resp.order.includes(o.id);
-              return (
-                <button
-                  key={o.id}
-                  disabled={checked || used}
-                  onClick={() => setResp({ ...resp, order: [...resp.order, o.id] })}
-                  className={`rounded-xl border-2 px-3 py-2 font-semibold ${
-                    used ? 'border-slate-200 opacity-30 dark:border-slate-700' : 'border-slate-300 bg-white dark:border-slate-600 dark:bg-slate-800'
-                  }`}
-                >
-                  {o.text}
+            <summary className="flex cursor-pointer items-center justify-between gap-2 text-sm font-bold">
+              <span className="min-w-0 truncate">📖 {reading.title}</span>
+              <ExpandButton onClick={() => setFull('reading')} />
+            </summary>
+            <ReadingText title={reading.title} body={reading.body} />
+          </details>
+        )}
+
+        <div className="min-w-0">
+          {q.imagen_url && <QuestionImage src={q.imagen_url} className="mb-4" />}
+          {q.type === 'transform' && (
+            <p className="mb-1 text-sm font-bold text-sky-500 dark:text-sky-300">
+              Escríbela en forma {q.answer?.form ?? 'distinta'}:
+            </p>
+          )}
+          {promptNode}
+
+          {q.type === 'multiple_choice' && (
+            <div className={`grid grid-cols-1 gap-3 ${cols}`}>
+              {q.options!.map((o) => (
+                <button key={o.id} onClick={() => pick(o.id)} disabled={checked} className={base + styles[optionState(o.id)]}>
+                  <span className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border text-sm uppercase">
+                    {o.id}
+                  </span>
+                  <span className="min-w-0 flex-1">{o.text}</span>
                 </button>
-              );
-            })}
-          </div>
-        </div>
-      )}
+              ))}
+            </div>
+          )}
 
-      {(q.type === 'short_answer' || q.type === 'transform') && resp.type === 'short_answer' && (
-        <input
-          autoFocus
-          value={resp.text}
-          disabled={checked}
-          placeholder="Escribe tu respuesta…"
-          onChange={(e) => setResp({ type: 'short_answer', text: e.target.value })}
-          onKeyDown={(e) => e.key === 'Enter' && isReady(q, resp) && !checked && check()}
-          className={`w-full rounded-2xl border-2 bg-transparent p-4 text-lg outline-none ${
-            checked ? (correct ? 'border-green-500' : 'border-red-500') : 'border-slate-300 focus:border-sky-400'
-          }`}
-        />
-      )}
+          {q.type === 'true_false' && resp.type === 'true_false' && (
+            <div className="grid grid-cols-2 gap-3 md:mx-auto md:max-w-xl">
+              {([true, false] as const).map((v) => {
+                const sel = resp.value === v;
+                const right = q.answer.value === v;
+                const s: S = checked ? (right ? 'right' : sel ? 'wrong' : 'dim') : sel ? 'selected' : 'idle';
+                return (
+                  <button
+                    key={String(v)}
+                    disabled={checked}
+                    onClick={() => setResp({ type: 'true_false', value: v })}
+                    className={base + 'justify-center py-8 text-center text-lg ' + styles[s]}
+                  >
+                    {v ? 'Verdadero' : 'Falso'}
+                  </button>
+                );
+              })}
+            </div>
+          )}
 
-      {checked && q.explanation && (
-        <div className="mt-6 space-y-1 rounded-2xl border-2 border-sky-300 bg-sky-50 p-3 dark:border-sky-800 dark:bg-sky-950/40">
-          <p className="text-sm font-extrabold">📖 Explicación</p>
-          <p className="whitespace-pre-line text-sm">{q.explanation}</p>
-        </div>
-      )}
+          {q.type === 'fill_blank' && resp.type === 'fill_blank' && (
+            <p className="text-xl leading-loose">
+              {q.prompt.split(/(\{\{\d+\}\})/).map((part, k) => {
+                const m = part.match(/^\{\{(\d+)\}\}$/);
+                if (!m) return <span key={k}>{part}</span>;
+                const i = Number(m[1]) - 1;
+                return (
+                  <input
+                    key={k}
+                    value={resp.blanks[i] ?? ''}
+                    disabled={checked}
+                    onChange={(e) =>
+                      setResp({ ...resp, blanks: resp.blanks.map((b, j) => (j === i ? e.target.value : b)) })
+                    }
+                    className={`mx-1 w-32 rounded-lg border-b-4 bg-transparent px-2 text-center outline-none ${
+                      checked ? (correct ? 'border-green-500' : 'border-red-500') : 'border-sky-400'
+                    }`}
+                    aria-label={`Espacio ${i + 1}`}
+                  />
+                );
+              })}
+            </p>
+          )}
 
-      {showAi && (
-        <div ref={aiRef} className="mt-6 space-y-2 rounded-2xl border-2 border-violet-300 bg-violet-50 p-3 dark:border-violet-800 dark:bg-violet-950/40">
-          <p className="text-sm font-extrabold">¿No te quedó claro? Pide ayuda a la IA</p>
-          <AiPanel q={q} examId={examId} />
+          {q.type === 'order_words' && resp.type === 'order_words' && (
+            <div className="space-y-4">
+              <div
+                aria-label="Tu oración"
+                className={`flex min-h-16 flex-wrap gap-2 rounded-2xl border-2 border-dashed p-3 ${
+                  checked ? (correct ? 'border-green-500' : 'border-red-500') : 'border-slate-300 dark:border-slate-600'
+                }`}
+              >
+                {!resp.order.length && <span className="text-sm text-slate-400">Toca las palabras en orden…</span>}
+                {resp.order.map((id) => (
+                  <button
+                    key={id}
+                    disabled={checked}
+                    onClick={() => setResp({ ...resp, order: resp.order.filter((x) => x !== id) })}
+                    className="rounded-xl border-2 border-sky-400 bg-sky-50 px-3 py-2 font-semibold dark:bg-sky-950"
+                  >
+                    {q.options!.find((o) => o.id === id)?.text}
+                  </button>
+                ))}
+              </div>
+              <div aria-label="Palabras" className="flex flex-wrap gap-2">
+                {q.options!.map((o) => {
+                  const used = resp.order.includes(o.id);
+                  return (
+                    <button
+                      key={o.id}
+                      disabled={checked || used}
+                      onClick={() => setResp({ ...resp, order: [...resp.order, o.id] })}
+                      className={`rounded-xl border-2 px-3 py-2 font-semibold ${
+                        used ? 'border-slate-200 opacity-30 dark:border-slate-700' : 'border-slate-300 bg-white dark:border-slate-600 dark:bg-slate-800'
+                      }`}
+                    >
+                      {o.text}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {(q.type === 'short_answer' || q.type === 'transform') && resp.type === 'short_answer' && (
+            <input
+              autoFocus
+              value={resp.text}
+              disabled={checked}
+              placeholder="Escribe tu respuesta…"
+              onChange={(e) => setResp({ type: 'short_answer', text: e.target.value })}
+              onKeyDown={(e) => e.key === 'Enter' && isReady(q, resp) && !checked && check()}
+              className={`w-full rounded-2xl border-2 bg-transparent p-4 text-lg outline-none ${
+                checked ? (correct ? 'border-green-500' : 'border-red-500') : 'border-slate-300 focus:border-sky-400'
+              }`}
+            />
+          )}
+
+          {checked && q.explanation && (
+            <div className="mt-6 space-y-1 rounded-2xl border-2 border-sky-300 bg-sky-50 p-3 dark:border-sky-800 dark:bg-sky-950/40">
+              <p className="text-sm font-bold">📖 Explicación</p>
+              <p className="whitespace-pre-line text-sm">{q.explanation}</p>
+            </div>
+          )}
+
+          {showAi && (
+            <div ref={aiRef} className="mt-6 space-y-2 rounded-2xl border-2 border-sky-300 bg-sky-50 p-3 dark:border-sky-800 dark:bg-sky-950/40">
+              <p className="text-sm font-bold">¿No te quedó claro? Pide ayuda a la IA</p>
+              <AiPanel q={q} examId={examId} />
+            </div>
+          )}
         </div>
+      </div>
+
+      {full === 'reading' && reading && (
+        <FullscreenOverlay title={reading.title} onClose={() => setFull(null)}>
+          <ReadingText title={reading.title} body={reading.body} className="max-h-none overflow-visible text-lg md:text-xl" />
+        </FullscreenOverlay>
+      )}
+      {full === 'prompt' && (
+        <FullscreenOverlay title="Enunciado" onClose={() => setFull(null)}>
+          <p className="whitespace-pre-line font-semibold">{q.prompt}</p>
+        </FullscreenOverlay>
       )}
 
       <footer
@@ -273,11 +328,11 @@ export function QuestionCard({ question: q, examId, onNext, aiHelp = false, read
               : 'animate-slideUp bg-red-100 dark:bg-red-950'
         }`}
       >
-        <div className="mx-auto max-w-xl">
+        <div className="mx-auto max-w-xl md:max-w-2xl">
           {checked && (
             <div className="mb-3">
               <p
-                className={`text-lg font-extrabold ${
+                className={`text-lg font-bold ${
                   correct ? 'text-green-700 dark:text-green-300' : 'text-red-700 dark:text-red-300'
                 }`}
               >
@@ -294,7 +349,7 @@ export function QuestionCard({ question: q, examId, onNext, aiHelp = false, read
             <button
               disabled={!isReady(q, resp)}
               onClick={check}
-              className="w-full rounded-2xl bg-sky-500 py-4 text-base font-extrabold uppercase tracking-wide text-white active:bg-sky-600 disabled:bg-slate-300 disabled:text-slate-500"
+              className="w-full rounded-2xl bg-sky-500 py-4 text-base font-bold tracking-wide text-white active:bg-sky-600 disabled:bg-slate-300 disabled:text-slate-500"
             >
               Comprobar
             </button>
@@ -314,7 +369,7 @@ export function QuestionCard({ question: q, examId, onNext, aiHelp = false, read
                     key={t.id}
                     disabled={savingTag}
                     onClick={() => pickTag(t.id)}
-                    className={`rounded-2xl py-3 text-sm font-extrabold text-white disabled:opacity-50 ${t.className}`}
+                    className={`rounded-2xl py-3 text-sm font-bold text-white disabled:opacity-50 ${t.className}`}
                   >
                     {t.label}
                   </button>

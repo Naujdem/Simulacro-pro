@@ -213,9 +213,9 @@ export default function StudyPage() {
       {deck.data && deck.data.length === 0 && (
         <div className="flex flex-1 flex-col items-center justify-center gap-4 text-center">
           <p className="text-4xl">🎉</p>
-          <h2 className="text-xl font-extrabold">¡Estás al día!</h2>
+          <h2 className="text-xl font-bold">¡Estás al día!</h2>
           <p className="text-slate-500">No tienes fichas por estudiar hoy en este mazo.</p>
-          <button onClick={exit} className="rounded-2xl bg-sky-500 px-5 py-3 font-extrabold text-white">
+          <button onClick={exit} className="rounded-2xl bg-sky-500 px-5 py-3 font-bold text-white">
             Volver a Fichas
           </button>
         </div>
@@ -224,9 +224,9 @@ export default function StudyPage() {
       {finished && (
         <div className="flex flex-1 flex-col items-center justify-center gap-4 text-center">
           <p className="text-4xl">🎉</p>
-          <h2 className="text-xl font-extrabold">¡Terminaste por hoy!</h2>
+          <h2 className="text-xl font-bold">¡Terminaste por hoy!</h2>
           <p className="text-slate-500">Estudiaste {session?.done} fichas.</p>
-          <button onClick={exit} className="rounded-2xl bg-sky-500 px-5 py-3 font-extrabold text-white">
+          <button onClick={exit} className="rounded-2xl bg-sky-500 px-5 py-3 font-bold text-white">
             Volver a Fichas
           </button>
         </div>
@@ -275,7 +275,7 @@ export default function StudyPage() {
             {!flipped ? (
               <button
                 onClick={() => setFlipped(true)}
-                className="w-full rounded-2xl bg-sky-500 py-4 text-lg font-extrabold text-white"
+                className="w-full rounded-2xl bg-sky-500 py-4 text-lg font-bold text-white"
               >
                 Voltear
               </button>
@@ -287,7 +287,7 @@ export default function StudyPage() {
                     onClick={() => handleRate(r.value)}
                     className={`rounded-2xl px-1 py-3 text-white ${r.className}`}
                   >
-                    <span className="block text-sm font-extrabold">{r.label}</span>
+                    <span className="block text-sm font-bold">{r.label}</span>
                     <span className="block text-xs font-bold opacity-90">{previews?.[i]}</span>
                   </button>
                 ))}

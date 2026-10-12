@@ -2,5 +2,51 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Inter variable, solo subconjuntos latinos (cubre español): evita cargar cirílico, griego y vietnamita. */
+@font-face {
+  font-family: 'Inter Variable';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 100 900;
+  src: url('../node_modules/@fontsource-variable/inter/files/inter-latin-wght-normal.woff2') format('woff2-variations');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: 'Inter Variable';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 100 900;
+  src: url('../node_modules/@fontsource-variable/inter/files/inter-latin-ext-wght-normal.woff2') format('woff2-variations');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+
 html, body, #root { min-height: 100dvh; }
-body { @apply bg-slate-50 text-slate-800 antialiased dark:bg-slate-900 dark:text-slate-100; }
+body { @apply bg-slate-50 font-sans text-slate-800 antialiased dark:bg-slate-900 dark:text-slate-100; }
+
+/*
+ * Sistema visual: un solo acento (sky), neutros para todo lo demás, bordes finos y una sola elevación.
+ * Verde / rojo / ámbar quedan reservados para correcto / incorrecto / aviso.
+ */
+@layer components {
+  .card {
+    @apply rounded-2xl bg-white ring-1 ring-slate-900/5 dark:bg-slate-800 dark:ring-white/10;
+  }
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition active:scale-[.98] disabled:opacity-50;
+  }
+  .btn-primary {
+    @apply btn bg-sky-500 text-white hover:bg-sky-600;
+  }
+  .btn-secondary {
+    @apply btn border border-slate-300 text-slate-700 hover:bg-slate-100 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800;
+  }
+  .btn-ghost {
+    @apply btn text-slate-500 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800;
+  }
+  .input {
+    @apply w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none transition placeholder:text-slate-400 focus:border-sky-400 focus:ring-2 focus:ring-sky-400/20 dark:border-slate-700 dark:bg-slate-800;
+  }
+  .section-title {
+    @apply text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400;
+  }
+}

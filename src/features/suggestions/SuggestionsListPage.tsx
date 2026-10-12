@@ -7,7 +7,7 @@ export default function SuggestionsListPage() {
   return (
     <div className="space-y-4 p-4">
       <Link to="/stats" className="text-sm font-bold text-sky-500">← Progreso</Link>
-      <h1 className="text-2xl font-extrabold">Sugerencias guardadas</h1>
+      <h1 className="text-2xl font-bold">Sugerencias guardadas</h1>
       {list.isLoading && <p className="text-sm text-slate-500">Cargando…</p>}
       {list.isError && <p className="text-sm text-red-500">{(list.error as Error).message}</p>}
       {list.data && !list.data.length && (

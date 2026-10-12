@@ -86,7 +86,7 @@ export default function SuggestionPage() {
               disabled={rate.isPending}
               aria-pressed={helpful === v}
               onClick={() => choose(v)}
-              className={`rounded-xl border-2 py-3 text-sm font-extrabold disabled:opacity-50 ${
+              className={`rounded-xl border py-3 text-sm font-bold disabled:opacity-50 ${
                 helpful === v ? 'border-sky-500 bg-sky-500 text-white' : 'border-slate-300 dark:border-slate-600'
               }`}
             >
@@ -100,7 +100,7 @@ export default function SuggestionPage() {
         <button
           disabled={save.isPending}
           onClick={() => save.mutate()}
-          className="w-full rounded-2xl bg-green-500 py-4 font-extrabold uppercase text-white disabled:opacity-50"
+          className="w-full rounded-2xl bg-green-500 py-4 font-bold text-white disabled:opacity-50"
         >
           {save.isPending ? 'Guardando…' : 'Guardar sugerencia'}
         </button>

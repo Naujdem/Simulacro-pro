@@ -4,3 +4,9 @@ dist
 .env.local
 .env.production.local
 *.tsbuildinfo
+
+*.patch
+android/.idea/
+
+*.patch
+android/.idea/

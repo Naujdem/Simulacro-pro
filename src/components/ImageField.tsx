@@ -71,7 +71,7 @@ export type ImageUpload = ReturnType<typeof useImageUpload>;
 
 export function ImageField({ up }: { up: ImageUpload }) {
   const fileRef = useRef<HTMLInputElement>(null);
-  const btn = 'rounded-lg border-2 px-3 py-1.5 text-xs font-extrabold disabled:opacity-50 dark:border-slate-600';
+  const btn = 'rounded-lg border px-3 py-1.5 text-xs font-bold disabled:opacity-50 dark:border-slate-600';
 
   return (
     <div className="space-y-2">
@@ -105,7 +105,7 @@ export function ImageField({ up }: { up: ImageUpload }) {
       {up.busy && <p className="text-xs font-bold text-slate-500">Subiendo a tu Google Drive…</p>}
       {up.error && <p className="text-xs text-red-500">{up.error}</p>}
       {up.pending && !up.busy && (
-        <button type="button" onClick={up.connectAndRetry} className="rounded-lg bg-sky-500 px-3 py-2 text-xs font-extrabold text-white">
+        <button type="button" onClick={up.connectAndRetry} className="rounded-lg bg-sky-500 px-3 py-2 text-xs font-bold text-white">
           Conectar Google Drive
         </button>
       )}

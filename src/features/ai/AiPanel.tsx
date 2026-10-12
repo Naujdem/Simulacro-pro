@@ -35,7 +35,7 @@ export default function AiPanel({ q, examId }: Props) {
   const generated = similar.data?.contenido.preguntas;
   const savedExamId = save.data ?? similar.data?.simulacro_id ?? info.data?.simulacroId ?? null;
 
-  const btn = 'rounded-lg border-2 border-violet-500 px-3 py-1.5 text-xs font-extrabold text-violet-700 disabled:opacity-50 dark:text-violet-300';
+  const btn = 'rounded-lg border border-sky-500 px-3 py-1.5 text-xs font-bold text-sky-700 disabled:opacity-50 dark:text-sky-300';
 
   return (
     <div className="space-y-2">
@@ -70,7 +70,7 @@ export default function AiPanel({ q, examId }: Props) {
 
       {generated && (
         <div className="space-y-2 rounded-lg bg-white/70 p-3 text-xs dark:bg-slate-900/60">
-          <p className="font-extrabold">
+          <p className="font-bold">
             {generated.length} preguntas similares{' '}
             <span className="text-[10px] font-normal text-slate-500">
               ({similar.data?.origen === 'cache' ? 'guardadas · no gastó solicitudes' : 'generadas con IA'})
@@ -103,7 +103,7 @@ export default function AiPanel({ q, examId }: Props) {
           {savedExamId ? (
             <div className="flex flex-wrap items-center gap-2">
               <span className="font-bold text-green-700 dark:text-green-400">✓ Guardadas como simulacro</span>
-              <button onClick={() => nav(`/practice/${savedExamId}`)} className="rounded-lg bg-violet-600 px-3 py-1.5 font-extrabold text-white">
+              <button onClick={() => nav(`/practice/${savedExamId}`)} className="rounded-lg bg-sky-500 px-3 py-1.5 font-bold text-white">
                 Practicar ahora
               </button>
             </div>
@@ -111,7 +111,7 @@ export default function AiPanel({ q, examId }: Props) {
             <button
               disabled={save.isPending}
               onClick={() => save.mutate(generated)}
-              className="rounded-lg bg-green-600 px-3 py-1.5 font-extrabold text-white disabled:opacity-50"
+              className="rounded-lg bg-green-600 px-3 py-1.5 font-bold text-white disabled:opacity-50"
             >
               {save.isPending ? 'Guardando…' : '💾 Guardar como simulacro'}
             </button>

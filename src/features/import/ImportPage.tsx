@@ -4,7 +4,9 @@ import { useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
-import { fetchFolders } from '@/features/exams/api';
+import { createFolder, fetchFolders, folderPath } from '@/features/exams/api';
+import CreateFolderDialog from '@/features/exams/CreateFolderDialog';
+import Icon from '@/components/Icon';
 import { ImageField, useImageUpload } from '@/components/ImageField';
 import { ParsedQuestion, parseQuestions } from '@/lib/importParser';
 
@@ -57,6 +59,23 @@ export default function ImportPage() {
   const [items, setItems] = useState<ParsedQuestion[]>([]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  const [newFolder, setNewFolder] = useState(false); // diálogo de nueva biblioteca
+  const [creatingFolder, setCreatingFolder] = useState(false);
+
+  async function addFolder(name: string, color: string) {
+    setCreatingFolder(true);
+    try {
+      const f = await createFolder(name, color);
+      await qc.invalidateQueries({ queryKey: ['folders'] });
+      setFolderId(f.id); // el simulacro nuevo queda dentro de la biblioteca recién creada
+      setNewFolder(false);
+    } catch (e) {
+      setError((e as Error).message);
+      setNewFolder(false);
+    } finally {
+      setCreatingFolder(false);
+    }
+  }
 
   const patch = (i: number, p: Partial<ParsedQuestion>) =>
     setItems((xs) => xs.map((x, k) => (k === i ? { ...x, ...p } : x)));
@@ -113,16 +132,16 @@ export default function ImportPage() {
     }
   }
 
-  const field = 'w-full rounded-xl border-2 border-slate-200 bg-transparent p-3 outline-none focus:border-sky-400 dark:border-slate-700';
+  const field = 'w-full rounded-xl border border-slate-200 bg-transparent p-3 outline-none focus:border-sky-400 dark:border-slate-700';
   const validCount = items.filter(isValid).length;
 
   return (
     <div className="space-y-4 p-4">
-      <h1 className="text-2xl font-extrabold">Crear / Importar simulacro</h1>
+      <h1 className="text-2xl font-bold">Crear / Importar simulacro</h1>
 
       <Link
         to="/import-json"
-        className="block rounded-2xl border-2 border-violet-300 bg-violet-50 p-3 text-sm font-bold text-violet-800 dark:border-violet-800 dark:bg-violet-950/40 dark:text-violet-200"
+        className="block rounded-2xl border border-sky-300 bg-sky-50 p-3 text-sm font-bold text-sky-800 dark:border-sky-800 dark:bg-sky-950/40 dark:text-sky-200"
       >
         {'{ }'} Importar JSON · bibliotecas, simulacros, lecturas y fichas de una vez →
       </Link>
@@ -133,14 +152,25 @@ export default function ImportPage() {
         <input className={field} placeholder="Descripción (opcional)" value={description} onChange={(e) => setDescription(e.target.value)} />
       </div>
       <TimedField enabled={timed} minutes={minutes} onChange={(e, m) => { setTimed(e); setMinutes(m); }} />
-      <select className={field} value={folderId} onChange={(e) => setFolderId(e.target.value)}>
-        <option value="">Sin biblioteca</option>
-        {(folders.data ?? []).map((f) => (
-          <option key={f.id} value={f.id}>
-            {f.name}
-          </option>
-        ))}
-      </select>
+      <div className="flex gap-2">
+        <select className={field} value={folderId} onChange={(e) => setFolderId(e.target.value)}>
+          <option value="">Sin biblioteca</option>
+          {(folders.data ?? [])
+            .map((f) => ({ id: f.id, label: folderPath(folders.data ?? [], f.id) }))
+            .sort((a, b) => a.label.localeCompare(b.label))
+            .map((f) => (
+              <option key={f.id} value={f.id}>
+                {f.label}
+              </option>
+            ))}
+        </select>
+        <button type="button" onClick={() => setNewFolder(true)} className="btn-secondary shrink-0">
+          <Icon name="folderPlus" size={18} />
+          <span className="hidden sm:inline">Nueva biblioteca</span>
+          <span className="sm:hidden">Nueva</span>
+        </button>
+      </div>
+      {newFolder && <CreateFolderDialog saving={creatingFolder} onClose={() => setNewFolder(false)} onCreate={addFolder} />}
 
       <textarea
         className={field + ' h-48 font-mono text-sm'}
@@ -149,13 +179,13 @@ export default function ImportPage() {
         onChange={(e) => setText(e.target.value)}
       />
       <div className="flex gap-2">
-        <button onClick={analyze} disabled={!text.trim()} className="flex-1 rounded-2xl bg-sky-500 py-3 font-extrabold uppercase text-white disabled:opacity-50">
+        <button onClick={analyze} disabled={!text.trim()} className="flex-1 rounded-2xl bg-sky-500 py-3 font-bold text-white disabled:opacity-50">
           Analizar
         </button>
-        <button onClick={() => setText(EXAMPLE)} className="rounded-2xl border-2 px-4 font-bold">
+        <button onClick={() => setText(EXAMPLE)} className="rounded-2xl border px-4 font-bold">
           Ejemplo
         </button>
-        <button onClick={() => setItems((xs) => [...xs, blank()])} className="rounded-2xl border-2 px-4 font-bold">
+        <button onClick={() => setItems((xs) => [...xs, blank()])} className="rounded-2xl border px-4 font-bold">
           + Manual
         </button>
       </div>
@@ -173,7 +203,7 @@ export default function ImportPage() {
           <button
             onClick={save}
             disabled={saving || !title.trim() || validCount === 0}
-            className="w-full rounded-2xl bg-green-500 py-4 font-extrabold uppercase text-white disabled:opacity-50"
+            className="w-full rounded-2xl bg-green-500 py-4 font-bold text-white disabled:opacity-50"
           >
             {saving ? 'Guardando…' : `Guardar ${validCount} preguntas`}
           </button>

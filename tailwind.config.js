@@ -4,6 +4,9 @@ export default {
   content: ['./index.html', './src/**/*.{ts,tsx}'],
   theme: {
     extend: {
+      fontFamily: {
+        sans: ['"Inter Variable"', 'ui-sans-serif', 'system-ui', '-apple-system', 'Segoe UI', 'Roboto', 'sans-serif'],
+      },
       keyframes: {
         shake: {
           '0%,100%': { transform: 'translateX(0)' },
@@ -12,8 +15,16 @@ export default {
         },
         pop: { '0%,100%': { transform: 'scale(1)' }, '50%': { transform: 'scale(1.04)' } },
         slideUp: { from: { transform: 'translateY(100%)' }, to: { transform: 'translateY(0)' } },
+        swipeNext: { from: { transform: 'translateX(32px)', opacity: '0' }, to: { transform: 'translateX(0)', opacity: '1' } },
+        swipePrev: { from: { transform: 'translateX(-32px)', opacity: '0' }, to: { transform: 'translateX(0)', opacity: '1' } },
       },
-      animation: { shake: 'shake .35s', pop: 'pop .25s', slideUp: 'slideUp .2s ease-out' },
+      animation: {
+        shake: 'shake .35s',
+        pop: 'pop .25s',
+        slideUp: 'slideUp .2s ease-out',
+        swipeNext: 'swipeNext .2s ease-out',
+        swipePrev: 'swipePrev .2s ease-out',
+      },
     },
   },
   plugins: [],

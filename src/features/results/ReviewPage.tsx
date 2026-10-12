@@ -55,13 +55,13 @@ export default function ReviewPage() {
         <Link to="/" className="rounded-xl px-2 py-1 text-lg" aria-label="Volver">
           ←
         </Link>
-        <h1 className="text-2xl font-extrabold">Repaso</h1>
+        <h1 className="text-2xl font-bold">Repaso</h1>
       </header>
 
       {entries.isError && <p className="text-sm text-red-500">{(entries.error as Error).message}</p>}
 
       {!groups.length && !entries.isLoading && !entries.isError && (
-        <p className="rounded-2xl border-2 border-dashed p-6 text-center text-sm text-slate-500">
+        <p className="rounded-2xl border border-dashed p-6 text-center text-sm text-slate-500">
           Aún no tienes preguntas en repaso. Al terminar un simulacro, pulsa “Guardar en repaso” en las que fallaste.
         </p>
       )}
@@ -72,7 +72,7 @@ export default function ReviewPage() {
         <section key={g.examId} className="space-y-2 rounded-2xl bg-white p-4 shadow-sm dark:bg-slate-800">
           <div className="flex items-center justify-between gap-2">
             <div>
-              <h2 className="font-extrabold">{g.title}</h2>
+              <h2 className="font-bold">{g.title}</h2>
               <p className="text-xs text-slate-500">
                 {g.items.length} {g.items.length === 1 ? 'pregunta' : 'preguntas'}
               </p>
@@ -85,7 +85,7 @@ export default function ReviewPage() {
                   'saved',
                 )
               }
-              className="shrink-0 rounded-xl bg-sky-500 px-3 py-2 text-xs font-extrabold text-white"
+              className="shrink-0 rounded-xl bg-sky-500 px-3 py-2 text-xs font-bold text-white"
             >
               Practicar estas ({g.items.length})
             </button>
@@ -93,7 +93,7 @@ export default function ReviewPage() {
           {pending && (
             <button
               onClick={() => resume(g.examId)}
-              className="w-full rounded-xl border-2 border-sky-500 py-2 text-xs font-extrabold text-sky-700 dark:text-sky-300"
+              className="w-full rounded-xl border border-sky-500 py-2 text-xs font-bold text-sky-700 dark:text-sky-300"
             >
               ▶ Continuar (pregunta {pending.done + 1} de {pending.total})
             </button>
@@ -107,14 +107,14 @@ export default function ReviewPage() {
                 <div className="flex flex-wrap gap-2">
                   <button
                     onClick={() => practice(g.examId, [i.question])}
-                    className="rounded-lg bg-sky-500 px-3 py-1.5 text-xs font-extrabold text-white"
+                    className="rounded-lg bg-sky-500 px-3 py-1.5 text-xs font-bold text-white"
                   >
                     Practicar solo esta
                   </button>
                   <button
                     disabled={remove.isPending}
                     onClick={() => remove.mutate(i.question.id)}
-                    className="rounded-lg border-2 border-slate-400 px-3 py-1.5 text-xs font-extrabold disabled:opacity-50"
+                    className="rounded-lg border border-slate-400 px-3 py-1.5 text-xs font-bold disabled:opacity-50"
                   >
                     Quitar
                   </button>

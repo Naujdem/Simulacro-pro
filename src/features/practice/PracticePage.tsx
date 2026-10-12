@@ -140,11 +140,11 @@ export default function PracticePage() {
   if (timeUp) {
     return (
       <div className="mx-auto max-w-xl space-y-4 p-6 text-center">
-        <p className="text-2xl font-extrabold">⏰ ¡Se acabó el tiempo!</p>
+        <p className="text-2xl font-bold">⏰ ¡Se acabó el tiempo!</p>
         {timeUpError ? (
           <>
             <p className="text-sm text-red-500">{timeUpError}</p>
-            <button onClick={saveTimedOut} className="rounded-2xl bg-sky-500 px-6 py-3 font-extrabold text-white">
+            <button onClick={saveTimedOut} className="rounded-2xl bg-sky-500 px-6 py-3 font-bold text-white">
               Reintentar guardar
             </button>
           </>
@@ -188,7 +188,7 @@ export default function PracticePage() {
   return (
     <div className="min-h-dvh">
       {timerBar}
-      <header className="mx-auto flex max-w-xl items-center gap-3 px-4 pt-4">
+      <header className="mx-auto flex max-w-xl items-center gap-3 px-4 pt-4 md:max-w-6xl">
         <button
           aria-label="Salir"
           onClick={() => {
@@ -208,12 +208,12 @@ export default function PracticePage() {
         </span>
       </header>
       {currentRange && (
-        <p className="mx-auto mt-2 max-w-xl px-4 text-xs font-bold text-slate-500">
+        <p className="mx-auto mt-2 max-w-xl px-4 text-xs font-bold text-slate-500 md:max-w-6xl">
           {currentRange.name} · {index - currentRange.start + 1}/{currentRange.end - currentRange.start}
         </p>
       )}
       {resumedAt !== null && (
-        <p role="status" className="mx-auto mt-3 max-w-xl rounded-xl bg-sky-100 px-4 py-2 text-center text-sm font-bold text-sky-800 dark:bg-sky-950 dark:text-sky-200">
+        <p role="status" className="mx-auto mt-3 max-w-xl rounded-xl bg-sky-100 md:max-w-2xl px-4 py-2 text-center text-sm font-bold text-sky-800 dark:bg-sky-950 dark:text-sky-200">
           Continuando donde te quedaste: pregunta {resumedAt}
         </p>
       )}

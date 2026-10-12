@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import ShareDialog from '@/features/share/ShareDialog';
 import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
+import Icon from '@/components/Icon';
 import { fetchExamWrongQuestions, type Exam } from './api';
 import { usePractice } from '@/features/practice/practiceStore';
 import { clearProgress, pendingProgress, setLastSlot } from '@/features/practice/progress';
@@ -11,10 +12,6 @@ interface Props {
   exam: Exam;
   onClose: () => void;
 }
-
-const card = 'space-y-2 rounded-2xl border-2 border-slate-200 p-3 dark:border-slate-700';
-const primary = 'w-full rounded-xl bg-sky-500 py-3 text-sm font-extrabold text-white disabled:opacity-50';
-const secondary = 'w-full rounded-xl border-2 border-slate-300 py-2.5 text-sm font-bold dark:border-slate-600';
 
 /**
  * Se abre al tocar un simulacro: elegir entre practicarlo completo o repasar solo las preguntas que marcaste
@@ -59,42 +56,52 @@ export default function ExamStartSheet({ exam, onClose }: Props) {
       <div
         role="dialog"
         aria-label={`Practicar ${exam.title}`}
-        className="max-h-[90dvh] w-full max-w-sm space-y-3 overflow-y-auto rounded-3xl bg-white p-5 shadow-xl dark:bg-slate-800"
+        className="max-h-[90dvh] w-full max-w-sm animate-slideUp space-y-5 overflow-y-auto rounded-3xl bg-white p-5 shadow-xl dark:bg-slate-800"
         onClick={(e) => e.stopPropagation()}
       >
         <div>
-          <h2 className="text-lg font-extrabold leading-tight">{exam.title}</h2>
-          <p className="text-xs text-slate-500">
+          <h2 className="text-lg font-bold leading-tight">{exam.title}</h2>
+          <p className="mt-0.5 text-xs text-slate-500">
             {exam.subject ?? 'Sin tema'} · {exam.question_count} preguntas
           </p>
+          {exam.description && <p className="mt-2 line-clamp-3 text-sm text-slate-500">{exam.description}</p>}
         </div>
 
-        <div className={card}>
-          <p className="font-extrabold">📝 Simulacro completo</p>
-          <p className="text-xs text-slate-500">Todas las preguntas del simulacro.</p>
+        <div className="space-y-2">
+          <p className="section-title flex items-center gap-1.5">
+            <Icon name="file" size={14} /> Simulacro completo
+          </p>
           {exam.time_limit_min ? (
-            <p className="rounded-lg bg-amber-50 p-2 text-xs font-bold text-amber-800 dark:bg-amber-950 dark:text-amber-200">
-              ⏱ Examen cronometrado: {exam.time_limit_min} minutos. Al acabarse el tiempo se cierra solo y las preguntas sin responder cuentan como incorrectas.
+            <p className="flex items-start gap-1.5 text-xs text-slate-500">
+              <Icon name="clock" size={14} className="mt-px shrink-0 text-amber-500" />
+              <span>
+                Cronometrado: {exam.time_limit_min} minutos. Al acabarse el tiempo se cierra solo y las preguntas sin responder cuentan como
+                incorrectas.
+              </span>
             </p>
-          ) : null}
+          ) : (
+            <p className="text-xs text-slate-500">Todas las preguntas del simulacro.</p>
+          )}
           {pendingFull ? (
             <>
-              <button onClick={() => go('full')} className={primary}>
-                ▶ Continuar (pregunta {pendingFull.done + 1} de {pendingFull.total})
+              <button onClick={() => go('full')} className="btn-primary w-full">
+                <Icon name="play" size={14} /> Continuar (pregunta {pendingFull.done + 1} de {pendingFull.total})
               </button>
-              <button onClick={startFull} className={secondary}>
+              <button onClick={startFull} className="btn-ghost w-full">
                 Empezar de nuevo
               </button>
             </>
           ) : (
-            <button onClick={startFull} className={primary}>
-              {exam.time_limit_min ? '⏱ Empezar examen cronometrado' : 'Practicar simulacro completo'}
+            <button onClick={startFull} className="btn-primary w-full">
+              {exam.time_limit_min ? 'Empezar examen cronometrado' : 'Practicar simulacro completo'}
             </button>
           )}
         </div>
 
-        <div className={card}>
-          <p className="font-extrabold">🔁 Repaso de preguntas que tengo mal</p>
+        <div className="space-y-2 border-t border-slate-100 pt-4 dark:border-slate-700">
+          <p className="section-title flex items-center gap-1.5">
+            <Icon name="repeat" size={14} /> Repaso de las que tengo mal
+          </p>
           <p className="text-xs text-slate-500">
             {wrong.isLoading
               ? 'Buscando…'
@@ -103,25 +110,21 @@ export default function ExamStartSheet({ exam, onClose }: Props) {
                 : 'Todavía no marcaste ninguna como “Mal” en este simulacro.'}
           </p>
           {pendingWrong && (
-            <button onClick={() => go('wrong')} className={primary}>
-              ▶ Continuar repaso (pregunta {pendingWrong.done + 1} de {pendingWrong.total})
+            <button onClick={() => go('wrong')} className="btn-secondary w-full">
+              <Icon name="play" size={14} /> Continuar repaso (pregunta {pendingWrong.done + 1} de {pendingWrong.total})
             </button>
           )}
-          <button
-            onClick={startWrong}
-            disabled={!wrongCount}
-            className={pendingWrong ? secondary + ' disabled:opacity-50' : primary}
-          >
+          <button onClick={startWrong} disabled={!wrongCount} className={pendingWrong ? 'btn-ghost w-full' : 'btn-secondary w-full'}>
             {pendingWrong ? 'Empezar el repaso de nuevo' : `Repasar las que tengo mal${wrongCount ? ` (${wrongCount})` : ''}`}
           </button>
           {wrong.isError && <p className="text-xs text-red-600">{(wrong.error as Error).message}</p>}
         </div>
 
-        <button onClick={() => setSharing(true)} className={secondary}>
+        <button onClick={() => setSharing(true)} className="btn-secondary w-full">
           🔗 Compartir
         </button>
 
-        <button onClick={onClose} className="w-full py-2 text-sm font-bold text-slate-500">
+        <button onClick={onClose} className="btn-ghost w-full">
           Cancelar
         </button>
         {sharing && <ShareDialog examId={exam.id} title={exam.title} onClose={() => setSharing(false)} />}

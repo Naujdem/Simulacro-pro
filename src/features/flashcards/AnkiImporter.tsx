@@ -266,11 +266,11 @@ export const AnkiImporter: React.FC<AnkiImporterProps> = ({ onImportSuccess }) =
   };
 
   const field =
-    'w-20 rounded-xl border-2 border-slate-200 bg-transparent px-2 py-1 text-center font-bold outline-none focus:border-sky-400 dark:border-slate-600';
+    'w-20 rounded-xl border border-slate-200 bg-transparent px-2 py-1 text-center font-bold outline-none focus:border-sky-400 dark:border-slate-600';
 
   return (
     <div className="space-y-3 rounded-2xl border bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-800">
-      <h3 className="text-base font-extrabold text-slate-800 dark:text-white">Importar mazo .apkg (Anki)</h3>
+      <h3 className="text-base font-bold text-slate-800 dark:text-white">Importar mazo .apkg (Anki)</h3>
       <p className="text-sm font-medium text-slate-500 dark:text-slate-400">
         Se importan los mazos, el frente y el reverso de cada tarjeta, y las imágenes y audios (a tu Google Drive).
       </p>
@@ -286,7 +286,7 @@ export const AnkiImporter: React.FC<AnkiImporterProps> = ({ onImportSuccess }) =
         </label>
       </div>
 
-      <label className="inline-flex cursor-pointer items-center rounded-2xl bg-sky-500 px-4 py-2.5 text-sm font-extrabold text-white transition-colors hover:bg-sky-600">
+      <label className="inline-flex cursor-pointer items-center rounded-2xl bg-sky-500 px-4 py-2.5 text-sm font-bold text-white transition-colors hover:bg-sky-600">
         {loading ? 'Procesando…' : 'Seleccionar .apkg'}
         <input type="file" accept=".apkg" onChange={handleFileUpload} disabled={loading || !!pending} className="hidden" />
       </label>
@@ -299,14 +299,14 @@ export const AnkiImporter: React.FC<AnkiImporterProps> = ({ onImportSuccess }) =
           </p>
           <div className="flex flex-wrap gap-2">
             {driveIssue.needsConnect && (
-              <button onClick={() => void continueImport(true)} disabled={loading} className="rounded-xl bg-sky-500 px-3 py-2 text-xs font-extrabold text-white disabled:opacity-50">
+              <button onClick={() => void continueImport(true)} disabled={loading} className="rounded-xl bg-sky-500 px-3 py-2 text-xs font-bold text-white disabled:opacity-50">
                 Conectar Drive y continuar
               </button>
             )}
-            <button onClick={() => void continueImport(false)} disabled={loading} className="rounded-xl border-2 border-amber-400 px-3 py-2 text-xs font-extrabold disabled:opacity-50">
+            <button onClick={() => void continueImport(false)} disabled={loading} className="rounded-xl border border-amber-400 px-3 py-2 text-xs font-bold disabled:opacity-50">
               Importar sin multimedia
             </button>
-            <button onClick={cancel} disabled={loading} className="rounded-xl px-3 py-2 text-xs font-extrabold disabled:opacity-50">
+            <button onClick={cancel} disabled={loading} className="rounded-xl px-3 py-2 text-xs font-bold disabled:opacity-50">
               Cancelar
             </button>
           </div>

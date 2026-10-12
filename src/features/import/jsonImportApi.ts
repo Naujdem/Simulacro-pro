@@ -23,7 +23,7 @@ const explain = (e: Err): Error =>
 
 /** ¿Esta biblioteca del JSON ya existe (mismo nombre, sin importar mayúsculas ni tildes)? */
 export const findFolder = (existing: Folder[], name: string): Folder | undefined =>
-  existing.find((f) => norm(f.name) === norm(name));
+  existing.find((f) => !f.parent_id && norm(f.name) === norm(name));
 
 const chunks = <T,>(xs: T[], n: number): T[][] => Array.from({ length: Math.ceil(xs.length / n) }, (_, i) => xs.slice(i * n, i * n + n));
 

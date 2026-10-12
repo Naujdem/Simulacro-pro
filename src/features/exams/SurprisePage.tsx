@@ -31,7 +31,7 @@ async function fetchQuestionsByIds(ids: string[]): Promise<Question[]> {
   return out;
 }
 
-const field = 'w-24 rounded-xl border-2 border-slate-200 bg-transparent p-3 text-center outline-none focus:border-sky-400 dark:border-slate-700';
+const field = 'w-24 rounded-xl border border-slate-200 bg-transparent p-3 text-center outline-none focus:border-sky-400 dark:border-slate-700';
 
 /** Simulacro Sorpresa: preguntas al azar de varias bibliotecas, en un simulacro temporal (solo se guarda el intento). */
 export default function SurprisePage() {
@@ -82,17 +82,17 @@ export default function SurprisePage() {
     <div className="space-y-5 p-4">
       <Link to="/" className="text-sm font-bold text-sky-500">← Inicio</Link>
       <header>
-        <h1 className="text-2xl font-extrabold">🎲 Simulacro Sorpresa</h1>
+        <h1 className="text-2xl font-bold">🎲 Simulacro Sorpresa</h1>
         <p className="text-sm text-slate-500">
           Mezcla preguntas al azar de varias bibliotecas. No se guarda como simulacro: solo queda el intento en tus estadísticas.
         </p>
       </header>
 
       <section className="space-y-2">
-        <h2 className="font-extrabold">1. Elige {need === 1 ? 'tu biblioteca' : 'al menos 2 bibliotecas'}</h2>
+        <h2 className="font-bold">1. Elige {need === 1 ? 'tu biblioteca' : 'al menos 2 bibliotecas'}</h2>
         {folders.isLoading && <p className="text-sm text-slate-500">Cargando…</p>}
         {!folders.isLoading && !list.length && (
-          <p className="rounded-xl border-2 border-dashed p-4 text-sm text-slate-500">Aún no tienes bibliotecas con simulacros.</p>
+          <p className="rounded-xl border border-dashed p-4 text-sm text-slate-500">Aún no tienes bibliotecas con simulacros.</p>
         )}
         <ul className="space-y-2">
           {list.map((f) => {
@@ -101,7 +101,7 @@ export default function SurprisePage() {
             return (
               <li key={f.id}>
                 <label
-                  className={`flex items-center gap-3 rounded-2xl border-2 p-3 text-sm ${on ? 'border-sky-500 bg-sky-50 dark:bg-sky-950' : 'border-slate-200 dark:border-slate-700'} ${q ? '' : 'opacity-50'}`}
+                  className={`flex items-center gap-3 rounded-2xl border p-3 text-sm ${on ? 'border-sky-500 bg-sky-50 dark:bg-sky-950' : 'border-slate-200 dark:border-slate-700'} ${q ? '' : 'opacity-50'}`}
                 >
                   <input type="checkbox" className="h-5 w-5 accent-sky-500" checked={on} disabled={!q} onChange={() => toggle(f.id)} />
                   <span className="h-3 w-3 shrink-0 rounded-full" style={{ backgroundColor: f.color ?? '#0ea5e9' }} />
@@ -115,7 +115,7 @@ export default function SurprisePage() {
       </section>
 
       <section className="space-y-2">
-        <h2 className="font-extrabold">2. ¿Cuántas preguntas?</h2>
+        <h2 className="font-bold">2. ¿Cuántas preguntas?</h2>
         <div className="flex flex-wrap items-center gap-2">
           <input
             type="number"
@@ -127,7 +127,7 @@ export default function SurprisePage() {
             onChange={(e) => setCount(e.target.value)}
           />
           {[10, 20, 30].map((v) => (
-            <button key={v} type="button" onClick={() => setCount(String(v))} className="rounded-xl border-2 border-slate-300 px-3 py-2 text-sm font-bold dark:border-slate-600">
+            <button key={v} type="button" onClick={() => setCount(String(v))} className="rounded-xl border border-slate-300 px-3 py-2 text-sm font-bold dark:border-slate-600">
               {v}
             </button>
           ))}
@@ -140,14 +140,14 @@ export default function SurprisePage() {
       </section>
 
       <section className="space-y-2">
-        <h2 className="font-extrabold">3. Tiempo límite (opcional)</h2>
+        <h2 className="font-bold">3. Tiempo límite (opcional)</h2>
         <TimedField enabled={timed} minutes={minutes} onChange={(e, m) => { setTimed(e); setMinutes(m); }} label="Poner tiempo límite" />
       </section>
 
       <button
         disabled={!ready || start.isPending}
         onClick={() => start.mutate()}
-        className="w-full rounded-2xl bg-violet-600 py-4 font-extrabold uppercase text-white disabled:opacity-50"
+        className="w-full rounded-2xl bg-sky-500 py-4 font-bold text-white disabled:opacity-50"
       >
         {start.isPending ? 'Armando…' : `🎲 Empezar${ready ? ` (${n} preguntas${limit ? `, ${limit} min` : ''})` : ''}`}
       </button>
