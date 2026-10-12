@@ -14,6 +14,8 @@ type Props = {
   reading?: { title: string; body: string } | null;
   /** Muestra "Explicación con IA / Preguntas similares" en cuanto te equivocas (se usa en los repasos). */
   aiHelp?: boolean;
+  /** Visitante sin cuenta (simulacro compartido): no hay etiquetas que guardar; se avanza con "Siguiente". */
+  anonymous?: boolean;
 };
 
 const TAGS: { id: QuestionTag; label: string; className: string }[] = [
@@ -67,7 +69,7 @@ const styles = {
 } as const;
 type S = keyof typeof styles;
 
-export function QuestionCard({ question: q, examId, onNext, aiHelp = false, reading = null }: Props) {
+export function QuestionCard({ question: q, examId, onNext, aiHelp = false, reading = null, anonymous = false }: Props) {
   const [resp, setResp] = useState<Response>(() => emptyResponse(q)); // usar key={q.id} en el padre
   const [correct, setCorrect] = useState<boolean | null>(null);
   const [savingTag, setSavingTag] = useState(false);
@@ -350,6 +352,13 @@ export function QuestionCard({ question: q, examId, onNext, aiHelp = false, read
               className="w-full rounded-2xl bg-sky-500 py-4 text-base font-bold tracking-wide text-white active:bg-sky-600 disabled:bg-slate-300 disabled:text-slate-500"
             >
               Comprobar
+            </button>
+          ) : anonymous ? (
+            <button
+              onClick={() => onNext(resp, correct!)}
+              className="w-full rounded-2xl bg-sky-500 py-4 text-base font-extrabold uppercase tracking-wide text-white active:bg-sky-600"
+            >
+              Siguiente →
             </button>
           ) : (
             <div>

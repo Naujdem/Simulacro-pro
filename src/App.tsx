@@ -1,7 +1,10 @@
 import SurprisePage from '@/features/exams/SurprisePage';
 import SuggestionPage from '@/features/suggestions/SuggestionPage';
 import SuggestionsListPage from '@/features/suggestions/SuggestionsListPage';
-import { Navigate, Route, Routes } from 'react-router-dom';
+import { useEffect } from 'react';
+import { Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
+import SharedExamPage, { RETURN_KEY } from '@/features/share/SharedExamPage';
+import SharedLinksPage from '@/features/share/SharedLinksPage';
 import { useSession } from '@/lib/useSession';
 import Layout from '@/components/Layout';
 import AuthPage from '@/features/auth/AuthPage';
@@ -21,6 +24,31 @@ import StudyPage from '@/features/flashcards/StudyPage';
 
 export default function App() {
   const { session, loading } = useSession();
+  const nav = useNavigate();
+  const loc = useLocation();
+
+  // Si alguien se registró desde un enlace compartido, después de entrar vuelve a ese enlace
+  useEffect(() => {
+    if (!session) return;
+    try {
+      const to = localStorage.getItem(RETURN_KEY);
+      if (to) {
+        localStorage.removeItem(RETURN_KEY);
+        if (to.startsWith('/s/') && loc.pathname !== to) nav(to, { replace: true });
+      }
+    } catch {
+      /* nada */
+    }
+  }, [session, nav, loc.pathname]);
+
+  // Los enlaces compartidos se pueden abrir SIN iniciar sesión
+  if (loc.pathname.startsWith('/s/')) {
+    return (
+      <Routes>
+        <Route path="/s/:shortId" element={<SharedExamPage session={session} sessionLoading={loading} />} />
+      </Routes>
+    );
+  }
   if (loading) return <p className="p-6">Cargando…</p>;
   if (!session) return <AuthPage />;
 
@@ -37,6 +65,7 @@ export default function App() {
         <Route path="new" element={<ImportPage />} />
         <Route path="import-json" element={<JsonImportPage />} />
         <Route path="stats" element={<StatsPage />} />
+        <Route path="shared" element={<SharedLinksPage />} />
         <Route path="suggestions" element={<SuggestionsListPage />} />
         <Route path="suggestions/:id" element={<SuggestionPage />} />
         <Route path="profile" element={<ProfilePage />} />

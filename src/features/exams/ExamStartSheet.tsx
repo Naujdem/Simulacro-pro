@@ -1,4 +1,5 @@
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import ShareDialog from '@/features/share/ShareDialog';
 import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import Icon from '@/components/Icon';
@@ -28,6 +29,7 @@ export default function ExamStartSheet({ exam, onClose }: Props) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const pendingWrong = useMemo(() => pendingProgress(exam.id, 'wrong'), [exam.id, version]);
   const wrongCount = wrong.data?.length ?? 0;
+  const [sharing, setSharing] = useState(false);
 
   // Continuar: la página de práctica retoma el avance guardado de esa sesión
   const go = (slot: string) => {
@@ -118,9 +120,14 @@ export default function ExamStartSheet({ exam, onClose }: Props) {
           {wrong.isError && <p className="text-xs text-red-600">{(wrong.error as Error).message}</p>}
         </div>
 
+        <button onClick={() => setSharing(true)} className="btn-secondary w-full">
+          🔗 Compartir
+        </button>
+
         <button onClick={onClose} className="btn-ghost w-full">
           Cancelar
         </button>
+        {sharing && <ShareDialog examId={exam.id} title={exam.title} onClose={() => setSharing(false)} />}
       </div>
     </div>
   );
