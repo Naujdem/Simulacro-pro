@@ -1,18 +1,21 @@
 import { useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { assignExamToFolder, fetchBestScores, fetchExams, fetchFolder, type Exam } from './api';
+import { assignExamToFolder, createFolder, fetchBestScores, fetchExams, fetchFolders, folderChain, folderTreeIds, type Exam } from './api';
 import Icon from '@/components/Icon';
 import ExamStartSheet from './ExamStartSheet';
+import CreateFolderDialog from './CreateFolderDialog';
 
 export default function FolderPage() {
   const { folderId } = useParams<{ folderId: string }>();
   const nav = useNavigate();
   const qc = useQueryClient();
   const [adding, setAdding] = useState(false);
+  const [newMenu, setNewMenu] = useState(false); // menú del botón "+ Nuevo"
+  const [creatingSub, setCreatingSub] = useState(false); // diálogo de nueva subbiblioteca
   const [sheet, setSheet] = useState<Exam | null>(null); // simulacro abierto: completo o repaso de las que tengo mal
 
-  const folder = useQuery({ queryKey: ['folder', folderId], queryFn: () => fetchFolder(folderId!), enabled: !!folderId });
+  const folders = useQuery({ queryKey: ['folders'], queryFn: fetchFolders });
   const exams = useQuery({ queryKey: ['exams'], queryFn: fetchExams });
   const best = useQuery({ queryKey: ['best'], queryFn: fetchBestScores });
 
@@ -24,16 +27,34 @@ export default function FolderPage() {
     },
   });
 
+  const createSub = useMutation({
+    mutationFn: ({ name, color }: { name: string; color: string }) => createFolder(name, color, folderId!),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['folders'] });
+      setCreatingSub(false);
+    },
+  });
+
+  const allFolders = folders.data ?? [];
+  const folder = allFolders.find((f) => f.id === folderId);
+  const chain = folderChain(allFolders, folderId); // Química › Orgánica › …
+  const parent = folder?.parent_id ?? null;
+  const subfolders = allFolders.filter((f) => f.parent_id === folderId);
   const inFolder = (exams.data ?? []).filter((e) => e.folder_id === folderId);
   const others = (exams.data ?? []).filter((e) => e.folder_id !== folderId);
-  const color = folder.data?.color ?? '#0ea5e9';
+  const color = folder?.color ?? '#0ea5e9';
+  const countIn = (id: string) => {
+    const ids = folderTreeIds(allFolders, id);
+    return (exams.data ?? []).filter((e) => e.folder_id && ids.has(e.folder_id)).length;
+  };
+  const backTo = parent ? `/folders/${parent}` : '/library';
 
-  if (folder.isError) {
+  if (folders.isSuccess && !folder) {
     return (
       <div className="space-y-4 p-4">
         <p className="text-slate-500">No se encontró esta biblioteca.</p>
-        <Link to="/" className="font-bold text-sky-600">
-          Volver al inicio
+        <Link to="/library" className="font-bold text-sky-600">
+          Volver a Simulacros
         </Link>
       </div>
     );
@@ -42,40 +63,109 @@ export default function FolderPage() {
   return (
     <div className="space-y-4 p-4">
       <header className="flex items-start gap-3">
-        <Link to="/" className="mt-1 rounded-xl p-2 text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800" aria-label="Volver">
+        <Link to={backTo} className="mt-1 rounded-xl p-2 text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800" aria-label="Volver">
           <Icon name="back" size={20} />
         </Link>
         <div className="flex-1">
           <div className="mb-1 h-2 w-16 rounded-full" style={{ backgroundColor: color }} />
-          <h1 className="text-2xl font-bold tracking-tight">{folder.data?.name ?? '…'}</h1>
+          {chain.length > 1 && (
+            <nav aria-label="Ruta" className="mb-0.5 flex flex-wrap items-center gap-x-1 text-xs text-slate-500">
+              {chain.slice(0, -1).map((f) => (
+                <span key={f.id} className="flex items-center gap-1">
+                  <Link to={`/folders/${f.id}`} className="hover:text-sky-600 hover:underline">
+                    {f.name}
+                  </Link>
+                  <span aria-hidden="true">›</span>
+                </span>
+              ))}
+            </nav>
+          )}
+          <h1 className="text-2xl font-bold tracking-tight">{folder?.name ?? '…'}</h1>
           <p className="text-sm text-slate-500">
             {inFolder.length} {inFolder.length === 1 ? 'simulacro' : 'simulacros'}
+            {subfolders.length > 0 && ` · ${subfolders.length} ${subfolders.length === 1 ? 'subbiblioteca' : 'subbibliotecas'}`}
           </p>
         </div>
       </header>
 
-      <div className="grid grid-cols-2 gap-2">
+      <div className="relative grid grid-cols-2 gap-2">
         <button
           onClick={() => setAdding(true)}
           className="btn-secondary border-dashed"
         >
           <Icon name="plus" size={16} /> Añadir existentes
         </button>
-        <Link
-          to={`/new?folder=${folderId}`}
+        <button
+          type="button"
+          aria-haspopup="menu"
+          aria-expanded={newMenu}
+          onClick={() => setNewMenu((v) => !v)}
           className="btn-primary"
         >
-          <Icon name="plus" size={16} strokeWidth={2.25} /> Nuevo simulacro
-        </Link>
+          <Icon name="plus" size={16} strokeWidth={2.25} /> Nuevo
+        </button>
+        {newMenu && (
+          <>
+            <button aria-label="Cerrar menú" className="fixed inset-0 z-10 cursor-default" onClick={() => setNewMenu(false)} />
+            <div
+              role="menu"
+              className="absolute right-0 top-full z-20 mt-2 w-56 overflow-hidden rounded-xl bg-white py-1 text-sm shadow-lg ring-1 ring-slate-900/10 dark:bg-slate-800 dark:ring-white/10"
+            >
+              <Link
+                role="menuitem"
+                to={`/new?folder=${folderId}`}
+                className="flex items-center gap-2.5 px-3 py-3 hover:bg-slate-50 dark:hover:bg-slate-700"
+              >
+                <Icon name="file" size={18} className="text-sky-500" /> Nuevo simulacro
+              </Link>
+              <button
+                role="menuitem"
+                onClick={() => {
+                  setNewMenu(false);
+                  setCreatingSub(true);
+                }}
+                className="flex w-full items-center gap-2.5 px-3 py-3 text-left hover:bg-slate-50 dark:hover:bg-slate-700"
+              >
+                <Icon name="folderPlus" size={18} className="text-sky-500" /> Nueva subbiblioteca
+              </button>
+            </div>
+          </>
+        )}
       </div>
 
-      {!inFolder.length && !exams.isLoading && (
+      {!!subfolders.length && (
+        <section>
+          <h2 className="section-title mb-2">Subbibliotecas</h2>
+          <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-4">
+            {subfolders.map((f) => {
+              const n = countIn(f.id);
+              const subs = allFolders.filter((x) => x.parent_id === f.id).length;
+              return (
+                <button
+                  key={f.id}
+                  onClick={() => nav(`/folders/${f.id}`)}
+                  className="card p-5 text-left transition active:scale-[.98] md:hover:bg-slate-50 md:dark:hover:bg-slate-700/60"
+                >
+                  <span className="mb-3 block h-1.5 w-9 rounded-full" style={{ backgroundColor: f.color ?? '#0ea5e9' }} />
+                  <p className="line-clamp-2 text-lg font-semibold leading-tight">{f.name}</p>
+                  <p className="mt-1.5 text-sm text-slate-500">
+                    {n} {n === 1 ? 'simulacro' : 'simulacros'}
+                    {subs > 0 && ` · ${subs} sub`}
+                  </p>
+                </button>
+              );
+            })}
+          </div>
+        </section>
+      )}
+
+      {!inFolder.length && !subfolders.length && !exams.isLoading && (
         <p className="rounded-2xl bg-white p-6 text-center text-sm text-slate-500 dark:bg-slate-800">
-          Esta biblioteca está vacía. Añade simulacros que ya tengas, o crea uno nuevo.
+          Esta biblioteca está vacía. Añade simulacros que ya tengas, o crea un simulacro o una subbiblioteca.
         </p>
       )}
 
-      <ul className="space-y-3">
+      <ul className="grid gap-3 md:grid-cols-2">
         {inFolder.map((e) => (
           <li key={e.id} className="card p-4">
             <div className="flex items-start justify-between gap-2">
@@ -110,6 +200,17 @@ export default function FolderPage() {
       </ul>
 
       {sheet && <ExamStartSheet exam={sheet} onClose={() => setSheet(null)} />}
+
+      {creatingSub && (
+        <CreateFolderDialog
+          title="Nueva subbiblioteca"
+          placeholder="Ej. Orgánica"
+          saving={createSub.isPending}
+          onClose={() => setCreatingSub(false)}
+          onCreate={(name, color) => createSub.mutate({ name, color })}
+        />
+      )}
+      {createSub.isError && <p className="text-center text-sm text-red-500">{(createSub.error as Error).message}</p>}
 
       {adding && (
         <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-4 sm:items-center" onClick={() => setAdding(false)}>

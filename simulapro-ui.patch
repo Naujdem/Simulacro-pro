@@ -1,0 +1,1118 @@
+diff --git a/src/components/FullscreenText.tsx b/src/components/FullscreenText.tsx
+new file mode 100644
+index 0000000..c6df1c1
+--- /dev/null
++++ b/src/components/FullscreenText.tsx
+@@ -0,0 +1,94 @@
++import { useEffect, useRef, type ReactNode } from 'react';
++import Icon from './Icon';
++
++/** Botón pequeño "Pantalla completa" (sirve dentro de un <summary> sin cerrar el <details>). */
++export function ExpandButton({ onClick, label = 'Pantalla completa' }: { onClick: () => void; label?: string }) {
++  return (
++    <button
++      type="button"
++      onClick={(e) => {
++        e.preventDefault();
++        e.stopPropagation();
++        onClick();
++      }}
++      className="inline-flex shrink-0 items-center gap-1 rounded-lg px-2 py-1 text-xs font-semibold text-sky-600 hover:bg-sky-100 dark:text-sky-300 dark:hover:bg-sky-950"
++    >
++      <Icon name="expand" size={14} />
++      {label}
++    </button>
++  );
++}
++
++interface Props {
++  title: string;
++  onClose: () => void;
++  children: ReactNode;
++}
++
++/**
++ * Texto a pantalla completa. Se sale fácil de cuatro formas: la ✕ de arriba, el botón «Cerrar»,
++ * la tecla Esc y el botón «atrás» del móvil (que cierra solo esto, no la práctica).
++ */
++export default function FullscreenOverlay({ title, onClose, children }: Props) {
++  const pushed = useRef(false); // ¿hay una entrada de historial nuestra?
++  const onCloseRef = useRef(onClose);
++  onCloseRef.current = onClose;
++
++  const requestClose = () => {
++    if (pushed.current) window.history.back(); // dispara popstate → cierra
++    else onCloseRef.current();
++  };
++
++  useEffect(() => {
++    // setTimeout 0: así el doble montaje de StrictMode (desarrollo) no deja entradas de historial de sobra
++    const timer = setTimeout(() => {
++      window.history.pushState({ ...(window.history.state ?? {}), fsOverlay: true }, '');
++      pushed.current = true;
++    }, 0);
++    const onPop = () => {
++      if (!pushed.current) return;
++      pushed.current = false;
++      onCloseRef.current();
++    };
++    const onKey = (e: KeyboardEvent) => {
++      if (e.key === 'Escape') requestClose();
++    };
++    window.addEventListener('popstate', onPop);
++    window.addEventListener('keydown', onKey);
++    const prevOverflow = document.body.style.overflow;
++    document.body.style.overflow = 'hidden';
++    return () => {
++      clearTimeout(timer);
++      window.removeEventListener('popstate', onPop);
++      window.removeEventListener('keydown', onKey);
++      document.body.style.overflow = prevOverflow;
++      if (pushed.current) {
++        pushed.current = false;
++        window.history.back();
++      }
++    };
++    // eslint-disable-next-line react-hooks/exhaustive-deps
++  }, []);
++
++  return (
++    <div role="dialog" aria-modal="true" aria-label={title} className="fixed inset-0 z-40 flex flex-col bg-white dark:bg-slate-900">
++      <div className="flex items-center gap-2 border-b border-slate-200 px-3 pb-3 pt-[max(0.75rem,env(safe-area-inset-top))] dark:border-slate-800">
++        <button
++          type="button"
++          onClick={requestClose}
++          aria-label="Cerrar pantalla completa"
++          className="rounded-xl p-2 text-slate-500 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800"
++        >
++          <Icon name="close" size={26} />
++        </button>
++        <h2 className="min-w-0 flex-1 truncate text-sm font-bold">{title}</h2>
++        <button type="button" onClick={requestClose} className="btn-primary !py-2">
++          Cerrar
++        </button>
++      </div>
++      <div className="flex-1 overflow-y-auto px-4 py-5 pb-[max(1.5rem,env(safe-area-inset-bottom))]">
++        <div className="mx-auto max-w-3xl text-lg leading-relaxed md:text-xl">{children}</div>
++      </div>
++    </div>
++  );
++}
+diff --git a/src/components/Icon.tsx b/src/components/Icon.tsx
+index eded132..c03f21c 100644
+--- a/src/components/Icon.tsx
++++ b/src/components/Icon.tsx
+@@ -25,6 +25,8 @@ const PATHS = {
+   search: ['M11 18a7 7 0 1 0 0-14 7 7 0 0 0 0 14z', 'M20 20l-4-4'],
+   back: ['M19 12H5', 'M11 6l-6 6 6 6'],
+   sun: ['M12 16a4 4 0 1 0 0-8 4 4 0 0 0 0 8z', 'M12 2v2', 'M12 20v2', 'M4.9 4.9l1.4 1.4', 'M17.7 17.7l1.4 1.4', 'M2 12h2', 'M20 12h2', 'M4.9 19.1l1.4-1.4', 'M17.7 6.3l1.4-1.4'],
++  expand: ['M4 9V4h5', 'M20 9V4h-5', 'M4 15v5h5', 'M20 15v5h-5'],
++  close: ['M6 6l12 12', 'M18 6L6 18'],
+   moon: ['M20 14a8 8 0 1 1-10-10 6 6 0 0 0 10 10z'],
+   monitor: ['M4 4h16a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1z', 'M8 21h8', 'M12 16v5'],
+ } as const;
+diff --git a/src/components/Layout.tsx b/src/components/Layout.tsx
+index 85421e8..2345b06 100644
+--- a/src/components/Layout.tsx
++++ b/src/components/Layout.tsx
+@@ -1,4 +1,5 @@
+-import { NavLink, Outlet, useLocation } from 'react-router-dom';
++import { useEffect, useRef, type TouchEvent } from 'react';
++import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
+ import Icon, { type IconName } from './Icon';
+ 
+ interface Item {
+@@ -11,20 +12,70 @@ interface Item {
+ 
+ const items: Item[] = [
+   { to: '/', label: 'Inicio', icon: 'home' },
+-  { to: '/library', label: 'Simulacros', icon: 'book', also: ['/new', '/import-json', '/exams'] },
++  { to: '/library', label: 'Simulacros', icon: 'book', also: ['/new', '/import-json', '/exams', '/folders'] },
+   { to: '/flashcards', label: 'Fichas', icon: 'cards' },
+   { to: '/stats', label: 'Progreso', icon: 'chart' },
+   { to: '/profile', label: 'Perfil', icon: 'user' },
+ ];
+ 
++const SWIPE_MIN_X = 70; // px horizontales para contar como deslizamiento
++const EDGE = 28; // px del borde de la pantalla: ahí Android/iOS usan el gesto de «atrás»
++
++/** ¿El toque empezó en algo que ya se desplaza o se escribe? Entonces no se cambia de pestaña. */
++function startsInInteractive(el: EventTarget | null): boolean {
++  let node = el as HTMLElement | null;
++  while (node && node !== document.body) {
++    if (node.matches?.('input, textarea, select, [contenteditable="true"], [data-no-swipe]')) return true;
++    const ox = getComputedStyle(node).overflowX;
++    if ((ox === 'auto' || ox === 'scroll') && node.scrollWidth > node.clientWidth) return true;
++    node = node.parentElement;
++  }
++  return false;
++}
++
+ export default function Layout() {
+   const { pathname } = useLocation();
++  const nav = useNavigate();
+   const belongs = (i: Item) => i.also?.some((p) => pathname === p || pathname.startsWith(`${p}/`)) ?? false;
+ 
++  // Deslizar entre pestañas (solo móvil, y solo en las pantallas principales de cada pestaña)
++  const tabIndex = items.findIndex((i) => i.to === pathname);
++  const touch = useRef<{ x: number; y: number; ok: boolean } | null>(null);
++  const dir = useRef<'' | 'next' | 'prev'>(''); // para animar la entrada de la pestaña nueva
++  const animation = dir.current === 'next' ? 'animate-swipeNext' : dir.current === 'prev' ? 'animate-swipePrev' : '';
++  useEffect(() => {
++    dir.current = ''; // la animación ya se aplicó en este render
++  }, [pathname]);
++
++  const onTouchStart = (e: TouchEvent) => {
++    const t = e.touches[0];
++    const mobile = window.matchMedia('(max-width: 767px)').matches;
++    const inEdge = t.clientX < EDGE || t.clientX > window.innerWidth - EDGE;
++    touch.current = {
++      x: t.clientX,
++      y: t.clientY,
++      ok: mobile && tabIndex >= 0 && e.touches.length === 1 && !inEdge && !startsInInteractive(e.target),
++    };
++  };
++
++  const onTouchEnd = (e: TouchEvent) => {
++    const s = touch.current;
++    touch.current = null;
++    if (!s?.ok) return;
++    const t = e.changedTouches[0];
++    const dx = t.clientX - s.x;
++    const dy = t.clientY - s.y;
++    if (Math.abs(dx) < SWIPE_MIN_X || Math.abs(dx) < Math.abs(dy) * 1.6) return; // vertical o muy corto: es scroll
++    const next = dx < 0 ? tabIndex + 1 : tabIndex - 1; // de derecha a izquierda → pestaña siguiente
++    if (next < 0 || next >= items.length) return;
++    dir.current = dx < 0 ? 'next' : 'prev';
++    nav(items[next].to);
++  };
++
+   return (
+-    <div className="min-h-dvh pb-24 md:pb-8 md:pl-24">
++    <div className="min-h-dvh pb-24 md:pb-8 md:pl-24" onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>
+       {/* Móvil: columna angosta con barra abajo. PC (md+): contenido más ancho y barra lateral a la izquierda. */}
+-      <div className="mx-auto max-w-xl md:max-w-5xl md:px-4">
++      <div key={pathname} className={`mx-auto max-w-xl md:max-w-5xl md:px-4 md:animate-none ${animation}`}>
+         <Outlet />
+       </div>
+       <nav className="fixed inset-x-0 bottom-0 z-10 border-t border-slate-200/70 bg-white/90 pb-[env(safe-area-inset-bottom)] backdrop-blur md:inset-x-auto md:inset-y-0 md:left-0 md:w-24 md:border-r md:border-t-0 md:pb-0 dark:border-slate-800 dark:bg-slate-900/90">
+diff --git a/src/features/exams/CreateFolderDialog.tsx b/src/features/exams/CreateFolderDialog.tsx
+index 9e60ef3..c548a2e 100644
+--- a/src/features/exams/CreateFolderDialog.tsx
++++ b/src/features/exams/CreateFolderDialog.tsx
+@@ -5,10 +5,14 @@ export default function CreateFolderDialog({
+   onClose,
+   onCreate,
+   saving,
++  title = 'Nueva biblioteca',
++  placeholder = 'Ej. Simulacros Química',
+ }: {
+   onClose: () => void;
+   onCreate: (name: string, color: string) => void;
+   saving?: boolean;
++  title?: string;
++  placeholder?: string;
+ }) {
+   const [name, setName] = useState('');
+   const [color, setColor] = useState(FOLDER_COLORS[0]);
+@@ -24,12 +28,12 @@ export default function CreateFolderDialog({
+           onCreate(name.trim(), color);
+         }}
+       >
+-        <h2 className="text-lg font-bold">Nueva biblioteca</h2>
++        <h2 className="text-lg font-bold">{title}</h2>
+         <input
+           autoFocus
+           value={name}
+           onChange={(e) => setName(e.target.value)}
+-          placeholder="Ej. Simulacros Química"
++          placeholder={placeholder}
+           className="w-full rounded-2xl border border-slate-200 bg-transparent p-3 outline-none focus:border-sky-400 dark:border-slate-600"
+         />
+         <div>
+diff --git a/src/features/exams/FolderPage.tsx b/src/features/exams/FolderPage.tsx
+index 0bb0956..43920f3 100644
+--- a/src/features/exams/FolderPage.tsx
++++ b/src/features/exams/FolderPage.tsx
+@@ -1,18 +1,21 @@
+ import { useState } from 'react';
+ import { Link, useNavigate, useParams } from 'react-router-dom';
+ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+-import { assignExamToFolder, fetchBestScores, fetchExams, fetchFolder, type Exam } from './api';
++import { assignExamToFolder, createFolder, fetchBestScores, fetchExams, fetchFolders, folderChain, folderTreeIds, type Exam } from './api';
+ import Icon from '@/components/Icon';
+ import ExamStartSheet from './ExamStartSheet';
++import CreateFolderDialog from './CreateFolderDialog';
+ 
+ export default function FolderPage() {
+   const { folderId } = useParams<{ folderId: string }>();
+   const nav = useNavigate();
+   const qc = useQueryClient();
+   const [adding, setAdding] = useState(false);
++  const [newMenu, setNewMenu] = useState(false); // menú del botón "+ Nuevo"
++  const [creatingSub, setCreatingSub] = useState(false); // diálogo de nueva subbiblioteca
+   const [sheet, setSheet] = useState<Exam | null>(null); // simulacro abierto: completo o repaso de las que tengo mal
+ 
+-  const folder = useQuery({ queryKey: ['folder', folderId], queryFn: () => fetchFolder(folderId!), enabled: !!folderId });
++  const folders = useQuery({ queryKey: ['folders'], queryFn: fetchFolders });
+   const exams = useQuery({ queryKey: ['exams'], queryFn: fetchExams });
+   const best = useQuery({ queryKey: ['best'], queryFn: fetchBestScores });
+ 
+@@ -24,16 +27,34 @@ export default function FolderPage() {
+     },
+   });
+ 
++  const createSub = useMutation({
++    mutationFn: ({ name, color }: { name: string; color: string }) => createFolder(name, color, folderId!),
++    onSuccess: () => {
++      qc.invalidateQueries({ queryKey: ['folders'] });
++      setCreatingSub(false);
++    },
++  });
++
++  const allFolders = folders.data ?? [];
++  const folder = allFolders.find((f) => f.id === folderId);
++  const chain = folderChain(allFolders, folderId); // Química › Orgánica › …
++  const parent = folder?.parent_id ?? null;
++  const subfolders = allFolders.filter((f) => f.parent_id === folderId);
+   const inFolder = (exams.data ?? []).filter((e) => e.folder_id === folderId);
+   const others = (exams.data ?? []).filter((e) => e.folder_id !== folderId);
+-  const color = folder.data?.color ?? '#0ea5e9';
++  const color = folder?.color ?? '#0ea5e9';
++  const countIn = (id: string) => {
++    const ids = folderTreeIds(allFolders, id);
++    return (exams.data ?? []).filter((e) => e.folder_id && ids.has(e.folder_id)).length;
++  };
++  const backTo = parent ? `/folders/${parent}` : '/library';
+ 
+-  if (folder.isError) {
++  if (folders.isSuccess && !folder) {
+     return (
+       <div className="space-y-4 p-4">
+         <p className="text-slate-500">No se encontró esta biblioteca.</p>
+-        <Link to="/" className="font-bold text-sky-600">
+-          Volver al inicio
++        <Link to="/library" className="font-bold text-sky-600">
++          Volver a Simulacros
+         </Link>
+       </div>
+     );
+@@ -42,40 +63,109 @@ export default function FolderPage() {
+   return (
+     <div className="space-y-4 p-4">
+       <header className="flex items-start gap-3">
+-        <Link to="/" className="mt-1 rounded-xl p-2 text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800" aria-label="Volver">
++        <Link to={backTo} className="mt-1 rounded-xl p-2 text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800" aria-label="Volver">
+           <Icon name="back" size={20} />
+         </Link>
+         <div className="flex-1">
+           <div className="mb-1 h-2 w-16 rounded-full" style={{ backgroundColor: color }} />
+-          <h1 className="text-2xl font-bold tracking-tight">{folder.data?.name ?? '…'}</h1>
++          {chain.length > 1 && (
++            <nav aria-label="Ruta" className="mb-0.5 flex flex-wrap items-center gap-x-1 text-xs text-slate-500">
++              {chain.slice(0, -1).map((f) => (
++                <span key={f.id} className="flex items-center gap-1">
++                  <Link to={`/folders/${f.id}`} className="hover:text-sky-600 hover:underline">
++                    {f.name}
++                  </Link>
++                  <span aria-hidden="true">›</span>
++                </span>
++              ))}
++            </nav>
++          )}
++          <h1 className="text-2xl font-bold tracking-tight">{folder?.name ?? '…'}</h1>
+           <p className="text-sm text-slate-500">
+             {inFolder.length} {inFolder.length === 1 ? 'simulacro' : 'simulacros'}
++            {subfolders.length > 0 && ` · ${subfolders.length} ${subfolders.length === 1 ? 'subbiblioteca' : 'subbibliotecas'}`}
+           </p>
+         </div>
+       </header>
+ 
+-      <div className="grid grid-cols-2 gap-2">
++      <div className="relative grid grid-cols-2 gap-2">
+         <button
+           onClick={() => setAdding(true)}
+           className="btn-secondary border-dashed"
+         >
+           <Icon name="plus" size={16} /> Añadir existentes
+         </button>
+-        <Link
+-          to={`/new?folder=${folderId}`}
++        <button
++          type="button"
++          aria-haspopup="menu"
++          aria-expanded={newMenu}
++          onClick={() => setNewMenu((v) => !v)}
+           className="btn-primary"
+         >
+-          <Icon name="plus" size={16} strokeWidth={2.25} /> Nuevo simulacro
+-        </Link>
++          <Icon name="plus" size={16} strokeWidth={2.25} /> Nuevo
++        </button>
++        {newMenu && (
++          <>
++            <button aria-label="Cerrar menú" className="fixed inset-0 z-10 cursor-default" onClick={() => setNewMenu(false)} />
++            <div
++              role="menu"
++              className="absolute right-0 top-full z-20 mt-2 w-56 overflow-hidden rounded-xl bg-white py-1 text-sm shadow-lg ring-1 ring-slate-900/10 dark:bg-slate-800 dark:ring-white/10"
++            >
++              <Link
++                role="menuitem"
++                to={`/new?folder=${folderId}`}
++                className="flex items-center gap-2.5 px-3 py-3 hover:bg-slate-50 dark:hover:bg-slate-700"
++              >
++                <Icon name="file" size={18} className="text-sky-500" /> Nuevo simulacro
++              </Link>
++              <button
++                role="menuitem"
++                onClick={() => {
++                  setNewMenu(false);
++                  setCreatingSub(true);
++                }}
++                className="flex w-full items-center gap-2.5 px-3 py-3 text-left hover:bg-slate-50 dark:hover:bg-slate-700"
++              >
++                <Icon name="folderPlus" size={18} className="text-sky-500" /> Nueva subbiblioteca
++              </button>
++            </div>
++          </>
++        )}
+       </div>
+ 
+-      {!inFolder.length && !exams.isLoading && (
++      {!!subfolders.length && (
++        <section>
++          <h2 className="section-title mb-2">Subbibliotecas</h2>
++          <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-4">
++            {subfolders.map((f) => {
++              const n = countIn(f.id);
++              const subs = allFolders.filter((x) => x.parent_id === f.id).length;
++              return (
++                <button
++                  key={f.id}
++                  onClick={() => nav(`/folders/${f.id}`)}
++                  className="card p-5 text-left transition active:scale-[.98] md:hover:bg-slate-50 md:dark:hover:bg-slate-700/60"
++                >
++                  <span className="mb-3 block h-1.5 w-9 rounded-full" style={{ backgroundColor: f.color ?? '#0ea5e9' }} />
++                  <p className="line-clamp-2 text-lg font-semibold leading-tight">{f.name}</p>
++                  <p className="mt-1.5 text-sm text-slate-500">
++                    {n} {n === 1 ? 'simulacro' : 'simulacros'}
++                    {subs > 0 && ` · ${subs} sub`}
++                  </p>
++                </button>
++              );
++            })}
++          </div>
++        </section>
++      )}
++
++      {!inFolder.length && !subfolders.length && !exams.isLoading && (
+         <p className="rounded-2xl bg-white p-6 text-center text-sm text-slate-500 dark:bg-slate-800">
+-          Esta biblioteca está vacía. Añade simulacros que ya tengas, o crea uno nuevo.
++          Esta biblioteca está vacía. Añade simulacros que ya tengas, o crea un simulacro o una subbiblioteca.
+         </p>
+       )}
+ 
+-      <ul className="space-y-3">
++      <ul className="grid gap-3 md:grid-cols-2">
+         {inFolder.map((e) => (
+           <li key={e.id} className="card p-4">
+             <div className="flex items-start justify-between gap-2">
+@@ -111,6 +201,17 @@ export default function FolderPage() {
+ 
+       {sheet && <ExamStartSheet exam={sheet} onClose={() => setSheet(null)} />}
+ 
++      {creatingSub && (
++        <CreateFolderDialog
++          title="Nueva subbiblioteca"
++          placeholder="Ej. Orgánica"
++          saving={createSub.isPending}
++          onClose={() => setCreatingSub(false)}
++          onCreate={(name, color) => createSub.mutate({ name, color })}
++        />
++      )}
++      {createSub.isError && <p className="text-center text-sm text-red-500">{(createSub.error as Error).message}</p>}
++
+       {adding && (
+         <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-4 sm:items-center" onClick={() => setAdding(false)}>
+           <div
+diff --git a/src/features/exams/LibraryPage.tsx b/src/features/exams/LibraryPage.tsx
+index 58b83cf..b2eea74 100644
+--- a/src/features/exams/LibraryPage.tsx
++++ b/src/features/exams/LibraryPage.tsx
+@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
+ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+ import { supabase } from '@/lib/supabase';
+ import Icon from '@/components/Icon';
+-import { createFolder, fetchBestScores, fetchExams, fetchFolders, type Exam } from './api';
++import { createFolder, fetchBestScores, fetchExams, fetchFolders, folderPath, folderTreeIds, type Exam } from './api';
+ import CreateFolderDialog from './CreateFolderDialog';
+ import ExamStartSheet from './ExamStartSheet';
+ 
+@@ -39,7 +39,6 @@ export default function LibraryPage() {
+ 
+   const allExams = exams.data ?? [];
+   const allFolders = folders.data ?? [];
+-  const folderName = useMemo(() => new Map(allFolders.map((f) => [f.id, f.name])), [allFolders]);
+   const term = q.trim().toLowerCase();
+   const searching = term.length > 0;
+ 
+@@ -52,13 +51,21 @@ export default function LibraryPage() {
+   const list = searching
+     ? allExams.filter(matches)
+     : independents.filter((e) => !activeSubject || (e.subject ?? 'Sin tema') === activeSubject);
+-  const shownFolders = searching ? allFolders.filter((f) => f.name.toLowerCase().includes(term)) : allFolders;
+-  const countIn = (id: string) => allExams.filter((e) => e.folder_id === id).length;
++  // Sin buscar: solo las bibliotecas de primer nivel (las subbibliotecas se ven dentro de su biblioteca madre).
++  const shownFolders = searching
++    ? allFolders.filter((f) => f.name.toLowerCase().includes(term))
++    : allFolders.filter((f) => !f.parent_id || !allFolders.some((p) => p.id === f.parent_id));
++  // Simulacros que hay en una biblioteca contando todas sus subbibliotecas
++  const countIn = (id: string) => {
++    const ids = folderTreeIds(allFolders, id);
++    return allExams.filter((e) => e.folder_id && ids.has(e.folder_id)).length;
++  };
++  const subCount = (id: string) => allFolders.filter((f) => f.parent_id === id).length;
+   const empty = !exams.isLoading && !folders.isLoading && !shownFolders.length && !list.length;
+ 
+   const examRow = (e: Exam) => {
+     const score = best.data?.[e.id];
+-    const where = searching && e.folder_id ? folderName.get(e.folder_id) : null;
++    const where = searching && e.folder_id ? folderPath(allFolders, e.folder_id) : null;
+     return (
+       <li key={e.id} className="card relative flex items-center gap-1 pr-1.5">
+         <button className="min-w-0 flex-1 p-4 text-left" onClick={() => setSheet(e)}>
+@@ -179,7 +186,9 @@ export default function LibraryPage() {
+                   <span className="mb-3 block h-1.5 w-9 rounded-full" style={{ backgroundColor: f.color ?? '#0ea5e9' }} />
+                   <p className="line-clamp-2 text-lg font-semibold leading-tight">{f.name}</p>
+                   <p className="mt-1.5 text-sm text-slate-500">
++                    {searching && f.parent_id ? `${folderPath(allFolders, f.parent_id)} · ` : ''}
+                     {n} {n === 1 ? 'simulacro' : 'simulacros'}
++                    {subCount(f.id) > 0 && ` · ${subCount(f.id)} sub`}
+                   </p>
+                 </button>
+               );
+diff --git a/src/features/exams/api.ts b/src/features/exams/api.ts
+index 5d8d9fb..5535d08 100644
+--- a/src/features/exams/api.ts
++++ b/src/features/exams/api.ts
+@@ -21,6 +21,8 @@ export interface Folder {
+   name: string;
+   description?: string | null;
+   color: string | null;
++  /** Biblioteca madre (null = biblioteca de primer nivel). La columna ya existe en la tabla `folders`. */
++  parent_id?: string | null;
+   created_at: string;
+ }
+ 
+@@ -88,17 +90,53 @@ export const fetchFolder = async (id: string): Promise<Folder> => {
+   return data as Folder;
+ };
+ 
+-export const createFolder = async (name: string, color: string): Promise<Folder> => {
++export const createFolder = async (name: string, color: string, parentId: string | null = null): Promise<Folder> => {
+   const { data: u } = await supabase.auth.getUser();
+   const { data, error } = await supabase
+     .from('folders')
+-    .insert({ user_id: u.user!.id, name: name.trim(), color })
++    .insert({ user_id: u.user!.id, name: name.trim(), color, parent_id: parentId })
+     .select('*')
+     .single();
+   if (error) throw error;
+   return data as Folder;
+ };
+ 
++/** Cadena de bibliotecas desde la de primer nivel hasta `id` (incluida). Corta si hubiera un ciclo. */
++export const folderChain = (folders: Folder[], id: string | null | undefined): Folder[] => {
++  const byId = new Map(folders.map((f) => [f.id, f]));
++  const chain: Folder[] = [];
++  const seen = new Set<string>();
++  let cur = id ? byId.get(id) : undefined;
++  while (cur && !seen.has(cur.id)) {
++    seen.add(cur.id);
++    chain.unshift(cur);
++    cur = cur.parent_id ? byId.get(cur.parent_id) : undefined;
++  }
++  return chain;
++};
++
++/** "Química › Orgánica › Alcanos" */
++export const folderPath = (folders: Folder[], id: string | null | undefined): string =>
++  folderChain(folders, id)
++    .map((f) => f.name)
++    .join(' › ');
++
++/** Ids de una biblioteca y de todas sus subbibliotecas (a cualquier nivel). */
++export const folderTreeIds = (folders: Folder[], id: string): Set<string> => {
++  const out = new Set<string>([id]);
++  let grew = true;
++  while (grew) {
++    grew = false;
++    for (const f of folders) {
++      if (f.parent_id && out.has(f.parent_id) && !out.has(f.id)) {
++        out.add(f.id);
++        grew = true;
++      }
++    }
++  }
++  return out;
++};
++
+ export const assignExamToFolder = async (examId: string, folderId: string | null): Promise<void> => {
+   const { error } = await supabase.from('exams').update({ folder_id: folderId }).eq('id', examId);
+   if (error) throw error;
+diff --git a/src/features/exams/folders.test.ts b/src/features/exams/folders.test.ts
+new file mode 100644
+index 0000000..76777fc
+--- /dev/null
++++ b/src/features/exams/folders.test.ts
+@@ -0,0 +1,30 @@
++import { describe, expect, it } from 'vitest';
++import { folderChain, folderPath, folderTreeIds, type Folder } from './api';
++
++const f = (id: string, name: string, parent_id: string | null = null): Folder => ({
++  id,
++  name,
++  color: null,
++  parent_id,
++  created_at: '',
++});
++const tree = [f('q', 'Química'), f('o', 'Orgánica', 'q'), f('a', 'Alcanos', 'o'), f('m', 'Matemáticas')];
++
++describe('subbibliotecas', () => {
++  it('arma la ruta desde la biblioteca de primer nivel', () => {
++    expect(folderPath(tree, 'a')).toBe('Química › Orgánica › Alcanos');
++    expect(folderChain(tree, 'm').map((x) => x.id)).toEqual(['m']);
++    expect(folderPath(tree, null)).toBe('');
++  });
++
++  it('reúne una biblioteca con todas sus subbibliotecas', () => {
++    expect([...folderTreeIds(tree, 'q')].sort()).toEqual(['a', 'o', 'q']);
++    expect([...folderTreeIds(tree, 'm')]).toEqual(['m']);
++  });
++
++  it('no se cuelga si hubiera un ciclo', () => {
++    const loop = [f('x', 'X', 'y'), f('y', 'Y', 'x')];
++    expect(folderChain(loop, 'x').length).toBe(2);
++    expect(folderTreeIds(loop, 'x').size).toBe(2);
++  });
++});
+diff --git a/src/features/import/ImportPage.tsx b/src/features/import/ImportPage.tsx
+index f0b7097..4e54285 100644
+--- a/src/features/import/ImportPage.tsx
++++ b/src/features/import/ImportPage.tsx
+@@ -4,7 +4,7 @@ import { useState } from 'react';
+ import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+ import { useQuery, useQueryClient } from '@tanstack/react-query';
+ import { supabase } from '@/lib/supabase';
+-import { createFolder, fetchFolders } from '@/features/exams/api';
++import { createFolder, fetchFolders, folderPath } from '@/features/exams/api';
+ import CreateFolderDialog from '@/features/exams/CreateFolderDialog';
+ import Icon from '@/components/Icon';
+ import { ImageField, useImageUpload } from '@/components/ImageField';
+@@ -155,11 +155,14 @@ export default function ImportPage() {
+       <div className="flex gap-2">
+         <select className={field} value={folderId} onChange={(e) => setFolderId(e.target.value)}>
+           <option value="">Sin biblioteca</option>
+-          {(folders.data ?? []).map((f) => (
+-            <option key={f.id} value={f.id}>
+-              {f.name}
+-            </option>
+-          ))}
++          {(folders.data ?? [])
++            .map((f) => ({ id: f.id, label: folderPath(folders.data ?? [], f.id) }))
++            .sort((a, b) => a.label.localeCompare(b.label))
++            .map((f) => (
++              <option key={f.id} value={f.id}>
++                {f.label}
++              </option>
++            ))}
+         </select>
+         <button type="button" onClick={() => setNewFolder(true)} className="btn-secondary shrink-0">
+           <Icon name="folderPlus" size={18} />
+diff --git a/src/features/import/jsonImportApi.ts b/src/features/import/jsonImportApi.ts
+index 432384b..dac1b6c 100644
+--- a/src/features/import/jsonImportApi.ts
++++ b/src/features/import/jsonImportApi.ts
+@@ -23,7 +23,7 @@ const explain = (e: Err): Error =>
+ 
+ /** ¿Esta biblioteca del JSON ya existe (mismo nombre, sin importar mayúsculas ni tildes)? */
+ export const findFolder = (existing: Folder[], name: string): Folder | undefined =>
+-  existing.find((f) => norm(f.name) === norm(name));
++  existing.find((f) => !f.parent_id && norm(f.name) === norm(name));
+ 
+ const chunks = <T,>(xs: T[], n: number): T[][] => Array.from({ length: Math.ceil(xs.length / n) }, (_, i) => xs.slice(i * n, i * n + n));
+ 
+diff --git a/src/features/practice/PracticePage.tsx b/src/features/practice/PracticePage.tsx
+index 2189437..b492e98 100644
+--- a/src/features/practice/PracticePage.tsx
++++ b/src/features/practice/PracticePage.tsx
+@@ -188,7 +188,7 @@ export default function PracticePage() {
+   return (
+     <div className="min-h-dvh">
+       {timerBar}
+-      <header className="mx-auto flex max-w-xl items-center gap-3 px-4 pt-4">
++      <header className="mx-auto flex max-w-xl items-center gap-3 px-4 pt-4 md:max-w-6xl">
+         <button
+           aria-label="Salir"
+           onClick={() => {
+@@ -208,12 +208,12 @@ export default function PracticePage() {
+         </span>
+       </header>
+       {currentRange && (
+-        <p className="mx-auto mt-2 max-w-xl px-4 text-xs font-bold text-slate-500">
++        <p className="mx-auto mt-2 max-w-xl px-4 text-xs font-bold text-slate-500 md:max-w-6xl">
+           {currentRange.name} · {index - currentRange.start + 1}/{currentRange.end - currentRange.start}
+         </p>
+       )}
+       {resumedAt !== null && (
+-        <p role="status" className="mx-auto mt-3 max-w-xl rounded-xl bg-sky-100 px-4 py-2 text-center text-sm font-bold text-sky-800 dark:bg-sky-950 dark:text-sky-200">
++        <p role="status" className="mx-auto mt-3 max-w-xl rounded-xl bg-sky-100 md:max-w-2xl px-4 py-2 text-center text-sm font-bold text-sky-800 dark:bg-sky-950 dark:text-sky-200">
+           Continuando donde te quedaste: pregunta {resumedAt}
+         </p>
+       )}
+diff --git a/src/features/practice/QuestionCard.tsx b/src/features/practice/QuestionCard.tsx
+index 73b87e5..93f462a 100644
+--- a/src/features/practice/QuestionCard.tsx
++++ b/src/features/practice/QuestionCard.tsx
+@@ -3,6 +3,7 @@ import { Question, Response, checkAnswer, correctText } from '@/lib/grading';
+ import QuestionImage from '@/components/QuestionImage';
+ import AiPanel from '@/features/ai/AiPanel';
+ import ReadingText from './ReadingText';
++import FullscreenOverlay, { ExpandButton } from '@/components/FullscreenText';
+ import { saveQuestionTag, type QuestionTag } from '@/features/exams/api';
+ 
+ type Props = {
+@@ -53,7 +54,10 @@ const isReady = (q: Question, r: Response) =>
+             ? r.text.trim().length > 0
+             : false;
+ 
+-const base = 'w-full rounded-2xl border-2 p-4 text-left font-semibold transition active:scale-[.98] ';
++const base = 'flex h-full w-full items-start gap-3 rounded-2xl border-2 p-4 text-left font-semibold transition active:scale-[.98] ';
++
++/** Desde esta cantidad de caracteres el enunciado se considera «largo» (caja con scroll + pantalla completa). */
++const LONG_PROMPT = 380;
+ const styles = {
+   idle: 'border-slate-200 bg-white hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800',
+   selected: 'border-sky-400 bg-sky-50 dark:bg-sky-950',
+@@ -71,6 +75,7 @@ export function QuestionCard({ question: q, examId, onNext, aiHelp = false, read
+   const checked = correct !== null;
+   const check = () => setCorrect(checkAnswer(q, resp));
+   const aiRef = useRef<HTMLDivElement>(null);
++  const [full, setFull] = useState<'reading' | 'prompt' | null>(null); // texto largo a pantalla completa
+   const showAi = aiHelp && checked && correct === false;
+ 
+   // Al fallar, lleva la vista a la ayuda de IA (la barra de abajo tapa el final de la página)
+@@ -92,6 +97,7 @@ export function QuestionCard({ question: q, examId, onNext, aiHelp = false, read
+   }
+ 
+   const multi = q.type === 'multiple_choice' && q.answer.correct.length > 1;
++  const longPrompt = q.type !== 'fill_blank' && q.prompt.length > LONG_PROMPT;
+ 
+   function pick(id: string) {
+     if (checked || resp.type !== 'multiple_choice') return;
+@@ -113,152 +119,201 @@ export function QuestionCard({ question: q, examId, onNext, aiHelp = false, read
+     return sel ? 'selected' : 'idle';
+   };
+ 
+-  return (
+-    <div className="mx-auto flex max-w-xl flex-col px-4 pb-72 pt-4">
+-      {reading && (
+-        <details open className="mb-4 rounded-2xl border-2 border-amber-300 bg-amber-50 p-3 dark:border-amber-800 dark:bg-amber-950/30">
+-          <summary className="cursor-pointer text-sm font-bold">📖 {reading.title}</summary>
+-          <ReadingText title={reading.title} body={reading.body} />
+-        </details>
+-      )}
+-      {q.imagen_url && <QuestionImage src={q.imagen_url} className="mb-4" />}
+-      {q.type === 'transform' && (
+-        <p className="mb-1 text-sm font-bold text-sky-500 dark:text-sky-300">
+-          Escríbela en forma {q.answer?.form ?? 'distinta'}:
+-        </p>
+-      )}
+-      {q.type !== 'fill_blank' && (
+-        <h2 className="mb-6 text-xl font-bold leading-snug">
+-          {q.prompt}
+-          {multi && (
+-            <span className="mt-1 block text-sm font-normal text-slate-500">Selecciona todas las correctas</span>
+-          )}
+-        </h2>
+-      )}
++  // En PC las opciones se ordenan en mosaico (en el móvil siguen en una columna).
++  // Con texto de lectura al lado, la columna de preguntas es más angosta: 2 por fila.
++  const n = q.options?.length ?? 0;
++  const cols = reading
++    ? 'md:grid-cols-2'
++    : n <= 2
++      ? 'md:grid-cols-2'
++      : n === 3
++        ? 'md:grid-cols-3'
++        : n === 4
++          ? 'md:grid-cols-2 xl:grid-cols-4'
++          : 'md:grid-cols-2 lg:grid-cols-3';
+ 
+-      {q.type === 'multiple_choice' && (
+-        <div className="space-y-3">
+-          {q.options!.map((o) => (
+-            <button key={o.id} onClick={() => pick(o.id)} disabled={checked} className={base + styles[optionState(o.id)]}>
+-              <span className="mr-3 inline-flex h-7 w-7 items-center justify-center rounded-lg border text-sm uppercase">
+-                {o.id}
+-              </span>
+-              {o.text}
+-            </button>
+-          ))}
++  const promptNode = q.type !== 'fill_blank' && (
++    <div className="mb-5 md:mb-6">
++      {longPrompt && (
++        <div className="mb-1 flex justify-end">
++          <ExpandButton onClick={() => setFull('prompt')} />
+         </div>
+       )}
++      <h2
++        className={
++          longPrompt
++            ? 'max-h-[42dvh] overflow-y-auto rounded-2xl bg-slate-100/70 p-4 text-base font-semibold leading-relaxed md:max-h-[36dvh] dark:bg-slate-800/60'
++            : 'text-xl font-bold leading-snug md:text-2xl'
++        }
++      >
++        {q.prompt}
++      </h2>
++      {multi && <span className="mt-1 block text-sm font-normal text-slate-500">Selecciona todas las correctas</span>}
++    </div>
++  );
+ 
+-      {q.type === 'true_false' && resp.type === 'true_false' && (
+-        <div className="grid grid-cols-2 gap-3">
+-          {([true, false] as const).map((v) => {
+-            const sel = resp.value === v;
+-            const right = q.answer.value === v;
+-            const s: S = checked ? (right ? 'right' : sel ? 'wrong' : 'dim') : sel ? 'selected' : 'idle';
+-            return (
+-              <button
+-                key={String(v)}
+-                disabled={checked}
+-                onClick={() => setResp({ type: 'true_false', value: v })}
+-                className={base + 'py-8 text-center text-lg ' + styles[s]}
+-              >
+-                {v ? 'Verdadero' : 'Falso'}
+-              </button>
+-            );
+-          })}
+-        </div>
+-      )}
++  return (
++    <div className="mx-auto flex max-w-xl flex-col px-4 pb-72 pt-4 md:max-w-6xl md:pb-56">
++      {/* PC: con lectura, texto a la izquierda y preguntas a la derecha; sin lectura, todo el ancho */}
++      <div className={reading ? 'md:grid md:grid-cols-[minmax(0,5fr)_minmax(0,6fr)] md:items-start md:gap-6' : ''}>
++        {reading && (
++          <details
++            open
++            className="mb-4 rounded-2xl border-2 border-amber-300 bg-amber-50 p-3 md:sticky md:top-4 md:mb-0 dark:border-amber-800 dark:bg-amber-950/30"
++          >
++            <summary className="flex cursor-pointer items-center justify-between gap-2 text-sm font-bold">
++              <span className="min-w-0 truncate">📖 {reading.title}</span>
++              <ExpandButton onClick={() => setFull('reading')} />
++            </summary>
++            <ReadingText title={reading.title} body={reading.body} />
++          </details>
++        )}
+ 
+-      {q.type === 'fill_blank' && resp.type === 'fill_blank' && (
+-        <p className="text-xl leading-loose">
+-          {q.prompt.split(/(\{\{\d+\}\})/).map((part, k) => {
+-            const m = part.match(/^\{\{(\d+)\}\}$/);
+-            if (!m) return <span key={k}>{part}</span>;
+-            const i = Number(m[1]) - 1;
+-            return (
+-              <input
+-                key={k}
+-                value={resp.blanks[i] ?? ''}
+-                disabled={checked}
+-                onChange={(e) =>
+-                  setResp({ ...resp, blanks: resp.blanks.map((b, j) => (j === i ? e.target.value : b)) })
+-                }
+-                className={`mx-1 w-32 rounded-lg border-b-4 bg-transparent px-2 text-center outline-none ${
+-                  checked ? (correct ? 'border-green-500' : 'border-red-500') : 'border-sky-400'
+-                }`}
+-                aria-label={`Espacio ${i + 1}`}
+-              />
+-            );
+-          })}
+-        </p>
+-      )}
++        <div className="min-w-0">
++          {q.imagen_url && <QuestionImage src={q.imagen_url} className="mb-4" />}
++          {q.type === 'transform' && (
++            <p className="mb-1 text-sm font-bold text-sky-500 dark:text-sky-300">
++              Escríbela en forma {q.answer?.form ?? 'distinta'}:
++            </p>
++          )}
++          {promptNode}
+ 
+-      {q.type === 'order_words' && resp.type === 'order_words' && (
+-        <div className="space-y-4">
+-          <div
+-            aria-label="Tu oración"
+-            className={`flex min-h-16 flex-wrap gap-2 rounded-2xl border-2 border-dashed p-3 ${
+-              checked ? (correct ? 'border-green-500' : 'border-red-500') : 'border-slate-300 dark:border-slate-600'
+-            }`}
+-          >
+-            {!resp.order.length && <span className="text-sm text-slate-400">Toca las palabras en orden…</span>}
+-            {resp.order.map((id) => (
+-              <button
+-                key={id}
+-                disabled={checked}
+-                onClick={() => setResp({ ...resp, order: resp.order.filter((x) => x !== id) })}
+-                className="rounded-xl border-2 border-sky-400 bg-sky-50 px-3 py-2 font-semibold dark:bg-sky-950"
+-              >
+-                {q.options!.find((o) => o.id === id)?.text}
+-              </button>
+-            ))}
+-          </div>
+-          <div aria-label="Palabras" className="flex flex-wrap gap-2">
+-            {q.options!.map((o) => {
+-              const used = resp.order.includes(o.id);
+-              return (
+-                <button
+-                  key={o.id}
+-                  disabled={checked || used}
+-                  onClick={() => setResp({ ...resp, order: [...resp.order, o.id] })}
+-                  className={`rounded-xl border-2 px-3 py-2 font-semibold ${
+-                    used ? 'border-slate-200 opacity-30 dark:border-slate-700' : 'border-slate-300 bg-white dark:border-slate-600 dark:bg-slate-800'
+-                  }`}
+-                >
+-                  {o.text}
++          {q.type === 'multiple_choice' && (
++            <div className={`grid grid-cols-1 gap-3 ${cols}`}>
++              {q.options!.map((o) => (
++                <button key={o.id} onClick={() => pick(o.id)} disabled={checked} className={base + styles[optionState(o.id)]}>
++                  <span className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border text-sm uppercase">
++                    {o.id}
++                  </span>
++                  <span className="min-w-0 flex-1">{o.text}</span>
+                 </button>
+-              );
+-            })}
+-          </div>
+-        </div>
+-      )}
++              ))}
++            </div>
++          )}
+ 
+-      {(q.type === 'short_answer' || q.type === 'transform') && resp.type === 'short_answer' && (
+-        <input
+-          autoFocus
+-          value={resp.text}
+-          disabled={checked}
+-          placeholder="Escribe tu respuesta…"
+-          onChange={(e) => setResp({ type: 'short_answer', text: e.target.value })}
+-          onKeyDown={(e) => e.key === 'Enter' && isReady(q, resp) && !checked && check()}
+-          className={`w-full rounded-2xl border-2 bg-transparent p-4 text-lg outline-none ${
+-            checked ? (correct ? 'border-green-500' : 'border-red-500') : 'border-slate-300 focus:border-sky-400'
+-          }`}
+-        />
+-      )}
++          {q.type === 'true_false' && resp.type === 'true_false' && (
++            <div className="grid grid-cols-2 gap-3 md:mx-auto md:max-w-xl">
++              {([true, false] as const).map((v) => {
++                const sel = resp.value === v;
++                const right = q.answer.value === v;
++                const s: S = checked ? (right ? 'right' : sel ? 'wrong' : 'dim') : sel ? 'selected' : 'idle';
++                return (
++                  <button
++                    key={String(v)}
++                    disabled={checked}
++                    onClick={() => setResp({ type: 'true_false', value: v })}
++                    className={base + 'justify-center py-8 text-center text-lg ' + styles[s]}
++                  >
++                    {v ? 'Verdadero' : 'Falso'}
++                  </button>
++                );
++              })}
++            </div>
++          )}
+ 
+-      {checked && q.explanation && (
+-        <div className="mt-6 space-y-1 rounded-2xl border-2 border-sky-300 bg-sky-50 p-3 dark:border-sky-800 dark:bg-sky-950/40">
+-          <p className="text-sm font-bold">📖 Explicación</p>
+-          <p className="whitespace-pre-line text-sm">{q.explanation}</p>
+-        </div>
+-      )}
++          {q.type === 'fill_blank' && resp.type === 'fill_blank' && (
++            <p className="text-xl leading-loose">
++              {q.prompt.split(/(\{\{\d+\}\})/).map((part, k) => {
++                const m = part.match(/^\{\{(\d+)\}\}$/);
++                if (!m) return <span key={k}>{part}</span>;
++                const i = Number(m[1]) - 1;
++                return (
++                  <input
++                    key={k}
++                    value={resp.blanks[i] ?? ''}
++                    disabled={checked}
++                    onChange={(e) =>
++                      setResp({ ...resp, blanks: resp.blanks.map((b, j) => (j === i ? e.target.value : b)) })
++                    }
++                    className={`mx-1 w-32 rounded-lg border-b-4 bg-transparent px-2 text-center outline-none ${
++                      checked ? (correct ? 'border-green-500' : 'border-red-500') : 'border-sky-400'
++                    }`}
++                    aria-label={`Espacio ${i + 1}`}
++                  />
++                );
++              })}
++            </p>
++          )}
++
++          {q.type === 'order_words' && resp.type === 'order_words' && (
++            <div className="space-y-4">
++              <div
++                aria-label="Tu oración"
++                className={`flex min-h-16 flex-wrap gap-2 rounded-2xl border-2 border-dashed p-3 ${
++                  checked ? (correct ? 'border-green-500' : 'border-red-500') : 'border-slate-300 dark:border-slate-600'
++                }`}
++              >
++                {!resp.order.length && <span className="text-sm text-slate-400">Toca las palabras en orden…</span>}
++                {resp.order.map((id) => (
++                  <button
++                    key={id}
++                    disabled={checked}
++                    onClick={() => setResp({ ...resp, order: resp.order.filter((x) => x !== id) })}
++                    className="rounded-xl border-2 border-sky-400 bg-sky-50 px-3 py-2 font-semibold dark:bg-sky-950"
++                  >
++                    {q.options!.find((o) => o.id === id)?.text}
++                  </button>
++                ))}
++              </div>
++              <div aria-label="Palabras" className="flex flex-wrap gap-2">
++                {q.options!.map((o) => {
++                  const used = resp.order.includes(o.id);
++                  return (
++                    <button
++                      key={o.id}
++                      disabled={checked || used}
++                      onClick={() => setResp({ ...resp, order: [...resp.order, o.id] })}
++                      className={`rounded-xl border-2 px-3 py-2 font-semibold ${
++                        used ? 'border-slate-200 opacity-30 dark:border-slate-700' : 'border-slate-300 bg-white dark:border-slate-600 dark:bg-slate-800'
++                      }`}
++                    >
++                      {o.text}
++                    </button>
++                  );
++                })}
++              </div>
++            </div>
++          )}
+ 
+-      {showAi && (
+-        <div ref={aiRef} className="mt-6 space-y-2 rounded-2xl border-2 border-sky-300 bg-sky-50 p-3 dark:border-sky-800 dark:bg-sky-950/40">
+-          <p className="text-sm font-bold">¿No te quedó claro? Pide ayuda a la IA</p>
+-          <AiPanel q={q} examId={examId} />
++          {(q.type === 'short_answer' || q.type === 'transform') && resp.type === 'short_answer' && (
++            <input
++              autoFocus
++              value={resp.text}
++              disabled={checked}
++              placeholder="Escribe tu respuesta…"
++              onChange={(e) => setResp({ type: 'short_answer', text: e.target.value })}
++              onKeyDown={(e) => e.key === 'Enter' && isReady(q, resp) && !checked && check()}
++              className={`w-full rounded-2xl border-2 bg-transparent p-4 text-lg outline-none ${
++                checked ? (correct ? 'border-green-500' : 'border-red-500') : 'border-slate-300 focus:border-sky-400'
++              }`}
++            />
++          )}
++
++          {checked && q.explanation && (
++            <div className="mt-6 space-y-1 rounded-2xl border-2 border-sky-300 bg-sky-50 p-3 dark:border-sky-800 dark:bg-sky-950/40">
++              <p className="text-sm font-bold">📖 Explicación</p>
++              <p className="whitespace-pre-line text-sm">{q.explanation}</p>
++            </div>
++          )}
++
++          {showAi && (
++            <div ref={aiRef} className="mt-6 space-y-2 rounded-2xl border-2 border-sky-300 bg-sky-50 p-3 dark:border-sky-800 dark:bg-sky-950/40">
++              <p className="text-sm font-bold">¿No te quedó claro? Pide ayuda a la IA</p>
++              <AiPanel q={q} examId={examId} />
++            </div>
++          )}
+         </div>
++      </div>
++
++      {full === 'reading' && reading && (
++        <FullscreenOverlay title={reading.title} onClose={() => setFull(null)}>
++          <ReadingText title={reading.title} body={reading.body} className="max-h-none overflow-visible text-lg md:text-xl" />
++        </FullscreenOverlay>
++      )}
++      {full === 'prompt' && (
++        <FullscreenOverlay title="Enunciado" onClose={() => setFull(null)}>
++          <p className="whitespace-pre-line font-semibold">{q.prompt}</p>
++        </FullscreenOverlay>
+       )}
+ 
+       <footer
+@@ -271,7 +326,7 @@ export function QuestionCard({ question: q, examId, onNext, aiHelp = false, read
+               : 'animate-slideUp bg-red-100 dark:bg-red-950'
+         }`}
+       >
+-        <div className="mx-auto max-w-xl">
++        <div className="mx-auto max-w-xl md:max-w-2xl">
+           {checked && (
+             <div className="mb-3">
+               <p
+diff --git a/src/features/practice/ReadingText.tsx b/src/features/practice/ReadingText.tsx
+index ce88461..41c1c1c 100644
+--- a/src/features/practice/ReadingText.tsx
++++ b/src/features/practice/ReadingText.tsx
+@@ -5,10 +5,14 @@ import WordPopup from './WordPopup';
+ interface Props {
+   title: string;
+   body: string;
++  /** Clases del cuadro de texto (alto máximo, tamaño de letra…). */
++  className?: string;
++  /** Oculta el aviso «Toca una palabra…» (útil cuando ya se muestra en otro lado). */
++  hideHint?: boolean;
+ }
+ 
+ /** Texto de una lectura donde cada palabra se puede tocar para ver su traducción y guardarla como ficha. */
+-export default function ReadingText({ title, body }: Props) {
++export default function ReadingText({ title, body, className = 'max-h-56 text-sm md:max-h-[calc(100dvh-19rem)] md:text-base', hideHint = false }: Props) {
+   const pieces = useMemo(() => splitWords(body), [body]);
+   const [picked, setPicked] = useState<{ word: string; sentence: string } | null>(null);
+   const [added, setAdded] = useState<Set<string>>(() => new Set());
+@@ -24,7 +28,7 @@ export default function ReadingText({ title, body }: Props) {
+     <>
+       <p
+         aria-label={`Texto de la lectura ${title}. Toca una palabra para ver su traducción.`}
+-        className="mt-2 max-h-56 overflow-y-auto whitespace-pre-line text-sm leading-relaxed"
++        className={`mt-2 overflow-y-auto whitespace-pre-line leading-relaxed ${className}`}
+         onClick={(e) => open(e.target)}
+         onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && (e.preventDefault(), open(e.target))}
+       >
+@@ -46,7 +50,7 @@ export default function ReadingText({ title, body }: Props) {
+           ),
+         )}
+       </p>
+-      <p className="mt-1 text-xs text-slate-500">👆 Toca una palabra para traducirla y guardarla en Vocabulario.</p>
++      {!hideHint && <p className="mt-1 text-xs text-slate-500">👆 Toca una palabra para traducirla y guardarla en Vocabulario.</p>}
+       {picked && (
+         <WordPopup
+           word={picked.word}
+diff --git a/tailwind.config.js b/tailwind.config.js
+index 1fa5cc4..61d633e 100644
+--- a/tailwind.config.js
++++ b/tailwind.config.js
+@@ -15,8 +15,16 @@ export default {
+         },
+         pop: { '0%,100%': { transform: 'scale(1)' }, '50%': { transform: 'scale(1.04)' } },
+         slideUp: { from: { transform: 'translateY(100%)' }, to: { transform: 'translateY(0)' } },
++        swipeNext: { from: { transform: 'translateX(32px)', opacity: '0' }, to: { transform: 'translateX(0)', opacity: '1' } },
++        swipePrev: { from: { transform: 'translateX(-32px)', opacity: '0' }, to: { transform: 'translateX(0)', opacity: '1' } },
++      },
++      animation: {
++        shake: 'shake .35s',
++        pop: 'pop .25s',
++        slideUp: 'slideUp .2s ease-out',
++        swipeNext: 'swipeNext .2s ease-out',
++        swipePrev: 'swipePrev .2s ease-out',
+       },
+-      animation: { shake: 'shake .35s', pop: 'pop .25s', slideUp: 'slideUp .2s ease-out' },
+     },
+   },
+   plugins: [],

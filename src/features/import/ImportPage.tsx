@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
-import { createFolder, fetchFolders } from '@/features/exams/api';
+import { createFolder, fetchFolders, folderPath } from '@/features/exams/api';
 import CreateFolderDialog from '@/features/exams/CreateFolderDialog';
 import Icon from '@/components/Icon';
 import { ImageField, useImageUpload } from '@/components/ImageField';
@@ -155,11 +155,14 @@ export default function ImportPage() {
       <div className="flex gap-2">
         <select className={field} value={folderId} onChange={(e) => setFolderId(e.target.value)}>
           <option value="">Sin biblioteca</option>
-          {(folders.data ?? []).map((f) => (
-            <option key={f.id} value={f.id}>
-              {f.name}
-            </option>
-          ))}
+          {(folders.data ?? [])
+            .map((f) => ({ id: f.id, label: folderPath(folders.data ?? [], f.id) }))
+            .sort((a, b) => a.label.localeCompare(b.label))
+            .map((f) => (
+              <option key={f.id} value={f.id}>
+                {f.label}
+              </option>
+            ))}
         </select>
         <button type="button" onClick={() => setNewFolder(true)} className="btn-secondary shrink-0">
           <Icon name="folderPlus" size={18} />
