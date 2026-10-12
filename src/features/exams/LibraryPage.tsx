@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import Icon from '@/components/Icon';
-import { createFolder, fetchBestScores, fetchExams, fetchFolders, type Exam } from './api';
+import { createFolder, fetchBestScores, fetchExams, fetchFolders, folderPath, folderTreeIds, type Exam } from './api';
 import CreateFolderDialog from './CreateFolderDialog';
 import ExamStartSheet from './ExamStartSheet';
 
@@ -39,7 +39,6 @@ export default function LibraryPage() {
 
   const allExams = exams.data ?? [];
   const allFolders = folders.data ?? [];
-  const folderName = useMemo(() => new Map(allFolders.map((f) => [f.id, f.name])), [allFolders]);
   const term = q.trim().toLowerCase();
   const searching = term.length > 0;
 
@@ -52,13 +51,21 @@ export default function LibraryPage() {
   const list = searching
     ? allExams.filter(matches)
     : independents.filter((e) => !activeSubject || (e.subject ?? 'Sin tema') === activeSubject);
-  const shownFolders = searching ? allFolders.filter((f) => f.name.toLowerCase().includes(term)) : allFolders;
-  const countIn = (id: string) => allExams.filter((e) => e.folder_id === id).length;
+  // Sin buscar: solo las bibliotecas de primer nivel (las subbibliotecas se ven dentro de su biblioteca madre).
+  const shownFolders = searching
+    ? allFolders.filter((f) => f.name.toLowerCase().includes(term))
+    : allFolders.filter((f) => !f.parent_id || !allFolders.some((p) => p.id === f.parent_id));
+  // Simulacros que hay en una biblioteca contando todas sus subbibliotecas
+  const countIn = (id: string) => {
+    const ids = folderTreeIds(allFolders, id);
+    return allExams.filter((e) => e.folder_id && ids.has(e.folder_id)).length;
+  };
+  const subCount = (id: string) => allFolders.filter((f) => f.parent_id === id).length;
   const empty = !exams.isLoading && !folders.isLoading && !shownFolders.length && !list.length;
 
   const examRow = (e: Exam) => {
     const score = best.data?.[e.id];
-    const where = searching && e.folder_id ? folderName.get(e.folder_id) : null;
+    const where = searching && e.folder_id ? folderPath(allFolders, e.folder_id) : null;
     return (
       <li key={e.id} className="card relative flex items-center gap-1 pr-1.5">
         <button className="min-w-0 flex-1 p-4 text-left" onClick={() => setSheet(e)}>
@@ -179,7 +186,9 @@ export default function LibraryPage() {
                   <span className="mb-3 block h-1.5 w-9 rounded-full" style={{ backgroundColor: f.color ?? '#0ea5e9' }} />
                   <p className="line-clamp-2 text-lg font-semibold leading-tight">{f.name}</p>
                   <p className="mt-1.5 text-sm text-slate-500">
+                    {searching && f.parent_id ? `${folderPath(allFolders, f.parent_id)} · ` : ''}
                     {n} {n === 1 ? 'simulacro' : 'simulacros'}
+                    {subCount(f.id) > 0 && ` · ${subCount(f.id)} sub`}
                   </p>
                 </button>
               );

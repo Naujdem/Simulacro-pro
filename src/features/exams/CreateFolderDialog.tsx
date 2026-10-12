@@ -5,10 +5,14 @@ export default function CreateFolderDialog({
   onClose,
   onCreate,
   saving,
+  title = 'Nueva biblioteca',
+  placeholder = 'Ej. Simulacros Química',
 }: {
   onClose: () => void;
   onCreate: (name: string, color: string) => void;
   saving?: boolean;
+  title?: string;
+  placeholder?: string;
 }) {
   const [name, setName] = useState('');
   const [color, setColor] = useState(FOLDER_COLORS[0]);
@@ -24,12 +28,12 @@ export default function CreateFolderDialog({
           onCreate(name.trim(), color);
         }}
       >
-        <h2 className="text-lg font-bold">Nueva biblioteca</h2>
+        <h2 className="text-lg font-bold">{title}</h2>
         <input
           autoFocus
           value={name}
           onChange={(e) => setName(e.target.value)}
-          placeholder="Ej. Simulacros Química"
+          placeholder={placeholder}
           className="w-full rounded-2xl border border-slate-200 bg-transparent p-3 outline-none focus:border-sky-400 dark:border-slate-600"
         />
         <div>

@@ -21,6 +21,8 @@ export interface Folder {
   name: string;
   description?: string | null;
   color: string | null;
+  /** Biblioteca madre (null = biblioteca de primer nivel). La columna ya existe en la tabla `folders`. */
+  parent_id?: string | null;
   created_at: string;
 }
 
@@ -88,15 +90,51 @@ export const fetchFolder = async (id: string): Promise<Folder> => {
   return data as Folder;
 };
 
-export const createFolder = async (name: string, color: string): Promise<Folder> => {
+export const createFolder = async (name: string, color: string, parentId: string | null = null): Promise<Folder> => {
   const { data: u } = await supabase.auth.getUser();
   const { data, error } = await supabase
     .from('folders')
-    .insert({ user_id: u.user!.id, name: name.trim(), color })
+    .insert({ user_id: u.user!.id, name: name.trim(), color, parent_id: parentId })
     .select('*')
     .single();
   if (error) throw error;
   return data as Folder;
+};
+
+/** Cadena de bibliotecas desde la de primer nivel hasta `id` (incluida). Corta si hubiera un ciclo. */
+export const folderChain = (folders: Folder[], id: string | null | undefined): Folder[] => {
+  const byId = new Map(folders.map((f) => [f.id, f]));
+  const chain: Folder[] = [];
+  const seen = new Set<string>();
+  let cur = id ? byId.get(id) : undefined;
+  while (cur && !seen.has(cur.id)) {
+    seen.add(cur.id);
+    chain.unshift(cur);
+    cur = cur.parent_id ? byId.get(cur.parent_id) : undefined;
+  }
+  return chain;
+};
+
+/** "Química › Orgánica › Alcanos" */
+export const folderPath = (folders: Folder[], id: string | null | undefined): string =>
+  folderChain(folders, id)
+    .map((f) => f.name)
+    .join(' › ');
+
+/** Ids de una biblioteca y de todas sus subbibliotecas (a cualquier nivel). */
+export const folderTreeIds = (folders: Folder[], id: string): Set<string> => {
+  const out = new Set<string>([id]);
+  let grew = true;
+  while (grew) {
+    grew = false;
+    for (const f of folders) {
+      if (f.parent_id && out.has(f.parent_id) && !out.has(f.id)) {
+        out.add(f.id);
+        grew = true;
+      }
+    }
+  }
+  return out;
 };
 
 export const assignExamToFolder = async (examId: string, folderId: string | null): Promise<void> => {

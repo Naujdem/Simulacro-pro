@@ -5,10 +5,14 @@ import WordPopup from './WordPopup';
 interface Props {
   title: string;
   body: string;
+  /** Clases del cuadro de texto (alto máximo, tamaño de letra…). */
+  className?: string;
+  /** Oculta el aviso «Toca una palabra…» (útil cuando ya se muestra en otro lado). */
+  hideHint?: boolean;
 }
 
 /** Texto de una lectura donde cada palabra se puede tocar para ver su traducción y guardarla como ficha. */
-export default function ReadingText({ title, body }: Props) {
+export default function ReadingText({ title, body, className = 'max-h-56 text-sm md:max-h-[calc(100dvh-19rem)] md:text-base', hideHint = false }: Props) {
   const pieces = useMemo(() => splitWords(body), [body]);
   const [picked, setPicked] = useState<{ word: string; sentence: string } | null>(null);
   const [added, setAdded] = useState<Set<string>>(() => new Set());
@@ -24,7 +28,7 @@ export default function ReadingText({ title, body }: Props) {
     <>
       <p
         aria-label={`Texto de la lectura ${title}. Toca una palabra para ver su traducción.`}
-        className="mt-2 max-h-56 overflow-y-auto whitespace-pre-line text-sm leading-relaxed"
+        className={`mt-2 overflow-y-auto whitespace-pre-line leading-relaxed ${className}`}
         onClick={(e) => open(e.target)}
         onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && (e.preventDefault(), open(e.target))}
       >
@@ -46,7 +50,7 @@ export default function ReadingText({ title, body }: Props) {
           ),
         )}
       </p>
-      <p className="mt-1 text-xs text-slate-500">👆 Toca una palabra para traducirla y guardarla en Vocabulario.</p>
+      {!hideHint && <p className="mt-1 text-xs text-slate-500">👆 Toca una palabra para traducirla y guardarla en Vocabulario.</p>}
       {picked && (
         <WordPopup
           word={picked.word}
