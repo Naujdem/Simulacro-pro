@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   assignExamToFolder,
   createFolder,
+  deleteFolder,
   fetchBestScores,
   fetchExams,
   fetchFolders,
@@ -11,10 +12,12 @@ import {
   folderTreeIds,
   moveFolder,
   type Exam,
+  type Folder,
 } from './api';
 import Icon from '@/components/Icon';
 import ExamStartSheet from './ExamStartSheet';
 import CreateFolderDialog from './CreateFolderDialog';
+import DeleteFolderDialog from './DeleteFolderDialog';
 import MoveDialog, { type MoveTarget } from './MoveDialog';
 
 export default function FolderPage() {
@@ -26,10 +29,24 @@ export default function FolderPage() {
   const [creatingSub, setCreatingSub] = useState(false); // diálogo de nueva subbiblioteca
   const [sheet, setSheet] = useState<Exam | null>(null); // simulacro abierto: completo o repaso de las que tengo mal
   const [moving, setMoving] = useState<MoveTarget | null>(null); // biblioteca o simulacro que se está moviendo
+  const [deleting, setDeleting] = useState<Folder | null>(null); // biblioteca pendiente de confirmar su eliminación
 
   const folders = useQuery({ queryKey: ['folders'], queryFn: fetchFolders });
   const exams = useQuery({ queryKey: ['exams'], queryFn: fetchExams });
   const best = useQuery({ queryKey: ['best'], queryFn: fetchBestScores });
+
+  const delFolder = useMutation({
+    mutationFn: ({ id, withExams }: { id: string; withExams: boolean }) => deleteFolder(id, folders.data ?? [], withExams),
+    onSuccess: (_d, { id }) => {
+      const wasCurrent = id === folderId;
+      qc.invalidateQueries({ queryKey: ['folders'] });
+      qc.invalidateQueries({ queryKey: ['exams'] });
+      qc.invalidateQueries({ queryKey: ['best'] });
+      setDeleting(null);
+      // Si se eliminó la biblioteca que se está viendo, volver a su biblioteca madre (o a la lista)
+      if (wasCurrent) nav(backTo, { replace: true });
+    },
+  });
 
   const assign = useMutation({
     mutationFn: ({ examId, id }: { examId: string; id: string | null }) => assignExamToFolder(examId, id),
@@ -116,12 +133,24 @@ export default function FolderPage() {
           </p>
         </div>
         {folder && (
-          <button
-            onClick={() => openMove({ kind: 'folder', folder })}
-            className="mt-1 shrink-0 rounded-xl px-3 py-2 text-sm font-medium text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800"
-          >
-            Mover
-          </button>
+          <div className="mt-1 flex shrink-0 items-center gap-1">
+            <button
+              onClick={() => openMove({ kind: 'folder', folder })}
+              className="rounded-xl px-3 py-2 text-sm font-medium text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800"
+            >
+              Mover
+            </button>
+            <button
+              aria-label="Eliminar biblioteca"
+              onClick={() => {
+                delFolder.reset();
+                setDeleting(folder);
+              }}
+              className="rounded-xl p-2 text-slate-400 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-950/40"
+            >
+              <Icon name="trash" size={18} />
+            </button>
+          </div>
         )}
       </header>
 
@@ -190,13 +219,25 @@ export default function FolderPage() {
                       {subs > 0 && ` · ${subs} sub`}
                     </p>
                   </button>
-                  <button
-                    aria-label={`Mover ${f.name}`}
-                    onClick={() => openMove({ kind: 'folder', folder: f })}
-                    className="absolute right-2 top-2 rounded-lg px-2 py-1 text-xs font-medium text-slate-400 hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-700"
-                  >
-                    Mover
-                  </button>
+                  <div className="absolute right-2 top-2 flex items-center gap-0.5">
+                    <button
+                      aria-label={`Mover ${f.name}`}
+                      onClick={() => openMove({ kind: 'folder', folder: f })}
+                      className="rounded-lg px-2 py-1 text-xs font-medium text-slate-400 hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-700"
+                    >
+                      Mover
+                    </button>
+                    <button
+                      aria-label={`Eliminar ${f.name}`}
+                      onClick={() => {
+                        delFolder.reset();
+                        setDeleting(f);
+                      }}
+                      className="rounded-lg p-1 text-slate-400 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-950/40"
+                    >
+                      <Icon name="trash" size={16} />
+                    </button>
+                  </div>
                 </div>
               );
             })}
@@ -260,6 +301,18 @@ export default function FolderPage() {
           error={move.isError ? (move.error as Error).message : null}
           onPick={(to) => move.mutate({ target: moving, to })}
           onClose={() => setMoving(null)}
+        />
+      )}
+
+      {deleting && (
+        <DeleteFolderDialog
+          folder={deleting}
+          examCount={countIn(deleting.id)}
+          subCount={folderTreeIds(allFolders, deleting.id).size - 1}
+          saving={delFolder.isPending}
+          error={delFolder.isError ? (delFolder.error as Error).message : null}
+          onConfirm={(withExams) => delFolder.mutate({ id: deleting.id, withExams })}
+          onClose={() => setDeleting(null)}
         />
       )}
 
