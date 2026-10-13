@@ -90,7 +90,7 @@ export default function StatsPage() {
         <span className="text-slate-400">›</span>
       </Link>
       <Link to="/shared" className="flex items-center justify-between rounded-2xl bg-white p-4 font-bold shadow-sm dark:bg-slate-800">
-        <span>🔗 Simulacros compartidos</span>
+        <span>🔗 Simulacros y bibliotecas compartidos</span>
         <span className="text-slate-400">›</span>
       </Link>
 

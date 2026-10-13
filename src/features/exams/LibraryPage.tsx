@@ -20,6 +20,7 @@ import CreateFolderDialog from './CreateFolderDialog';
 import DeleteFolderDialog from './DeleteFolderDialog';
 import ExamStartSheet from './ExamStartSheet';
 import MoveDialog, { type MoveTarget } from './MoveDialog';
+import ShareDialog from '@/features/share/ShareDialog';
 
 export default function LibraryPage() {
   const nav = useNavigate();
@@ -32,6 +33,7 @@ export default function LibraryPage() {
   const [sheet, setSheet] = useState<Exam | null>(null); // simulacro abierto: completo o repaso de las que tengo mal
   const [moving, setMoving] = useState<MoveTarget | null>(null); // biblioteca o simulacro que se está moviendo
   const [deleting, setDeleting] = useState<Folder | null>(null); // biblioteca pendiente de confirmar su eliminación
+  const [sharing, setSharing] = useState<Folder | null>(null); // biblioteca cuyo enlace para compartir se está viendo
 
   const exams = useQuery({ queryKey: ['exams'], queryFn: fetchExams });
   const folders = useQuery({ queryKey: ['folders'], queryFn: fetchFolders });
@@ -246,6 +248,13 @@ export default function LibraryPage() {
                   </button>
                   <div className="absolute right-2 top-2 flex items-center gap-0.5">
                     <button
+                      aria-label={`Compartir ${f.name}`}
+                      onClick={() => setSharing(f)}
+                      className="rounded-lg px-1.5 py-1 text-sm hover:bg-slate-100 dark:hover:bg-slate-700"
+                    >
+                      🔗
+                    </button>
+                    <button
                       aria-label={`Mover ${f.name}`}
                       onClick={() => openMove({ kind: 'folder', folder: f })}
                       className="rounded-lg px-2 py-1 text-xs font-medium text-slate-400 hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-700"
@@ -311,6 +320,8 @@ export default function LibraryPage() {
       {create.isError && <p className="text-center text-sm text-red-500">{(create.error as Error).message}</p>}
 
       {sheet && <ExamStartSheet exam={sheet} onClose={() => setSheet(null)} />}
+
+      {sharing && <ShareDialog key={sharing.id} folderId={sharing.id} title={sharing.name} onClose={() => setSharing(null)} />}
 
       {moving && (
         <MoveDialog

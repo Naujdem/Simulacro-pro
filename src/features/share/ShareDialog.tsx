@@ -1,39 +1,77 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { connectDrive, DriveError, preloadGis } from '@/lib/drive';
-import { linkFor, getOrCreateLink, publishMedia, setLinkActive, type MediaResult, type SharedLink } from './api';
+import {
+  folderLinkFor,
+  getOrCreateFolderLink,
+  getOrCreateLink,
+  linkFor,
+  publishFolderMedia,
+  publishMedia,
+  setFolderLinkActive,
+  setLinkActive,
+  type MediaResult,
+  type SharedFolderLink,
+  type SharedLink,
+} from './api';
 
 interface Props {
-  examId: string;
+  /** Comparte un simulacro… */
+  examId?: string;
+  /** …o una biblioteca completa (con sus subbibliotecas y simulacros). Se pasa uno de los dos. */
+  folderId?: string;
   title: string;
   onClose: () => void;
 }
 
-/** Ventana "Compartir": crea (o recupera) el enlace del simulacro, deja sus archivos accesibles y muestra las vistas y copias. */
-export default function ShareDialog({ examId, title, onClose }: Props) {
-  const [link, setLink] = useState<SharedLink | null>(null);
+type AnyLink = SharedLink | SharedFolderLink;
+
+/** Ventana "Compartir": crea (o recupera) el enlace del simulacro o de la biblioteca, deja sus archivos accesibles y muestra las vistas y copias. */
+export default function ShareDialog({ examId, folderId, title, onClose }: Props) {
+  const isFolder = !!folderId;
+  const targetId = (folderId ?? examId) as string;
+  const [link, setLink] = useState<AnyLink | null>(null);
   const [media, setMedia] = useState<MediaResult | null>(null);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   const [copied, setCopied] = useState(false);
 
+  // Lo único que cambia entre compartir un simulacro y una biblioteca
+  const ops = useMemo(
+    () =>
+      isFolder
+        ? {
+            getLink: (): Promise<AnyLink> => getOrCreateFolderLink(targetId),
+            publish: (on: boolean) => publishFolderMedia(targetId, on),
+            setActive: (l: AnyLink, on: boolean) => setFolderLinkActive(l as SharedFolderLink, on),
+            urlFor: folderLinkFor,
+          }
+        : {
+            getLink: (): Promise<AnyLink> => getOrCreateLink(targetId),
+            publish: (on: boolean) => publishMedia(targetId, on),
+            setActive: (l: AnyLink, on: boolean) => setLinkActive(l as SharedLink, on),
+            urlFor: linkFor,
+          },
+    [isFolder, targetId],
+  );
+
   const publish = useCallback(async () => {
     setBusy(true);
     try {
-      setMedia(await publishMedia(examId, true));
+      setMedia(await ops.publish(true));
     } catch (e) {
       setMedia({ status: 'partial', total: 0, failed: 0 });
       setError((e as Error).message);
     } finally {
       setBusy(false);
     }
-  }, [examId]);
+  }, [ops]);
 
   useEffect(() => {
     void preloadGis().catch(() => undefined); // la ventana de Google debe abrirse directo desde un clic
     let alive = true;
     (async () => {
       try {
-        const l = await getOrCreateLink(examId);
+        const l = await ops.getLink();
         if (!alive) return;
         setLink(l);
         if (l.is_active) await publish();
@@ -44,9 +82,9 @@ export default function ShareDialog({ examId, title, onClose }: Props) {
     return () => {
       alive = false;
     };
-  }, [examId, publish]);
+  }, [ops, publish]);
 
-  const url = link ? linkFor(link.short_id) : '';
+  const url = link ? ops.urlFor(link.short_id) : '';
 
   const copy = async () => {
     try {
@@ -63,7 +101,7 @@ export default function ShareDialog({ examId, title, onClose }: Props) {
     setBusy(true);
     setError('');
     try {
-      const r = await setLinkActive(link, !link.is_active);
+      const r = await ops.setActive(link, !link.is_active);
       setLink({ ...link, is_active: !link.is_active });
       setMedia(link.is_active ? null : r);
     } catch (e) {
@@ -98,7 +136,9 @@ export default function ShareDialog({ examId, title, onClose }: Props) {
         {link && (
           <>
             <p className="text-xs text-slate-500">
-              Cualquiera con este enlace puede ver y hacer el simulacro sin cuenta. Si tiene cuenta, puede guardar una copia.
+              {isFolder
+                ? 'Cualquiera con este enlace puede ver la biblioteca y hacer sus simulacros sin cuenta. Si tiene cuenta, puede guardar una copia de toda la biblioteca (con sus subbibliotecas).'
+                : 'Cualquiera con este enlace puede ver y hacer el simulacro sin cuenta. Si tiene cuenta, puede guardar una copia.'}
             </p>
             <input
               readOnly
@@ -146,7 +186,7 @@ export default function ShareDialog({ examId, title, onClose }: Props) {
             {link.is_active && media?.status === 'nodrive' && (
               <div className="space-y-2 rounded-xl bg-amber-50 p-3 text-xs text-amber-800 dark:bg-amber-950 dark:text-amber-200">
                 <p>
-                  Este simulacro tiene {media.total} {media.total === 1 ? 'archivo' : 'archivos'} en tu Google Drive. Conéctalo para que quien abra el enlace pueda verlos.
+                  {isFolder ? 'Esta biblioteca tiene' : 'Este simulacro tiene'} {media.total} {media.total === 1 ? 'archivo' : 'archivos'} en tu Google Drive. Conéctalo para que quien abra el enlace pueda verlos.
                 </p>
                 <button onClick={connect} className="rounded-lg bg-amber-600 px-3 py-1.5 font-extrabold text-white">
                   Conectar Google Drive

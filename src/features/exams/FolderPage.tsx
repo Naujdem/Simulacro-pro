@@ -19,6 +19,7 @@ import ExamStartSheet from './ExamStartSheet';
 import CreateFolderDialog from './CreateFolderDialog';
 import DeleteFolderDialog from './DeleteFolderDialog';
 import MoveDialog, { type MoveTarget } from './MoveDialog';
+import ShareDialog from '@/features/share/ShareDialog';
 
 export default function FolderPage() {
   const { folderId } = useParams<{ folderId: string }>();
@@ -30,6 +31,7 @@ export default function FolderPage() {
   const [sheet, setSheet] = useState<Exam | null>(null); // simulacro abierto: completo o repaso de las que tengo mal
   const [moving, setMoving] = useState<MoveTarget | null>(null); // biblioteca o simulacro que se está moviendo
   const [deleting, setDeleting] = useState<Folder | null>(null); // biblioteca pendiente de confirmar su eliminación
+  const [sharing, setSharing] = useState<Folder | null>(null); // biblioteca cuyo enlace para compartir se está viendo
 
   const folders = useQuery({ queryKey: ['folders'], queryFn: fetchFolders });
   const exams = useQuery({ queryKey: ['exams'], queryFn: fetchExams });
@@ -135,6 +137,12 @@ export default function FolderPage() {
         {folder && (
           <div className="mt-1 flex shrink-0 items-center gap-1">
             <button
+              onClick={() => setSharing(folder)}
+              className="rounded-xl px-3 py-2 text-sm font-medium text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800"
+            >
+              🔗 Compartir
+            </button>
+            <button
               onClick={() => openMove({ kind: 'folder', folder })}
               className="rounded-xl px-3 py-2 text-sm font-medium text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800"
             >
@@ -221,6 +229,13 @@ export default function FolderPage() {
                   </button>
                   <div className="absolute right-2 top-2 flex items-center gap-0.5">
                     <button
+                      aria-label={`Compartir ${f.name}`}
+                      onClick={() => setSharing(f)}
+                      className="rounded-lg px-1.5 py-1 text-sm hover:bg-slate-100 dark:hover:bg-slate-700"
+                    >
+                      🔗
+                    </button>
+                    <button
                       aria-label={`Mover ${f.name}`}
                       onClick={() => openMove({ kind: 'folder', folder: f })}
                       className="rounded-lg px-2 py-1 text-xs font-medium text-slate-400 hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-700"
@@ -292,6 +307,8 @@ export default function FolderPage() {
       </ul>
 
       {sheet && <ExamStartSheet exam={sheet} onClose={() => setSheet(null)} />}
+
+      {sharing && <ShareDialog key={sharing.id} folderId={sharing.id} title={sharing.name} onClose={() => setSharing(null)} />}
 
       {moving && (
         <MoveDialog
