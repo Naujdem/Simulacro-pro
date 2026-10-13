@@ -142,6 +142,11 @@ export const assignExamToFolder = async (examId: string, folderId: string | null
   if (error) throw error;
 };
 
+export const moveFolder = async (folderId: string, newParentId: string | null): Promise<void> => {
+  const { error } = await supabase.from('folders').update({ parent_id: newParentId }).eq('id', folderId);
+  if (error) throw error;
+};
+
 export type QuestionTag = 'mal' | 'ok' | 'bien' | 'excelente';
 
 export const saveQuestionTag = async (questionId: string, examId: string, tag: QuestionTag): Promise<void> => {
