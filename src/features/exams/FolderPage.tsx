@@ -1,10 +1,21 @@
 import { useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { assignExamToFolder, createFolder, fetchBestScores, fetchExams, fetchFolders, folderChain, folderTreeIds, type Exam } from './api';
+import {
+  assignExamToFolder,
+  createFolder,
+  fetchBestScores,
+  fetchExams,
+  fetchFolders,
+  folderChain,
+  folderTreeIds,
+  moveFolder,
+  type Exam,
+} from './api';
 import Icon from '@/components/Icon';
 import ExamStartSheet from './ExamStartSheet';
 import CreateFolderDialog from './CreateFolderDialog';
+import MoveDialog, { type MoveTarget } from './MoveDialog';
 
 export default function FolderPage() {
   const { folderId } = useParams<{ folderId: string }>();
@@ -14,6 +25,7 @@ export default function FolderPage() {
   const [newMenu, setNewMenu] = useState(false); // menú del botón "+ Nuevo"
   const [creatingSub, setCreatingSub] = useState(false); // diálogo de nueva subbiblioteca
   const [sheet, setSheet] = useState<Exam | null>(null); // simulacro abierto: completo o repaso de las que tengo mal
+  const [moving, setMoving] = useState<MoveTarget | null>(null); // biblioteca o simulacro que se está moviendo
 
   const folders = useQuery({ queryKey: ['folders'], queryFn: fetchFolders });
   const exams = useQuery({ queryKey: ['exams'], queryFn: fetchExams });
@@ -34,6 +46,23 @@ export default function FolderPage() {
       setCreatingSub(false);
     },
   });
+
+  // Mover una biblioteca (cambia su biblioteca madre) o un simulacro (cambia su biblioteca)
+  const move = useMutation({
+    mutationFn: async ({ target, to }: { target: MoveTarget; to: string | null }) => {
+      if (target.kind === 'folder') await moveFolder(target.folder.id, to);
+      else await assignExamToFolder(target.exam.id, to);
+    },
+    onSuccess: (_d, { target }) => {
+      qc.invalidateQueries({ queryKey: [target.kind === 'folder' ? 'folders' : 'exams'] });
+      setMoving(null);
+    },
+  });
+
+  const openMove = (t: MoveTarget) => {
+    move.reset();
+    setMoving(t);
+  };
 
   const allFolders = folders.data ?? [];
   const folder = allFolders.find((f) => f.id === folderId);
@@ -86,6 +115,14 @@ export default function FolderPage() {
             {subfolders.length > 0 && ` · ${subfolders.length} ${subfolders.length === 1 ? 'subbiblioteca' : 'subbibliotecas'}`}
           </p>
         </div>
+        {folder && (
+          <button
+            onClick={() => openMove({ kind: 'folder', folder })}
+            className="mt-1 shrink-0 rounded-xl px-3 py-2 text-sm font-medium text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800"
+          >
+            Mover
+          </button>
+        )}
       </header>
 
       <div className="relative grid grid-cols-2 gap-2">
@@ -141,18 +178,26 @@ export default function FolderPage() {
               const n = countIn(f.id);
               const subs = allFolders.filter((x) => x.parent_id === f.id).length;
               return (
-                <button
-                  key={f.id}
-                  onClick={() => nav(`/folders/${f.id}`)}
-                  className="card p-5 text-left transition active:scale-[.98] md:hover:bg-slate-50 md:dark:hover:bg-slate-700/60"
-                >
-                  <span className="mb-3 block h-1.5 w-9 rounded-full" style={{ backgroundColor: f.color ?? '#0ea5e9' }} />
-                  <p className="line-clamp-2 text-lg font-semibold leading-tight">{f.name}</p>
-                  <p className="mt-1.5 text-sm text-slate-500">
-                    {n} {n === 1 ? 'simulacro' : 'simulacros'}
-                    {subs > 0 && ` · ${subs} sub`}
-                  </p>
-                </button>
+                <div key={f.id} className="relative">
+                  <button
+                    onClick={() => nav(`/folders/${f.id}`)}
+                    className="card h-full w-full p-5 text-left transition active:scale-[.98] md:hover:bg-slate-50 md:dark:hover:bg-slate-700/60"
+                  >
+                    <span className="mb-3 block h-1.5 w-9 rounded-full" style={{ backgroundColor: f.color ?? '#0ea5e9' }} />
+                    <p className="line-clamp-2 text-lg font-semibold leading-tight">{f.name}</p>
+                    <p className="mt-1.5 text-sm text-slate-500">
+                      {n} {n === 1 ? 'simulacro' : 'simulacros'}
+                      {subs > 0 && ` · ${subs} sub`}
+                    </p>
+                  </button>
+                  <button
+                    aria-label={`Mover ${f.name}`}
+                    onClick={() => openMove({ kind: 'folder', folder: f })}
+                    className="absolute right-2 top-2 rounded-lg px-2 py-1 text-xs font-medium text-slate-400 hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-700"
+                  >
+                    Mover
+                  </button>
+                </div>
               );
             })}
           </div>
@@ -188,6 +233,12 @@ export default function FolderPage() {
                   <Icon name="pencil" size={18} />
                 </button>
                 <button
+                  onClick={() => openMove({ kind: 'exam', exam: e })}
+                  className="text-xs font-medium text-slate-400 hover:text-slate-600"
+                >
+                  Mover
+                </button>
+                <button
                   onClick={() => assign.mutate({ examId: e.id, id: null })}
                   className="text-xs font-medium text-slate-400 hover:text-slate-600"
                 >
@@ -200,6 +251,17 @@ export default function FolderPage() {
       </ul>
 
       {sheet && <ExamStartSheet exam={sheet} onClose={() => setSheet(null)} />}
+
+      {moving && (
+        <MoveDialog
+          target={moving}
+          folders={allFolders}
+          saving={move.isPending}
+          error={move.isError ? (move.error as Error).message : null}
+          onPick={(to) => move.mutate({ target: moving, to })}
+          onClose={() => setMoving(null)}
+        />
+      )}
 
       {creatingSub && (
         <CreateFolderDialog
