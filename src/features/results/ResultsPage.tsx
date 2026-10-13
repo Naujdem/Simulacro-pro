@@ -245,7 +245,7 @@ export default function ResultsPage() {
                     correct ? 'bg-green-100 dark:bg-green-950' : 'bg-red-100 dark:bg-red-950'
                   }`}
                 >
-                  <p>
+                  <p className="whitespace-pre-line">
                     {correct ? '✔' : '✖'} {showPrompt(q.prompt)}
                   </p>
                   {skipped && <p className="text-xs font-bold text-red-700 dark:text-red-300">⏰ Sin responder (se acabó el tiempo)</p>}

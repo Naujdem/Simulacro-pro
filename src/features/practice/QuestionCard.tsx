@@ -144,8 +144,8 @@ export function QuestionCard({ question: q, examId, onNext, aiHelp = false, read
       <h2
         className={
           longPrompt
-            ? 'max-h-[42dvh] overflow-y-auto rounded-2xl bg-slate-100/70 p-4 text-base font-semibold leading-relaxed md:max-h-[36dvh] dark:bg-slate-800/60'
-            : 'text-xl font-bold leading-snug md:text-2xl'
+            ? 'max-h-[42dvh] overflow-y-auto whitespace-pre-line rounded-2xl bg-slate-100/70 p-4 text-base font-semibold leading-relaxed md:max-h-[36dvh] dark:bg-slate-800/60'
+            : 'whitespace-pre-line text-xl font-bold leading-snug md:text-2xl'
         }
       >
         {q.prompt}

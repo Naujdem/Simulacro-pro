@@ -102,7 +102,7 @@ export default function ReviewPage() {
           <ul className="space-y-2">
             {g.items.map((i) => (
               <li key={i.question.id} className="space-y-2 rounded-xl bg-slate-100 p-3 text-sm dark:bg-slate-700">
-                <p>{showPrompt(i.question.prompt)}</p>
+                <p className="whitespace-pre-line">{showPrompt(i.question.prompt)}</p>
                 {i.question.imagen_url && <QuestionImage src={i.question.imagen_url} />}
                 <div className="flex flex-wrap gap-2">
                   <button
