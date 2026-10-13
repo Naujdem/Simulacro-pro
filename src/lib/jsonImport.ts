@@ -126,6 +126,20 @@ class Ctx {
 
 const tokens = (s: string) => s.split(/\s+/).map((w) => norm(w)).filter(Boolean);
 
+/**
+ * Restos típicos de copiar de un PDF o de un formulario (pie de página, datos personales, palabras cortadas por guion).
+ * Solo sirve para AVISAR en la vista previa: nunca impide importar.
+ */
+export function textResidues(s: string): string[] {
+  const out: string[] = [];
+  if (/docs\.google\.com|viewscore/i.test(s) || /\b\d{1,2}\/\d{1,2}\/\d{2,4},?\s+\d{1,2}:\d{2}\s*[ap]\.?\s?m/i.test(s))
+    out.push('parece traer el pie de página del PDF (fecha, hora o enlace)');
+  if (/[\p{L}\d._%+-]+@[\p{L}\d-]+\.\p{L}{2,}/u.test(s)) out.push('trae un correo electrónico (¿datos personales?)');
+  if (/\b\d{8,}\b/.test(s)) out.push('trae un número muy largo (¿cédula o teléfono?)');
+  if (/\p{L}{2,}- \p{Ll}{3,}/u.test(s)) out.push('tiene una palabra cortada por guion ("trans- formación")');
+  return out;
+}
+
 function validateQuestion(raw: unknown, path: string, readingIndex: number | null, c: Ctx, fallbackSection = DEFAULT_SECTION): PlanQuestion | null {
   if (!isObj(raw)) {
     c.err(path, 'debe ser un objeto { … }.');
@@ -145,6 +159,10 @@ function validateQuestion(raw: unknown, path: string, readingIndex: number | nul
   const errBefore = c.errors.length;
   const prompt = str(raw.enunciado);
   const base = { type, explanation, readingIndex, section };
+  // Avisos (no bloquean): restos de PDF y número de pregunta pegado al enunciado
+  for (const [label, s] of [['el enunciado', prompt], ['la explicación', explanation]] as const)
+    if (s) textResidues(s).forEach((m) => c.warn(path, `${label} ${m}.`));
+  if (prompt && /^\s*\d{1,3}\s*[.)]\s+\S/.test(prompt)) c.warn(path, 'el enunciado empieza con un número de pregunta ("109) …"); quítalo.');
 
   switch (type) {
     case 'multiple_choice': {
@@ -177,6 +195,10 @@ function validateQuestion(raw: unknown, path: string, readingIndex: number | nul
       }
       if (new Set(idx).size !== idx.length) c.warn(path, '"correcta" repite números.');
       if (new Set(texts.map(norm)).size !== texts.length) c.warn(path, 'hay opciones repetidas.');
+      // la app pone sus propias letras: si las opciones traen "A) …", se vería "A) A) …"
+      const lettered = texts.filter((t) => /^\(?[A-Ha-h][.)]\s/.test(t)).length;
+      if (lettered >= 2 && lettered >= texts.length / 2) c.warn(path, 'las opciones empiezan con su letra ("A) …"); quita las letras, la app pone las suyas.');
+      new Set(texts.flatMap(textResidues)).forEach((m) => c.warn(path, `alguna opción ${m}.`));
       if (c.errors.length > errBefore || !prompt) break;
       return {
         ...base,
@@ -335,6 +357,7 @@ function validateExam(raw: unknown, path: string, c: Ctx): { exam: PlanExam; ord
         const body = str(l.texto);
         if (!lt) c.err(lp, 'falta "titulo".');
         if (!body) c.err(lp, 'falta "texto".');
+        if (body) textResidues(body).forEach((m) => c.warn(lp, `el texto ${m}.`));
         if (l.seccion !== undefined && l.seccion !== null && typeof l.seccion !== 'string') c.err(lp, '"seccion" debe ser un texto (por ejemplo "Lectura 1").');
         const ls = optStr(l.seccion) ?? DEFAULT_SECTION;
         const qs = validateQuestions(l.preguntas, `${lp} › preguntas`, readings.length, c, ls);

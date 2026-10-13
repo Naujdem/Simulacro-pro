@@ -4,7 +4,14 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { fetchFolders } from '@/features/exams/api';
 import { describeSummary, examSections, parseImportJson, type ParseResult } from '@/lib/jsonImport';
 import { findFolder, runImport, type ImportResult } from './jsonImportApi';
-import { JSON_EXAMPLE, JSON_PROMPT } from './jsonPrompt';
+import { JSON_EXAMPLE, JSON_EXAMPLE_SIMULACRO, JSON_PROMPT, JSON_PROMPT_SIMULACROS } from './jsonPrompt';
+
+// Guías para la IA: la de inglés (cuadernillo) y la de simulacros de selección múltiple (concurso docente, PDF de Google Forms…)
+type Guide = 'ingles' | 'simulacros';
+const GUIDES: Record<Guide, { label: string; text: string }> = {
+  ingles: { label: 'Inglés (cuadernillo)', text: JSON_PROMPT },
+  simulacros: { label: 'Simulacros (selección múltiple)', text: JSON_PROMPT_SIMULACROS },
+};
 
 const TYPE_NAMES: Record<string, string> = {
   multiple_choice: 'opción múltiple',
@@ -34,7 +41,8 @@ export default function JsonImportPage() {
   const [progress, setProgress] = useState('');
   const [error, setError] = useState('');
   const [done, setDone] = useState<ImportResult | null>(null);
-  const [copied, setCopied] = useState(false);
+  const [guide, setGuide] = useState<Guide>('ingles'); // la guía que se ve en la vista previa (la última que se copió)
+  const [copied, setCopied] = useState<Guide | null>(null);
 
   const edit = (v: string) => {
     setText(v);
@@ -47,11 +55,12 @@ export default function JsonImportPage() {
     setChecked(parseImportJson(text));
   };
 
-  async function copyPrompt() {
+  async function copyPrompt(which: Guide) {
+    setGuide(which);
     try {
-      await navigator.clipboard.writeText(JSON_PROMPT);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2500);
+      await navigator.clipboard.writeText(GUIDES[which].text);
+      setCopied(which);
+      setTimeout(() => setCopied(null), 2500);
     } catch {
       setError('No se pudo copiar automáticamente. Mantén presionado el texto de la guía y cópialo a mano.');
     }
@@ -134,11 +143,25 @@ export default function JsonImportPage() {
       <details className="rounded-2xl border border-slate-200 p-3 text-sm dark:border-slate-700">
         <summary className="cursor-pointer font-bold">¿Cómo le pido el JSON a la IA?</summary>
         <div className="mt-2 space-y-2">
-          <p>Copia esta guía, pégala en ChatGPT o Claude y pega debajo tu material (temario, preguntas, vocabulario…).</p>
-          <button onClick={copyPrompt} className={`${btn} w-full bg-sky-500 text-white`}>
-            {copied ? '✓ Copiada' : '📋 Copiar guía para la IA'}
-          </button>
-          <pre className="max-h-48 overflow-auto whitespace-pre-wrap rounded-xl bg-slate-100 p-3 text-xs dark:bg-slate-800">{JSON_PROMPT}</pre>
+          <p>Elige la guía según tu material, cópiala, pégala en ChatGPT o Claude y pega debajo tu material (temario, preguntas, vocabulario…).</p>
+          <div className="grid gap-2 sm:grid-cols-2">
+            {(Object.keys(GUIDES) as Guide[]).map((g) => (
+              <button
+                key={g}
+                onClick={() => copyPrompt(g)}
+                aria-pressed={guide === g}
+                className={`${btn} bg-sky-500 text-white ${guide === g ? 'ring-2 ring-sky-300 ring-offset-2 dark:ring-offset-slate-900' : 'opacity-90'}`}
+              >
+                {copied === g ? '✓ Copiada' : `📋 ${GUIDES[g].label}`}
+              </button>
+            ))}
+          </div>
+          {guide === 'simulacros' && (
+            <p className="text-xs text-slate-500">
+              Pega el material de a un bloque o materia (20 a 40 preguntas) y quita antes tus datos personales (correo, cédula, teléfono). Al final la IA te dará una lista “PARA REVISAR” con lo que no pudo resolver (sin respuesta, con imagen…).
+            </p>
+          )}
+          <pre className="max-h-48 overflow-auto whitespace-pre-wrap rounded-xl bg-slate-100 p-3 text-xs dark:bg-slate-800">{GUIDES[guide].text}</pre>
         </div>
       </details>
 
@@ -153,12 +176,15 @@ export default function JsonImportPage() {
         className="w-full rounded-xl border border-slate-200 bg-transparent p-3 font-mono text-xs outline-none focus:border-sky-400 dark:border-slate-700"
       />
 
-      <div className="flex gap-2">
-        <button onClick={review} disabled={saving || !text.trim()} className={`${btn} flex-1 bg-sky-500 text-white`}>
+      <div className="flex flex-wrap gap-2">
+        <button onClick={review} disabled={saving || !text.trim()} className={`${btn} min-w-full flex-1 bg-sky-500 text-white sm:min-w-0`}>
           Revisar JSON
         </button>
-        <button onClick={() => edit(JSON_EXAMPLE)} disabled={saving} className={`${btn} border border-slate-300 dark:border-slate-600`}>
-          Ver ejemplo
+        <button onClick={() => edit(JSON_EXAMPLE)} disabled={saving} className={`${btn} flex-1 border border-slate-300 dark:border-slate-600`}>
+          Ejemplo inglés
+        </button>
+        <button onClick={() => edit(JSON_EXAMPLE_SIMULACRO)} disabled={saving} className={`${btn} flex-1 border border-slate-300 dark:border-slate-600`}>
+          Ejemplo simulacro
         </button>
       </div>
 
