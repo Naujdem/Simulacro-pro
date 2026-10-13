@@ -147,6 +147,21 @@ export const moveFolder = async (folderId: string, newParentId: string | null): 
   if (error) throw error;
 };
 
+/**
+ * Elimina una biblioteca. Sus subbibliotecas se borran en cascada (parent_id on delete cascade).
+ * Por defecto los simulacros que contenían se conservan y pasan a "Sin biblioteca"
+ * (folder_id on delete set null); con `deleteExams` se eliminan también, junto con los de sus subbibliotecas.
+ */
+export const deleteFolder = async (folderId: string, folders: Folder[], deleteExams = false): Promise<void> => {
+  if (deleteExams) {
+    const ids = [...folderTreeIds(folders, folderId)];
+    const { error: e1 } = await supabase.from('exams').delete().in('folder_id', ids);
+    if (e1) throw e1;
+  }
+  const { error } = await supabase.from('folders').delete().eq('id', folderId);
+  if (error) throw error;
+};
+
 export type QuestionTag = 'mal' | 'ok' | 'bien' | 'excelente';
 
 export const saveQuestionTag = async (questionId: string, examId: string, tag: QuestionTag): Promise<void> => {

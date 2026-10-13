@@ -6,6 +6,7 @@ import Icon from '@/components/Icon';
 import {
   assignExamToFolder,
   createFolder,
+  deleteFolder,
   fetchBestScores,
   fetchExams,
   fetchFolders,
@@ -13,8 +14,10 @@ import {
   folderTreeIds,
   moveFolder,
   type Exam,
+  type Folder,
 } from './api';
 import CreateFolderDialog from './CreateFolderDialog';
+import DeleteFolderDialog from './DeleteFolderDialog';
 import ExamStartSheet from './ExamStartSheet';
 import MoveDialog, { type MoveTarget } from './MoveDialog';
 
@@ -28,10 +31,21 @@ export default function LibraryPage() {
   const [creating, setCreating] = useState(false); // diálogo de nueva biblioteca
   const [sheet, setSheet] = useState<Exam | null>(null); // simulacro abierto: completo o repaso de las que tengo mal
   const [moving, setMoving] = useState<MoveTarget | null>(null); // biblioteca o simulacro que se está moviendo
+  const [deleting, setDeleting] = useState<Folder | null>(null); // biblioteca pendiente de confirmar su eliminación
 
   const exams = useQuery({ queryKey: ['exams'], queryFn: fetchExams });
   const folders = useQuery({ queryKey: ['folders'], queryFn: fetchFolders });
   const best = useQuery({ queryKey: ['best'], queryFn: fetchBestScores });
+
+  const delFolder = useMutation({
+    mutationFn: ({ id, withExams }: { id: string; withExams: boolean }) => deleteFolder(id, folders.data ?? [], withExams),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['folders'] });
+      qc.invalidateQueries({ queryKey: ['exams'] });
+      qc.invalidateQueries({ queryKey: ['best'] });
+      setDeleting(null);
+    },
+  });
 
   const del = useMutation({
     mutationFn: async (id: string) => {
@@ -230,13 +244,25 @@ export default function LibraryPage() {
                       {subCount(f.id) > 0 && ` · ${subCount(f.id)} sub`}
                     </p>
                   </button>
-                  <button
-                    aria-label={`Mover ${f.name}`}
-                    onClick={() => openMove({ kind: 'folder', folder: f })}
-                    className="absolute right-2 top-2 rounded-lg px-2 py-1 text-xs font-medium text-slate-400 hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-700"
-                  >
-                    Mover
-                  </button>
+                  <div className="absolute right-2 top-2 flex items-center gap-0.5">
+                    <button
+                      aria-label={`Mover ${f.name}`}
+                      onClick={() => openMove({ kind: 'folder', folder: f })}
+                      className="rounded-lg px-2 py-1 text-xs font-medium text-slate-400 hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-700"
+                    >
+                      Mover
+                    </button>
+                    <button
+                      aria-label={`Eliminar ${f.name}`}
+                      onClick={() => {
+                        delFolder.reset();
+                        setDeleting(f);
+                      }}
+                      className="rounded-lg p-1 text-slate-400 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-950/40"
+                    >
+                      <Icon name="trash" size={16} />
+                    </button>
+                  </div>
                 </div>
               );
             })}
@@ -294,6 +320,18 @@ export default function LibraryPage() {
           error={move.isError ? (move.error as Error).message : null}
           onPick={(to) => move.mutate({ target: moving, to })}
           onClose={() => setMoving(null)}
+        />
+      )}
+
+      {deleting && (
+        <DeleteFolderDialog
+          folder={deleting}
+          examCount={countIn(deleting.id)}
+          subCount={folderTreeIds(allFolders, deleting.id).size - 1}
+          saving={delFolder.isPending}
+          error={delFolder.isError ? (delFolder.error as Error).message : null}
+          onConfirm={(withExams) => delFolder.mutate({ id: deleting.id, withExams })}
+          onClose={() => setDeleting(null)}
         />
       )}
 
