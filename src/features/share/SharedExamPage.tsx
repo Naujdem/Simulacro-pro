@@ -222,7 +222,7 @@ export default function SharedExamPage({ session, sessionLoading }: { session: S
             <ul className="space-y-2">
               {wrong.map(({ q }) => (
                 <li key={q.id} className="space-y-1 rounded-xl bg-red-100 p-3 text-sm dark:bg-red-950">
-                  <p>✖ {showPrompt(q.prompt)}</p>
+                  <p className="whitespace-pre-line">✖ {showPrompt(q.prompt)}</p>
                   <p className="text-xs">
                     Respuesta correcta: <b>{correctText(q)}</b>
                   </p>
