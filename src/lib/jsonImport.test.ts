@@ -247,3 +247,134 @@ describe('prompt para la IA: sus ejemplos son fiables', () => {
     expect(errs(oneQ({ tipo: 'fill_blank', enunciado: 'She watches TV.', correcta: 'watches' }))[0]).toMatch(/___/);
   });
 });
+
+describe('guía de simulacros (selección múltiple)', () => {
+  const load = () => import('@/features/import/jsonPrompt');
+  const mc = (extra: object = {}) => ({ tipo: 'multiple_choice', enunciado: '¿Capital de Francia?', opciones: ['Madrid', 'París'], correcta: 1, ...extra });
+  const warns = (q: object) => ok(oneQ(q)).warnings.join('\n');
+  const REVISAR = [
+    'PARA REVISAR',
+    'Total de preguntas en el material: 6. Total en el JSON: 6.',
+    'Sin respuesta en el material (no incluidas): ninguna',
+    'Con imagen: 3',
+    'Con respuestas contradictorias (no incluidas): ninguna',
+    'Con texto dañado o dudoso (indica qué): ninguna',
+  ].join('\n');
+
+  it('el ejemplo del botón es válido, sin avisos, y conserva la lista, los símbolos y las comillas', async () => {
+    const { JSON_EXAMPLE_SIMULACRO } = await load();
+    const r = ok(JSON_EXAMPLE_SIMULACRO);
+    expect(r.summary).toMatchObject({ folders: 1, exams: 1, questions: 6, readings: 1 });
+    expect(r.summary.byType).toMatchObject({ multiple_choice: 5, true_false: 1 });
+    expect(r.warnings).toEqual([]);
+    const exam = r.plan.folders[0].exams[0];
+    expect(examSections(exam)).toEqual(['Biología', 'Ley 1620']);
+    const lista = exam.questions.find((q) => q.prompt.includes('Agredir'))!;
+    expect(lista.prompt.split('\n')).toHaveLength(5); // intro + 3 ítems + cierre, un ítem por línea
+    expect(lista.answer).toEqual({ correct: ['d'] });
+    expect(exam.questions.some((q) => q.options?.some((o) => o.text.includes('CO₂')))).toBe(true);
+    expect(exam.questions.some((q) => q.options?.some((o) => o.text.includes('3,5 individuos por m²')))).toBe(true);
+    expect(exam.questions.some((q) => q.prompt.includes('“las plantas absorben dióxido de carbono”'))).toBe(true);
+  });
+
+  it('la guía incluye el mismo ejemplo y las reglas clave', async () => {
+    const { JSON_PROMPT_SIMULACROS, JSON_EXAMPLE_SIMULACRO } = await load();
+    expect(JSON_PROMPT_SIMULACROS).toContain(JSON_EXAMPLE_SIMULACRO);
+    for (const frase of [
+      'PARA REVISAR',
+      'EMPEZANDO EN 0',
+      '[IMAGEN]',
+      'DATOS PERSONALES',
+      'UN SALTO DE LÍNEA REAL DENTRO DE UN TEXTO ROMPE EL JSON',
+      'NO la agregues como opción extra',
+      'SIN las etiquetas "Respuesta: B"',
+    ])
+      expect(JSON_PROMPT_SIMULACROS, frase).toContain(frase);
+    // las plantillas con \\n y \\" deben llegar al texto como \n y \" (lo que la IA debe escribir), no como saltos reales
+    expect(JSON_PROMPT_SIMULACROS).toContain('escribe el par de caracteres \\n');
+  });
+
+  it('la respuesta en dos partes (JSON + "PARA REVISAR") se importa, con o sin ```', async () => {
+    const { JSON_EXAMPLE_SIMULACRO } = await load();
+    expect(ok('```json\n' + JSON_EXAMPLE_SIMULACRO + '\n```\n\n' + REVISAR).summary.questions).toBe(6);
+    expect(ok(JSON_EXAMPLE_SIMULACRO + '\n\n' + REVISAR).summary.questions).toBe(6);
+  });
+
+  describe('lo que la guía dice que rompe, rompe de verdad (y lo que pide, funciona)', () => {
+    const conTexto = (enunciado: string) => `{"simulacros":[{"titulo":"T","preguntas":[{"tipo":"true_false","enunciado":"${enunciado}","correcta":true}]}]}`;
+
+    it('un salto de línea REAL dentro de un texto rompe el JSON; \\n funciona y es un salto', () => {
+      expect(errs(conTexto('Lea:\n1. Uno'))[0]).toMatch(/no es un JSON válido/);
+      expect(ok(conTexto('Lea:\\n1. Uno')).plan.looseExams[0].questions[0].prompt).toBe('Lea:\n1. Uno');
+    });
+    it('comillas rectas sin escapar rompen el JSON; las tipográficas y las escapadas funcionan', () => {
+      expect(errs(conTexto('El docente dijo "hola"'))[0]).toMatch(/no es un JSON válido/);
+      expect(ok(conTexto('El docente dijo “hola”')).plan.looseExams[0].questions[0].prompt).toBe('El docente dijo “hola”');
+      expect(ok(conTexto('El docente dijo \\"hola\\"')).plan.looseExams[0].questions[0].prompt).toBe('El docente dijo "hola"');
+    });
+    it('"correcta" como letra o texto se rechaza; como número desde 0 funciona (A=0 … E=4) y como lista también', () => {
+      expect(errs(oneQ(mc({ correcta: 'B' })))[0]).toMatch(/"correcta" debe ser el número de la opción correcta empezando en 0/);
+      expect(errs(oneQ(mc({ correcta: 2 })))[0]).toMatch(/de 0 a 1/); // empezar en 1 se sale de rango en la última opción
+      const cinco = ok(oneQ(mc({ opciones: ['a1', 'b2', 'c3', 'd4', 'e5'], correcta: 4 }))).plan.looseExams[0].questions[0];
+      expect(cinco.answer).toEqual({ correct: ['e'] });
+      const varias = ok(oneQ(mc({ opciones: ['a1', 'b2', 'c3'], correcta: [0, 2] }))).plan.looseExams[0].questions[0];
+      expect(varias.answer).toEqual({ correct: ['a', 'c'] });
+    });
+    it('una lectura sin texto o sin preguntas se rechaza (por eso la guía los pide obligatorios)', () => {
+      const lectura = (l: object) => ({ simulacros: [{ titulo: 'T', lecturas: [l] }] });
+      expect(errs(lectura({ titulo: 'L', preguntas: [mc()] }))[0]).toMatch(/falta "texto"/);
+      expect(errs(lectura({ titulo: 'L', texto: 't', preguntas: [] }))[0]).toMatch(/al menos 1 pregunta/);
+      expect(errs(lectura({ texto: 't', preguntas: [mc()] }))[0]).toMatch(/falta "titulo"/);
+    });
+    it('las secciones se agrupan por nombre EXACTO: "Biologia" y "Biología" son dos secciones', () => {
+      const e = ok({ simulacros: [{ titulo: 'T', preguntas: [mc({ seccion: 'Biología' }), mc({ seccion: 'Biologia' })] }] });
+      expect(examSections(e.plan.looseExams[0])).toEqual(['Biología', 'Biologia']);
+    });
+    it('una lectura compartida se guarda UNA vez y todas sus preguntas apuntan a ella', () => {
+      const r = ok({
+        simulacros: [{ titulo: 'T', lecturas: [{ titulo: 'Caso', texto: 'Texto único', seccion: 'Ley 1620', preguntas: [mc(), mc({ enunciado: 'Otra' }), mc({ enunciado: 'Y otra' })] }] }],
+      });
+      const e = r.plan.looseExams[0];
+      expect(e.readings).toHaveLength(1);
+      expect(e.questions.map((q) => q.readingIndex)).toEqual([0, 0, 0]);
+      expect(e.questions.every((q) => q.section === 'Ley 1620')).toBe(true);
+    });
+  });
+
+  describe('avisos si la IA deja restos del PDF (no bloquean la importación)', () => {
+    it('número de pregunta pegado al enunciado', () => {
+      expect(warns(mc({ enunciado: '109) Las siguientes acciones corresponden a…' }))).toMatch(/número de pregunta/);
+      expect(warns(mc({ enunciado: '20. En una institución educativa rural…' }))).toMatch(/número de pregunta/);
+    });
+    it('letras pegadas a las opciones ("A) …")', () => {
+      expect(warns(mc({ opciones: ['A) tipo I', 'B) tipo II', 'C) tipo III'], correcta: 2 }))).toMatch(/empiezan con su letra/);
+      expect(warns(mc({ opciones: ['a. Nacionales', 'b. Extranjeros'], correcta: 0 }))).toMatch(/empiezan con su letra/);
+    });
+    it('pie de página, enlaces y fechas del PDF', () => {
+      expect(warns(mc({ enunciado: 'Texto 14/9/25, 3:04 p.m. SIMULACRO INGRESO' }))).toMatch(/el enunciado parece traer el pie de página/);
+      expect(warns(mc({ opciones: ['https://docs.google.com/forms/d/e/1FAIpQ', 'Roma'] }))).toMatch(/alguna opción parece traer el pie de página/);
+      expect(warns(mc({ explicacion: 'Ver viewscore?viewscore=AE0zAgBY3m5AG' }))).toMatch(/la explicación parece traer el pie de página/);
+    });
+    it('datos personales: correo y números largos (cédula, teléfono)', () => {
+      expect(warns(mc({ explicacion: 'Escríbame a estebanvar796@gmail.com' }))).toMatch(/correo electrónico/);
+      expect(warns(mc({ enunciado: 'Cédula 1003916823 del docente' }))).toMatch(/número muy largo/);
+    });
+    it('palabras cortadas por guion al final del renglón', () => {
+      expect(warns(mc({ opciones: ['proponer la trans- formación', 'Roma'] }))).toMatch(/palabra cortada por guion/);
+    });
+    it('también en el texto de una lectura', () => {
+      const r = ok({ simulacros: [{ titulo: 'T', lecturas: [{ titulo: 'L', texto: 'Caso. https://docs.google.com/forms/d/e/1FAIpQ', preguntas: [mc()] }] }] });
+      expect(r.warnings.join('\n')).toMatch(/el texto parece traer el pie de página/);
+    });
+    it('NO avisa con texto legítimo: leyes, decimales, miles, guiones de la palabra, "pre- y"', () => {
+      const w = warns(
+        mc({
+          enunciado: 'En la Ley 1098 de 2006 (Decreto 1278 de 2002) el valor es 3,5, con 1.250 m² en el estudio físico-químico pre- y posoperatorio.',
+          opciones: ['A. Smith fue economista', 'Adam Smith nació en 1723'],
+          explicacion: 'Según el art. 15, la Ley 599 de 2000 aplica.',
+        }),
+      );
+      expect(w).toBe('');
+    });
+  });
+});
