@@ -4,6 +4,7 @@ import SuggestionsListPage from '@/features/suggestions/SuggestionsListPage';
 import { useEffect } from 'react';
 import { Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
 import SharedExamPage, { RETURN_KEY } from '@/features/share/SharedExamPage';
+import SharedFolderPage from '@/features/share/SharedFolderPage';
 import SharedLinksPage from '@/features/share/SharedLinksPage';
 import { useSession } from '@/lib/useSession';
 import Layout from '@/components/Layout';
@@ -34,7 +35,7 @@ export default function App() {
       const to = localStorage.getItem(RETURN_KEY);
       if (to) {
         localStorage.removeItem(RETURN_KEY);
-        if (to.startsWith('/s/') && loc.pathname !== to) nav(to, { replace: true });
+        if ((to.startsWith('/s/') || to.startsWith('/b/')) && loc.pathname !== to) nav(to, { replace: true });
       }
     } catch {
       /* nada */
@@ -42,10 +43,11 @@ export default function App() {
   }, [session, nav, loc.pathname]);
 
   // Los enlaces compartidos se pueden abrir SIN iniciar sesión
-  if (loc.pathname.startsWith('/s/')) {
+  if (loc.pathname.startsWith('/s/') || loc.pathname.startsWith('/b/')) {
     return (
       <Routes>
         <Route path="/s/:shortId" element={<SharedExamPage session={session} sessionLoading={loading} />} />
+        <Route path="/b/:shortId" element={<SharedFolderPage session={session} sessionLoading={loading} />} />
       </Routes>
     );
   }
