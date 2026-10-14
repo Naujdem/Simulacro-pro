@@ -6,7 +6,7 @@ import { QuestionCard } from '@/features/practice/QuestionCard';
 import { correctText, type Response } from '@/lib/grading';
 import { connectDrive, copyDriveFile, driveConnected, preloadGis, setShareContext, DriveError } from '@/lib/drive';
 import { collectMediaRefs, copyAllMedia, copyMessage, MANY_FILES, MANY_FILES_MSG, type CopyOutcome } from './shareLogic';
-import { copySharedExam, fetchShared, type SharedExam } from './api';
+import { copySharedExam, fetchShared, fetchSharedFolderExam, type SharedExam } from './api';
 
 export const RETURN_KEY = 'simulapro:return-to';
 const showPrompt = (p: string) => p.replace(/\{\{\d+\}\}/g, '____');
@@ -20,9 +20,27 @@ type SaveState =
   | { s: 'ok'; msg: string; warn: boolean }
   | { s: 'error'; msg: string };
 
+/** Cuando el simulacro se abre desde dentro de una biblioteca compartida (/b/<enlace>): se hace igual, pero guardar es cosa de la biblioteca. */
+export interface FolderShare {
+  /** Código del enlace de la BIBLIOTECA (también sirve para pedir las imágenes y audios). */
+  shortId: string;
+  examId: string;
+  onBack: () => void;
+}
+
 /** Pantalla pública /s/:shortId: se puede ver y hacer sin cuenta; con cuenta se guarda una copia. */
-export default function SharedExamPage({ session, sessionLoading }: { session: Session | null; sessionLoading: boolean }) {
-  const { shortId = '' } = useParams();
+export default function SharedExamPage({
+  session,
+  sessionLoading,
+  folderShare,
+}: {
+  session: Session | null;
+  sessionLoading: boolean;
+  folderShare?: FolderShare;
+}) {
+  const { shortId: routeShortId = '' } = useParams();
+  const shortId = folderShare?.shortId ?? routeShortId;
+  const folderExamId = folderShare?.examId;
   const nav = useNavigate();
   const [data, setData] = useState<SharedExam | null | undefined>(undefined); // undefined = cargando, null = no existe
   const [loadError, setLoadError] = useState('');
@@ -36,14 +54,14 @@ export default function SharedExamPage({ session, sessionLoading }: { session: S
     setShareContext(shortId); // las imágenes se piden al enlace, no al Drive de quien mira
     void preloadGis().catch(() => undefined);
     let alive = true;
-    fetchShared(shortId)
+    (folderExamId ? fetchSharedFolderExam(shortId, folderExamId) : fetchShared(shortId))
       .then((d) => alive && setData(d))
       .catch((e) => alive && (setLoadError((e as Error).message), setData(null)));
     return () => {
       alive = false;
       setShareContext(null);
     };
-  }, [shortId]);
+  }, [shortId, folderExamId]);
 
   const refs = useMemo(() => (data ? collectMediaRefs(data.questions) : []), [data]);
   const readings = useMemo(() => new Map((data?.readings ?? []).map((r) => [r.id, r])), [data]);
@@ -56,9 +74,15 @@ export default function SharedExamPage({ session, sessionLoading }: { session: S
         <p className="text-4xl">🔗</p>
         <h1 className="text-xl font-extrabold">Este enlace no está disponible</h1>
         <p className="text-sm text-slate-500">{loadError || 'No existe o su dueño lo desactivó.'}</p>
-        <Link to="/" className="inline-block rounded-xl bg-sky-500 px-5 py-3 font-extrabold text-white">
-          Ir a SimulaPro
-        </Link>
+        {folderShare ? (
+          <button onClick={folderShare.onBack} className="inline-block rounded-xl bg-sky-500 px-5 py-3 font-extrabold text-white">
+            Volver a la biblioteca
+          </button>
+        ) : (
+          <Link to="/" className="inline-block rounded-xl bg-sky-500 px-5 py-3 font-extrabold text-white">
+            Ir a SimulaPro
+          </Link>
+        )}
       </div>
     );
   }
@@ -205,7 +229,7 @@ export default function SharedExamPage({ session, sessionLoading }: { session: S
         <p className="text-center text-sm text-slate-500">
           {ok} de {total} correctas
         </p>
-        {saveBox}
+        {!folderShare && saveBox}
         <button
           onClick={() => {
             setResults([]);
@@ -216,6 +240,11 @@ export default function SharedExamPage({ session, sessionLoading }: { session: S
         >
           Hacerlo otra vez
         </button>
+        {folderShare && (
+          <button onClick={folderShare.onBack} className="w-full rounded-2xl bg-sky-500 py-3 font-extrabold text-white">
+            ← Volver a la biblioteca
+          </button>
+        )}
         {wrong.length > 0 && (
           <section className="space-y-2">
             <h2 className="font-extrabold">Para repasar</h2>
@@ -257,16 +286,24 @@ export default function SharedExamPage({ session, sessionLoading }: { session: S
         <p className="rounded-xl bg-slate-100 p-3 text-center text-sm text-slate-500 dark:bg-slate-800">Este simulacro todavía no tiene preguntas.</p>
       )}
 
-      {data.is_owner ? (
-        <p className="rounded-xl bg-slate-100 p-3 text-center text-sm text-slate-500 dark:bg-slate-800">Este es tu simulacro: así lo ve quien abre el enlace.</p>
+      {folderShare ? (
+        <button onClick={folderShare.onBack} className="block w-full text-center text-sm font-bold text-sky-500">
+          ← Volver a la biblioteca
+        </button>
       ) : (
-        total > 0 && saveBox
-      )}
-      {!session && !sessionLoading && <p className="text-center text-xs text-slate-500">Con una cuenta gratuita puedes guardar tu propia copia y practicarla cuando quieras.</p>}
-      {session && (
-        <Link to="/" className="block text-center text-sm font-bold text-sky-500">
-          ← Ir a mi inicio
-        </Link>
+        <>
+          {data.is_owner ? (
+            <p className="rounded-xl bg-slate-100 p-3 text-center text-sm text-slate-500 dark:bg-slate-800">Este es tu simulacro: así lo ve quien abre el enlace.</p>
+          ) : (
+            total > 0 && saveBox
+          )}
+          {!session && !sessionLoading && <p className="text-center text-xs text-slate-500">Con una cuenta gratuita puedes guardar tu propia copia y practicarla cuando quieras.</p>}
+          {session && (
+            <Link to="/" className="block text-center text-sm font-bold text-sky-500">
+              ← Ir a mi inicio
+            </Link>
+          )}
+        </>
       )}
     </div>
   );
