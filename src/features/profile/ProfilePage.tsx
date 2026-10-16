@@ -4,6 +4,7 @@ import { supabase } from '@/lib/supabase';
 import { fetchProfile } from '@/features/exams/api';
 import { Theme, getTheme, setTheme } from '@/lib/theme';
 import Icon, { type IconName } from '@/components/Icon';
+import DictionaryManager from '@/features/dictionary/DictionaryManager';
 
 const THEME_OPTS: { value: Theme; label: string; icon: IconName }[] = [
   { value: 'light', label: 'Claro', icon: 'sun' },
@@ -55,6 +56,8 @@ export default function ProfilePage() {
           ))}
         </div>
       </section>
+
+      <DictionaryManager />
 
       <button onClick={exportData} className="btn-secondary w-full">
         Exportar mis datos (JSON)
