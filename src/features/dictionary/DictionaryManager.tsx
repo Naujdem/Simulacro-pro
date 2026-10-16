@@ -59,7 +59,7 @@ export default function DictionaryManager() {
       <h2 className="section-title">Diccionarios (StarDict)</h2>
       <p className="text-sm text-slate-500">
         Instala los mismos diccionarios que usas en KOReader (inglés→español). Al tocar una palabra de una lectura se consultan aquí primero, sin internet
-        y sin IA. Elige los archivos <b>.ifo</b>, <b>.idx</b> y <b>.dict.dz</b> juntos, o un <b>.zip</b> / <b>.tar.gz</b> que los contenga.
+        y sin IA. Elige los archivos <b>.ifo</b>, <b>.idx</b> y <b>.dict.dz</b> juntos, o un <b>.zip</b> / <b>.tar.gz</b> / <b>.tar.xz</b> que los contenga (por ejemplo el <b>.stardict.tar.xz</b> de FreeDict).
       </p>
 
       {dicts.length > 0 && (
@@ -90,7 +90,7 @@ export default function DictionaryManager() {
 
       <label className={`btn-secondary block w-full cursor-pointer text-center ${busy ? 'pointer-events-none opacity-60' : ''}`}>
         {busy ? 'Instalando…' : '➕ Instalar diccionario'}
-        <input type="file" multiple accept=".ifo,.idx,.dict,.dz,.gz,.syn,.zip,.tar,.tgz" onChange={onFiles} className="hidden" disabled={busy} />
+        <input type="file" multiple accept=".ifo,.idx,.dict,.dz,.gz,.syn,.zip,.tar,.tgz,.xz,.txz" onChange={onFiles} className="hidden" disabled={busy} />
       </label>
       {msg && <p role="status" className="text-sm text-slate-600 dark:text-slate-300">{msg}</p>}
       {error && <p role="alert" className="whitespace-pre-line text-sm font-bold text-red-600">{error}</p>}
