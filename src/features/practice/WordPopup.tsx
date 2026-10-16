@@ -61,6 +61,22 @@ export default function WordPopup({ word, sentence, onClose, onAdded }: Props) {
       stopAudio();
     };
   }, [word]);
+  const [dictOpen, setDictOpen] = useState(() => {
+    try {
+      return localStorage.getItem('simulapro:dict-open') !== '0';
+    } catch {
+      return true;
+    }
+  });
+  const toggleDict = () => {
+    const next = !dictOpen;
+    setDictOpen(next);
+    try {
+      localStorage.setItem('simulapro:dict-open', next ? '1' : '0');
+    } catch {
+      /* sin almacenamiento: vale solo mientras la ventana está abierta */
+    }
+  };
   const togglePicked = (text: string) => setPicked((p) => (p.includes(text) ? p.filter((x) => x !== text) : [...p, text]));
 
   useEffect(() => {
@@ -123,10 +139,10 @@ export default function WordPopup({ word, sentence, onClose, onAdded }: Props) {
       <div
         role="dialog"
         aria-label={`Palabra: ${word}`}
-        className="w-full max-w-sm space-y-3 rounded-3xl bg-white p-5 shadow-xl dark:bg-slate-800"
+        className="flex max-h-[92dvh] w-full max-w-sm flex-col gap-3 rounded-3xl bg-white p-5 shadow-xl dark:bg-slate-800"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-start justify-between gap-2">
+        <div className="flex shrink-0 items-start justify-between gap-2">
           <h2 className="text-2xl font-bold leading-tight">{word}</h2>
           <button onClick={onClose} aria-label="Cerrar" className="text-2xl leading-none text-slate-400">
             ✕
@@ -139,6 +155,7 @@ export default function WordPopup({ word, sentence, onClose, onAdded }: Props) {
           </p>
         ) : (
           <>
+            <div className="min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain">
             <div className="flex items-center gap-2 text-xs" role="group" aria-label="IA para traducir">
               <span className="font-bold text-slate-500">Traducir con</span>
               {(['openrouter', 'gemini'] as const).map((p) => (
@@ -183,7 +200,11 @@ export default function WordPopup({ word, sentence, onClose, onAdded }: Props) {
 
             <div className="space-y-1">
               <div className="flex items-center gap-2">
-                <span className="text-xs font-bold text-slate-500">Diccionario</span>
+                <button onClick={toggleDict} aria-expanded={dictOpen} className="flex items-center gap-1 text-xs font-bold text-slate-500">
+                  <span aria-hidden>{dictOpen ? '▾' : '▸'}</span>
+                  Diccionario
+                  {!dictOpen && local.length > 0 && <span className="font-normal">({local.reduce((n, r) => n + r.hits.length, 0)})</span>}
+                </button>
                 {dict?.phonetic && <span className="text-xs text-slate-500">{dict.phonetic}</span>}
                 {dict?.audio && (
                   <button
@@ -195,6 +216,8 @@ export default function WordPopup({ word, sentence, onClose, onAdded }: Props) {
                   </button>
                 )}
               </div>
+              {dictOpen && (
+                <>
               {local.map((r) => (
                 <div key={r.dictionary} className="space-y-1 rounded-xl bg-slate-100 p-3 text-sm dark:bg-slate-900">
                   <p className="text-xs font-bold text-slate-500">{r.dictionary}</p>
@@ -202,7 +225,7 @@ export default function WordPopup({ word, sentence, onClose, onAdded }: Props) {
                     const on = picked.includes(h.text);
                     return (
                       <div key={`${h.headword}-${i}`} className={`rounded-lg px-2 py-1 ${on ? 'bg-sky-100 ring-1 ring-sky-400 dark:bg-sky-950' : ''}`}>
-                        <button onClick={() => togglePicked(h.text)} aria-pressed={on} className="block max-h-40 w-full overflow-y-auto whitespace-pre-line text-left leading-snug">
+                        <button onClick={() => togglePicked(h.text)} aria-pressed={on} className="block max-h-36 w-full overflow-y-auto whitespace-pre-line text-left leading-snug">
                           {on ? '✔ ' : ''}
                           {h.text}
                         </button>
@@ -248,6 +271,8 @@ export default function WordPopup({ word, sentence, onClose, onAdded }: Props) {
                   <p className="text-xs text-slate-500">Toca una definición para guardarla también en la ficha.</p>
                 </div>
               )}
+                </>
+              )}
             </div>
 
             {sentence && (
@@ -267,14 +292,18 @@ export default function WordPopup({ word, sentence, onClose, onAdded }: Props) {
               </div>
             )}
 
-            <button
-              onClick={add}
-              disabled={saving || !translation.trim()}
-              className="w-full rounded-2xl bg-sky-500 py-3 font-bold text-white disabled:opacity-50"
-            >
-              {saving ? 'Guardando…' : '➕ Agregar a Vocabulario'}
-            </button>
-            {error && <p className="text-xs font-bold text-red-600">{error}</p>}
+            </div>
+
+            <div className="shrink-0 space-y-1">
+              <button
+                onClick={add}
+                disabled={saving || !translation.trim()}
+                className="w-full rounded-2xl bg-sky-500 py-3 font-bold text-white disabled:opacity-50"
+              >
+                {saving ? 'Guardando…' : '➕ Agregar a Vocabulario'}
+              </button>
+              {error && <p className="text-xs font-bold text-red-600">{error}</p>}
+            </div>
           </>
         )}
       </div>
