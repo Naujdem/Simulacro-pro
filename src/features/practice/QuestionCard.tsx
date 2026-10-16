@@ -122,7 +122,7 @@ export function QuestionCard({ question: q, examId, onNext, aiHelp = false, read
   };
 
   // En PC las opciones se ordenan en mosaico (en el móvil siguen en una columna).
-  // Con texto de lectura al lado, la columna de preguntas es más angosta: 2 por fila.
+  // Con texto de lectura encima se mantienen 2 por fila.
   const n = q.options?.length ?? 0;
   const cols = reading
     ? 'md:grid-cols-2'
@@ -156,12 +156,12 @@ export function QuestionCard({ question: q, examId, onNext, aiHelp = false, read
 
   return (
     <div className="mx-auto flex max-w-xl flex-col px-4 pb-72 pt-4 md:max-w-6xl md:pb-56">
-      {/* PC: con lectura, texto a la izquierda y preguntas a la derecha; sin lectura, todo el ancho */}
-      <div className={reading ? 'md:grid md:grid-cols-[minmax(0,5fr)_minmax(0,6fr)] md:items-start md:gap-6' : ''}>
+      {/* Con lectura: el texto arriba (a todo lo ancho) y la pregunta con sus opciones debajo, en móvil y en PC */}
+      <div>
         {reading && (
           <details
             open
-            className="mb-4 rounded-2xl border-2 border-amber-300 bg-amber-50 p-3 md:sticky md:top-4 md:mb-0 dark:border-amber-800 dark:bg-amber-950/30"
+            className="mb-4 rounded-2xl border-2 border-amber-300 bg-amber-50 p-3 md:mb-6 dark:border-amber-800 dark:bg-amber-950/30"
           >
             <summary className="flex cursor-pointer items-center justify-between gap-2 text-sm font-bold">
               <span className="min-w-0 truncate">📖 {reading.title}</span>
