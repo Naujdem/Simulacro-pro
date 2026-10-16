@@ -12,7 +12,7 @@ interface Props {
 }
 
 /** Texto de una lectura donde cada palabra se puede tocar para ver su traducción y guardarla como ficha. */
-export default function ReadingText({ title, body, className = 'max-h-56 text-sm md:max-h-[calc(100dvh-19rem)] md:text-base', hideHint = false }: Props) {
+export default function ReadingText({ title, body, className = 'max-h-56 text-sm md:max-h-[42dvh] md:text-base', hideHint = false }: Props) {
   const pieces = useMemo(() => splitWords(body), [body]);
   const [picked, setPicked] = useState<{ word: string; sentence: string } | null>(null);
   const [added, setAdded] = useState<Set<string>>(() => new Set());

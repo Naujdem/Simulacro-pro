@@ -2,7 +2,7 @@ import JSZip from 'jszip';
 import { StarDict, gunzip, parseIfo } from './stardict';
 
 /*
- * Convierte lo que el usuario elige (archivos sueltos .ifo/.idx/.dict.dz, un .zip o un .tar/.tar.gz) en diccionarios
+ * Convierte lo que el usuario elige (archivos sueltos .ifo/.idx/.dict.dz, un .zip o un .tar/.tar.gz/.tar.xz) en diccionarios
  * StarDict listos para guardar.
  */
 
@@ -35,7 +35,14 @@ export function untar(data: Uint8Array): Map<string, Uint8Array> {
   return out;
 }
 
-const UNSUPPORTED = /\.(tar\.xz|txz|xz|7z|rar|bz2|tar\.bz2)$/i;
+const UNSUPPORTED = /\.(7z|rar|bz2|tar\.bz2|tbz2?)$/i;
+
+/** Descomprime .xz (el formato de los .stardict.tar.xz de FreeDict). La librería se carga solo cuando hace falta. */
+export async function unxz(data: Uint8Array): Promise<Uint8Array> {
+  const { XzReadableStream } = await import('xz-decompress');
+  const stream = new XzReadableStream(new Blob([data as BlobPart]).stream());
+  return new Uint8Array(await new Response(stream).arrayBuffer());
+}
 
 /** Junta todos los archivos que hay dentro de lo elegido, por nombre. */
 export async function readSources(files: File[]): Promise<Map<string, Uint8Array>> {
@@ -54,6 +61,14 @@ export async function readSources(files: File[]): Promise<Map<string, Uint8Array
       }
     } else if (/\.(tar|tar\.gz|tgz)$/i.test(name)) {
       const raw = await gunzip(new Uint8Array(await f.arrayBuffer()));
+      for (const [n, d] of untar(raw)) named.set(n, d);
+    } else if (/\.(tar\.xz|txz)$/i.test(name)) {
+      let raw: Uint8Array;
+      try {
+        raw = await unxz(new Uint8Array(await f.arrayBuffer()));
+      } catch {
+        throw new Error(`No pude descomprimir "${name}": el archivo está dañado o incompleto. Vuelve a descargarlo.`);
+      }
       for (const [n, d] of untar(raw)) named.set(n, d);
     } else {
       named.set(name, new Uint8Array(await f.arrayBuffer()));
