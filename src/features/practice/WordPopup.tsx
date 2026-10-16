@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { PROVIDER_NAMES, getProvider, setProvider, translateWord, type AiProvider } from '@/features/ai/translate';
+import { lookupWord, type DictEntry } from '@/features/ai/dictionary';
 import { VOCAB_DECK, addVocabularyCard } from '@/features/flashcards/api';
+import { playAudio, stopAudio } from '@/lib/playAudio';
 
 interface Props {
   word: string;
@@ -24,6 +26,29 @@ export default function WordPopup({ word, sentence, onClose, onAdded }: Props) {
   const [error, setError] = useState('');
   const [done, setDone] = useState<Done>(null);
   const typed = useRef(false); // si el usuario ya escribió su propia traducción, la IA no la pisa
+
+  // Diccionario (sin IA): se busca al abrir y funciona aunque las IA estén caídas
+  const [dict, setDict] = useState<DictEntry | null>(null);
+  const [dictState, setDictState] = useState<'loading' | 'ok' | 'none' | 'offline'>('loading');
+  const [picked, setPicked] = useState<string[]>([]); // definiciones elegidas para guardar en la ficha
+  useEffect(() => {
+    let cancelled = false;
+    setDictState('loading');
+    setDict(null);
+    setPicked([]);
+    lookupWord(word)
+      .then((e) => {
+        if (cancelled) return;
+        setDict(e);
+        setDictState(e ? 'ok' : 'none');
+      })
+      .catch(() => !cancelled && setDictState('offline'));
+    return () => {
+      cancelled = true;
+      stopAudio();
+    };
+  }, [word]);
+  const togglePicked = (text: string) => setPicked((p) => (p.includes(text) ? p.filter((x) => x !== text) : [...p, text]));
 
   useEffect(() => {
     let cancelled = false;
@@ -63,7 +88,10 @@ export default function WordPopup({ word, sentence, onClose, onAdded }: Props) {
     setSaving(true);
     setError('');
     try {
-      const back = sentence ? `${translation.trim()}\n\nEjemplo: ${sentence}` : translation.trim();
+      const parts = [translation.trim()];
+      if (picked.length) parts.push(picked.map((d) => `• ${d}`).join('\n'));
+      if (sentence) parts.push(`Ejemplo: ${sentence}`);
+      const back = parts.filter(Boolean).join('\n\n');
       const r = await addVocabularyCard(word.toLowerCase(), back);
       setDone(r);
       onAdded(word);
@@ -139,6 +167,49 @@ export default function WordPopup({ word, sentence, onClose, onAdded }: Props) {
                 <p>O escribe la traducción tú.</p>
               </div>
             )}
+
+            <div className="space-y-1">
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-bold text-slate-500">Diccionario</span>
+                {dict?.phonetic && <span className="text-xs text-slate-500">{dict.phonetic}</span>}
+                {dict?.audio && (
+                  <button
+                    onClick={() => playAudio(dict.audio!).catch(() => {})}
+                    aria-label="Escuchar pronunciación"
+                    className="rounded-full border border-slate-300 px-2 py-0.5 text-xs dark:border-slate-600"
+                  >
+                    🔊
+                  </button>
+                )}
+              </div>
+              {dictState === 'loading' && <p className="text-xs text-slate-500">Buscando en el diccionario…</p>}
+              {dictState === 'none' && <p className="text-xs text-slate-500">No hay definición de esta palabra en el diccionario.</p>}
+              {dictState === 'offline' && <p className="text-xs text-slate-500">No se pudo consultar el diccionario (¿sin conexión?).</p>}
+              {dict && (
+                <div className="max-h-44 space-y-2 overflow-y-auto rounded-xl bg-slate-100 p-3 text-sm dark:bg-slate-900">
+                  {dict.meanings.map((m) => (
+                    <div key={m.pos} className="space-y-1">
+                      <p className="text-xs font-bold italic text-sky-600 dark:text-sky-400">{m.pos}</p>
+                      {m.definitions.map((d) => (
+                        <button
+                          key={d.text}
+                          onClick={() => togglePicked(d.text)}
+                          aria-pressed={picked.includes(d.text)}
+                          className={`block w-full rounded-lg px-2 py-1 text-left leading-snug ${
+                            picked.includes(d.text) ? 'bg-sky-100 ring-1 ring-sky-400 dark:bg-sky-950' : 'hover:bg-slate-200 dark:hover:bg-slate-800'
+                          }`}
+                        >
+                          {picked.includes(d.text) ? '✔ ' : ''}
+                          {d.text}
+                          {d.example && <span className="block text-xs italic text-slate-500">“{d.example}”</span>}
+                        </button>
+                      ))}
+                    </div>
+                  ))}
+                  <p className="text-xs text-slate-500">Toca una definición para guardarla también en la ficha.</p>
+                </div>
+              )}
+            </div>
 
             {sentence && (
               <div className="space-y-1">
