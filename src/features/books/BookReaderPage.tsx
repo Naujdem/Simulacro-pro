@@ -47,6 +47,7 @@ export default function BookReaderPage() {
   const [page, setPage] = useState(0);
   const [metrics, setMetrics] = useState({ pages: 1, step: 0 }); // páginas del capítulo y desplazamiento de una página a otra
   const [anim, setAnim] = useState(false);
+  const [chrome, setChrome] = useState(false); // en el celular la barra de arriba solo aparece al tocar el centro de la página
   const [stageW, setStageW] = useState(() => window.innerWidth);
   const stage = useRef<HTMLElement>(null);
   const viewport = useRef<HTMLDivElement>(null);
@@ -221,6 +222,23 @@ export default function BookReaderPage() {
     if (Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy) * 1.5) turn(dx < 0 ? 1 : -1);
   };
 
+  // Celular (una página): tocar un espacio en blanco del lado izquierdo/derecho pasa de página y el centro muestra u oculta la barra.
+  // Tocar una palabra sigue abriendo la traducción.
+  const onBookClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (cols !== 1 || !e.currentTarget.contains(e.target as Node)) return; // (lo segundo: la ventana de palabras vive fuera del libro)
+    if ((e.target as HTMLElement).closest('[data-start], button, a')) return;
+    const r = e.currentTarget.getBoundingClientRect();
+    const x = (e.clientX - r.left) / r.width;
+    if (x < 0.28) turn(-1);
+    else if (x > 0.72) turn(1);
+    else setChrome((c) => !c);
+  };
+
+  const toggleFullscreen = () => {
+    if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
+    else document.documentElement.requestFullscreen?.().catch(() => {});
+  };
+
   if (book === null) return <p className="p-6">Abriendo libro…</p>;
   if (book === 'missing') {
     return (
@@ -235,14 +253,19 @@ export default function BookReaderPage() {
 
   const ch = book.chapters[idx];
   const startsWithHeading = ch.blocks[0]?.t === 'h';
-  const pct = metrics.pages > 1 ? Math.round((page / (metrics.pages - 1)) * 100) : 100;
   const atStart = idx === 0 && page === 0;
   const atEnd = idx === total - 1 && page >= metrics.pages - 1;
+  // Avance de todo el libro (aproximado por capítulos), como el porcentaje de abajo en un lector de libros
+  const overall = total > 0 ? Math.min(100, Math.round(((idx + (page + 1) / metrics.pages) / total) * 100)) : 0;
 
   return (
-    <div className="flex h-dvh flex-col bg-white text-slate-800 dark:bg-slate-900 dark:text-slate-100">
-      {/* Barra superior */}
-      <header className="flex shrink-0 items-center gap-1 border-b border-slate-200 px-2 py-1.5 dark:border-slate-800">
+    <div className="relative flex h-dvh flex-col bg-white text-slate-800 dark:bg-slate-900 dark:text-slate-100">
+      {/* Barra superior: en PC siempre visible; en el celular flota sobre la página y aparece al tocar el centro */}
+      <header
+        className={`z-20 flex shrink-0 items-center gap-1 border-b border-slate-200 bg-white px-2 py-1.5 transition-transform dark:border-slate-800 dark:bg-slate-900 max-md:absolute max-md:inset-x-0 max-md:top-0 max-md:shadow-md ${
+          chrome ? '' : 'max-md:pointer-events-none max-md:-translate-y-full'
+        }`}
+      >
         <button onClick={() => nav('/books')} aria-label="Volver a Libros" className="btn-ghost px-2.5">
           <Icon name="back" size={20} />
         </button>
@@ -253,6 +276,11 @@ export default function BookReaderPage() {
           <p className="truncate text-sm font-bold">{book.meta.title}</p>
           <p className="truncate text-xs text-slate-500">{ch.title}</p>
         </div>
+        {typeof document !== 'undefined' && document.fullscreenEnabled && (
+          <button onClick={toggleFullscreen} aria-label="Pantalla completa" className="btn-ghost px-2.5 text-base">
+            ⛶
+          </button>
+        )}
         <button onClick={() => changeFont(-2)} disabled={font <= MIN_FONT} aria-label="Letra más pequeña" className="btn-ghost px-2.5 text-xs">
           A−
         </button>
@@ -263,9 +291,9 @@ export default function BookReaderPage() {
 
       <div className="relative flex min-h-0 flex-1">
         {/* Índice: panel fijo en PC, cajón en el celular */}
-        {tocOpen && <button aria-label="Cerrar índice" onClick={() => setTocOpen(false)} className="fixed inset-0 z-20 bg-black/40 md:hidden" />}
+        {tocOpen && <button aria-label="Cerrar índice" onClick={() => setTocOpen(false)} className="fixed inset-0 z-30 bg-black/40 md:hidden" />}
         {tocOpen && (
-          <aside className="fixed inset-y-0 left-0 z-30 flex w-72 max-w-[85vw] flex-col border-r border-slate-200 bg-white md:static md:z-auto md:max-w-none dark:border-slate-800 dark:bg-slate-900">
+          <aside className="fixed inset-y-0 left-0 z-40 flex w-72 max-w-[85vw] flex-col border-r border-slate-200 bg-white md:static md:z-auto md:max-w-none dark:border-slate-800 dark:bg-slate-900">
             <p className="section-title shrink-0 px-4 pb-2 pt-4">Capítulos</p>
             <ol className="min-h-0 flex-1 overflow-y-auto pb-4">
               {book.chapters.map((c, i) => (
@@ -273,7 +301,10 @@ export default function BookReaderPage() {
                   <button
                     onClick={() => {
                       go(i);
-                      if (window.innerWidth < 768) setTocOpen(false);
+                      if (window.innerWidth < 768) {
+                        setTocOpen(false);
+                        setChrome(false);
+                      }
                     }}
                     aria-current={i === idx}
                     className={`block w-full px-4 py-2 text-left text-sm leading-snug hover:bg-slate-100 dark:hover:bg-slate-800 ${
@@ -288,11 +319,12 @@ export default function BookReaderPage() {
           </aside>
         )}
 
-        {/* El libro: una página en el celular, dos en PC */}
-        <main ref={stage} className="min-w-0 flex-1 bg-stone-200 md:p-5 dark:bg-slate-950">
+        {/* El libro a pantalla completa: una página en el celular, dos en PC */}
+        <main ref={stage} className="min-w-0 flex-1 bg-stone-200 md:p-3 dark:bg-slate-950">
           <div
+            onClick={onBookClick}
             className="relative mx-auto h-full bg-[#fbf7ee] md:rounded-xl md:shadow-xl md:ring-1 md:ring-black/10 dark:bg-slate-900 dark:md:ring-white/10"
-            style={{ maxWidth: cols === 2 ? 1180 : 700 }}
+            style={{ maxWidth: cols === 2 ? 1500 : stageW >= 768 ? 760 : undefined }}
           >
             {/* Lomo del libro entre las dos páginas */}
             {cols === 2 && (
@@ -303,7 +335,7 @@ export default function BookReaderPage() {
               ref={viewport}
               onTouchStart={onTouchStart}
               onTouchEnd={onTouchEnd}
-              className="absolute inset-x-8 inset-y-5 overflow-hidden md:inset-x-14 md:inset-y-8"
+              className="absolute inset-x-5 bottom-9 top-4 overflow-hidden md:inset-x-14 md:bottom-12 md:top-8"
             >
               <article
                 ref={article}
@@ -326,44 +358,40 @@ export default function BookReaderPage() {
               </article>
             </div>
 
-            {/* Bordes para pasar de página (en PC con flecha; en el celular, toca el borde o desliza) */}
+            {/* Flechas para pasar de página en PC (en el celular: toca los lados o desliza) */}
             <button
               onClick={() => turn(-1)}
               disabled={atStart}
               aria-label="Página anterior"
-              className="absolute inset-y-0 left-0 z-10 flex w-8 items-center justify-center text-2xl text-slate-400 hover:bg-black/5 hover:text-slate-700 disabled:opacity-0 md:w-14 md:rounded-l-xl dark:hover:bg-white/5 dark:hover:text-slate-200"
+              className="absolute inset-y-0 left-0 z-10 hidden w-14 items-center justify-center rounded-l-xl text-2xl text-slate-400 hover:bg-black/5 hover:text-slate-700 disabled:opacity-0 md:flex dark:hover:bg-white/5 dark:hover:text-slate-200"
             >
-              <span className="hidden md:inline">‹</span>
+              ‹
             </button>
             <button
               onClick={() => turn(1)}
               disabled={atEnd}
               aria-label="Página siguiente"
-              className="absolute inset-y-0 right-0 z-10 flex w-8 items-center justify-center text-2xl text-slate-400 hover:bg-black/5 hover:text-slate-700 disabled:opacity-0 md:w-14 md:rounded-r-xl dark:hover:bg-white/5 dark:hover:text-slate-200"
+              className="absolute inset-y-0 right-0 z-10 hidden w-14 items-center justify-center rounded-r-xl text-2xl text-slate-400 hover:bg-black/5 hover:text-slate-700 disabled:opacity-0 md:flex dark:hover:bg-white/5 dark:hover:text-slate-200"
             >
-              <span className="hidden md:inline">›</span>
+              ›
             </button>
+
+            {/* Línea de estado dentro de la página (capítulo · página · avance del libro) */}
+            <div className="pointer-events-none absolute inset-x-5 bottom-2 z-10 flex items-center justify-between gap-3 text-[11px] tabular-nums text-slate-500 md:inset-x-14 md:bottom-4 md:text-xs dark:text-slate-400">
+              <span className="min-w-0 truncate">
+                Cap. {idx + 1} de {total}
+              </span>
+              <span className="shrink-0">
+                Pág. {Math.min(metrics.pages, page + 1)} de {metrics.pages}
+              </span>
+              <span className="shrink-0">{overall} %</span>
+            </div>
+            <div className="pointer-events-none absolute inset-x-0 bottom-0 h-0.5 bg-black/5 md:inset-x-14 dark:bg-white/10" role="progressbar" aria-valuenow={overall} aria-valuemin={0} aria-valuemax={100}>
+              <div className="h-full bg-sky-500" style={{ width: `${overall}%` }} />
+            </div>
           </div>
         </main>
       </div>
-
-      {/* Estado abajo */}
-      <footer className="shrink-0 border-t border-slate-200 px-3 py-1.5 text-xs text-slate-500 dark:border-slate-800">
-        <div className="mx-auto flex max-w-3xl items-center gap-3">
-          <button onClick={() => go(idx - 1)} disabled={idx === 0} aria-label="Capítulo anterior" className="px-1 text-lg disabled:opacity-30">
-            ‹
-          </button>
-          <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-slate-200 dark:bg-slate-700" role="progressbar" aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100}>
-            <div className="h-full bg-sky-500" style={{ width: `${pct}%` }} />
-          </div>
-          <span className="shrink-0 tabular-nums">
-            Cap. {idx + 1} de {total} · Pág. {Math.min(metrics.pages, page + 1)} de {metrics.pages}
-          </span>
-          <button onClick={() => go(idx + 1)} disabled={idx === total - 1} aria-label="Capítulo siguiente" className="px-1 text-lg disabled:opacity-30">
-            ›
-          </button>
-        </div>
-      </footer>
     </div>
   );
 }
