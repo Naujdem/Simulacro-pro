@@ -3,7 +3,8 @@ import { useNavigate, useParams } from 'react-router-dom';
 import Icon from '@/components/Icon';
 import BookText from './BookText';
 import type { Chapter } from './epub';
-import { getBook, getProgress, saveProgress, type BookMeta } from './store';
+import { getRemoteProgress, pickProgress, pushRemoteProgress } from './driveBooks';
+import { getBook, getProgress, saveProgress, type BookMeta, type Progress } from './store';
 
 const FONT_KEY = 'simulapro:book-font';
 const MIN_FONT = 14;
@@ -31,19 +32,27 @@ export default function BookReaderPage() {
   const pendingScroll = useRef<number | null>(null); // posición guardada que falta restaurar al abrir el capítulo
   const ready = useRef(false); // hasta restaurar lo guardado no se guarda nada (para no pisarlo con 0)
   const saveTimer = useRef<ReturnType<typeof setTimeout>>();
-  const latest = useRef({ id: '', idx: 0, frac: 0 });
+  const latest = useRef({ id: '', driveId: '', idx: 0, frac: 0 });
 
   useEffect(() => {
     let cancelled = false;
     ready.current = false;
     const id = decodeURIComponent(bookId ?? '');
-    Promise.all([getBook(id), getProgress(id).catch(() => null)])
-      .then(([b, p]) => {
+    // Si el libro está en tu Drive, se mira también dónde ibas en otro dispositivo (máximo 2 s de espera)
+    const remote = async (): Promise<Progress | null> => {
+      const b = await getBook(id);
+      if (!b?.meta.driveId || !navigator.onLine) return null;
+      const r = await Promise.race([getRemoteProgress(b.meta.driveId), new Promise<null>((ok) => setTimeout(() => ok(null), 2000))]).catch(() => null);
+      return r ? { id, ...r } : null;
+    };
+    Promise.all([getBook(id), getProgress(id).catch(() => null), remote().catch(() => null)])
+      .then(([b, local, far]) => {
         if (cancelled) return;
         if (!b) return setBook('missing');
+        const p = pickProgress(local, far);
         const start = p ? Math.min(Math.max(0, p.chapter), b.chapters.length - 1) : 0;
         pendingScroll.current = p && start === p.chapter ? p.scroll : 0;
-        latest.current = { id: b.meta.id, idx: start, frac: pendingScroll.current };
+        latest.current = { id: b.meta.id, driveId: b.meta.driveId ?? '', idx: start, frac: pendingScroll.current };
         setIdx(start);
         setBook(b);
       })
@@ -54,17 +63,20 @@ export default function BookReaderPage() {
   }, [bookId]);
 
   // Guarda dónde vas (con una pausa para no escribir en cada pixel) y también al salir del libro
-  const persist = useCallback(() => {
+  // now = enviar ya a Drive (al cambiar de capítulo o al salir); si no, Drive recibe como mucho un envío cada 10 s
+  const persist = useCallback((now = false) => {
     clearTimeout(saveTimer.current);
-    const { id, idx: i, frac } = latest.current;
-    if (id && ready.current) saveProgress(id, i, frac).catch(() => {});
+    const { id, driveId, idx: i, frac } = latest.current;
+    if (!id || !ready.current) return;
+    saveProgress(id, i, frac).catch(() => {});
+    if (driveId) pushRemoteProgress(driveId, i, frac, { now });
   }, []);
   useEffect(() => {
-    const flush = () => document.visibilityState === 'hidden' && persist();
+    const flush = () => document.visibilityState === 'hidden' && persist(true);
     document.addEventListener('visibilitychange', flush);
     return () => {
       document.removeEventListener('visibilitychange', flush);
-      persist();
+      persist(true);
     };
   }, [persist]);
 
@@ -89,7 +101,7 @@ export default function BookReaderPage() {
       setPct(0);
       scroller.current?.scrollTo({ top: 0 });
       latest.current = { ...latest.current, idx: n, frac: 0 };
-      persist();
+      persist(true);
     },
     [total, persist],
   );
@@ -123,7 +135,7 @@ export default function BookReaderPage() {
     setPct(Math.round(frac * 100));
     latest.current = { ...latest.current, frac };
     clearTimeout(saveTimer.current);
-    saveTimer.current = setTimeout(persist, 600);
+    saveTimer.current = setTimeout(() => persist(), 600);
   };
 
   if (book === null) return <p className="p-6">Abriendo libro…</p>;

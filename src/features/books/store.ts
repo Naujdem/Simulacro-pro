@@ -21,6 +21,8 @@ export interface BookMeta {
   cover: Blob | null;
   /** Tamaño del .epub en bytes. */
   size: number;
+  /** Id del archivo en tu Google Drive, si el libro ya está guardado allí. */
+  driveId?: string;
 }
 
 function open(): Promise<IDBDatabase> {
@@ -54,7 +56,7 @@ async function run<T>(stores: string[], mode: IDBTransactionMode, fn: (tx: IDBTr
 /** El mismo libro (título + autor) se reemplaza en vez de duplicarse. */
 export const bookId = (title: string, author: string) => `${title}|${author}`.toLowerCase().replace(/\s+/g, ' ').trim();
 
-export async function saveBook(book: ParsedBook, file: Blob): Promise<BookMeta> {
+export async function saveBook(book: ParsedBook, file: Blob, driveId?: string): Promise<BookMeta> {
   const words = book.chapters.reduce((n, c) => n + c.blocks.reduce((m, b) => m + b.text.split(/\s+/).filter(Boolean).length, 0), 0);
   const meta: BookMeta = {
     id: bookId(book.title, book.author),
@@ -66,12 +68,34 @@ export async function saveBook(book: ParsedBook, file: Blob): Promise<BookMeta> 
     cover: book.cover,
     size: file.size,
   };
+  // Al volver a agregar el mismo libro no se pierde que ya está en Drive
+  const prev = await run<BookMeta | undefined>([META], 'readonly', (tx) => tx.objectStore(META).get(meta.id));
+  const drive = driveId ?? prev?.driveId;
+  if (drive) meta.driveId = drive;
   await run([META, CONTENT, FILE], 'readwrite', (tx) => {
     tx.objectStore(META).put(meta);
     tx.objectStore(CONTENT).put({ id: meta.id, chapters: book.chapters });
     tx.objectStore(FILE).put({ id: meta.id, file });
   });
   return meta;
+}
+
+/** Anota (o quita, con null) el id del archivo del libro en Drive. */
+export async function setDriveId(id: string, driveId: string | null): Promise<void> {
+  const meta = await run<BookMeta | undefined>([META], 'readonly', (tx) => tx.objectStore(META).get(id));
+  if (!meta) return;
+  const next: BookMeta = { ...meta };
+  if (driveId) next.driveId = driveId;
+  else delete next.driveId;
+  await run([META], 'readwrite', (tx) => {
+    tx.objectStore(META).put(next);
+  });
+}
+
+/** El archivo .epub guardado en este dispositivo (para subirlo a Drive). */
+export async function getBookFile(id: string): Promise<Blob | null> {
+  const rec = await run<{ id: string; file: Blob } | undefined>([FILE], 'readonly', (tx) => tx.objectStore(FILE).get(id));
+  return rec?.file ?? null;
 }
 
 export async function listBooks(): Promise<BookMeta[]> {

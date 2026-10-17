@@ -119,6 +119,11 @@ export function getToken(): Promise<string> {
   return inflight;
 }
 
+/** Olvida el token guardado (por ejemplo, cuando Google responde 401): el siguiente uso pide uno nuevo. */
+export function forgetToken(): void {
+  cached = null;
+}
+
 // Debe llamarse directamente desde un clic del usuario (abre la ventana de Google).
 export async function connectDrive(): Promise<void> {
   await preloadGis();
@@ -152,6 +157,12 @@ async function ensureFolder(token: string): Promise<string> {
   });
   if (!made.ok) throw new DriveError('other', `Drive respondió ${made.status} al crear la carpeta.`);
   return (folderId = ((await made.json()) as { id: string }).id);
+}
+
+/** Token y carpeta «SimulaPro» del usuario (se crea si no existe), para otros módulos que guardan archivos en su Drive. */
+export async function driveContext(): Promise<{ token: string; folder: string }> {
+  const token = await getToken();
+  return { token, folder: await ensureFolder(token) };
 }
 
 // Reduce la imagen (máx. 1024 px, JPEG) para que ocupe poco en tu Drive y cargue rápido.
