@@ -14,6 +14,7 @@ const items: Item[] = [
   { to: '/', label: 'Inicio', icon: 'home' },
   { to: '/library', label: 'Simulacros', icon: 'book', also: ['/new', '/import-json', '/exams', '/folders'] },
   { to: '/flashcards', label: 'Fichas', icon: 'cards' },
+  { to: '/books', label: 'Libros', icon: 'library' },
   { to: '/stats', label: 'Progreso', icon: 'chart' },
   { to: '/profile', label: 'Perfil', icon: 'user' },
 ];
