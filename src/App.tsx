@@ -22,6 +22,8 @@ import StatsPage from '@/features/stats/StatsPage';
 import ProfilePage from '@/features/profile/ProfilePage';
 import FlashcardsPage from '@/features/flashcards/FlashcardsPage';
 import StudyPage from '@/features/flashcards/StudyPage';
+import BooksPage from '@/features/books/BooksPage';
+import BookReaderPage from '@/features/books/BookReaderPage';
 
 export default function App() {
   const { session, loading } = useSession();
@@ -60,6 +62,7 @@ export default function App() {
         <Route index element={<HomePage />} />
         <Route path="library" element={<LibraryPage />} />
         <Route path="flashcards" element={<FlashcardsPage />} />
+        <Route path="books" element={<BooksPage />} />
         <Route path="folders/:folderId" element={<FolderPage />} />
         <Route path="exams/:examId/edit" element={<EditExamPage />} />
         <Route path="review" element={<ReviewPage />} />
@@ -74,6 +77,7 @@ export default function App() {
       </Route>
       <Route path="practice/:examId" element={<PracticePage />} />
       <Route path="flashcards/study" element={<StudyPage />} />
+      <Route path="books/:bookId" element={<BookReaderPage />} />
       <Route path="results" element={<ResultsPage />} />
       <Route path="suggestion" element={<SuggestionPage />} />
       <Route path="*" element={<Navigate to="/" replace />} />
