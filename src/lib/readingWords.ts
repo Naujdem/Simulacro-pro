@@ -27,13 +27,30 @@ export function splitWords(text: string): Piece[] {
   return out;
 }
 
+/** Solo las palabras tocables, en orden (la palabra número 0, 1, 2…). */
+export const wordsOf = (text: string): Piece[] => splitWords(text).filter((p) => p.word);
+
+/**
+ * El texto desde la palabra `a` hasta la palabra `b` (las dos incluidas), con lo que haya entre ellas
+ * (espacios, comas…): "give it up" aunque el verbo esté partido. Sirve para frases y phrasal verbs.
+ */
+export function phraseBetween(text: string, words: Piece[], a: number, b: number): string {
+  const first = words[Math.min(a, b)];
+  const last = words[Math.max(a, b)];
+  if (!first || !last) return '';
+  return text.slice(first.start, last.start + last.text.length).replace(/\s+/g, ' ').trim();
+}
+
 /** Forma para comparar y guardar: minúsculas y apóstrofo normal ("Don’t" → "don't"). */
 export const normalizeWord = (w: string): string => w.replace(/’/g, "'").toLowerCase();
 
 const END = /[.!?\n]/;
 
-/** La frase del texto que contiene la posición `index` (sin saltos de línea ni espacios de más). */
-export function sentenceAt(text: string, index: number): string {
+/**
+ * La frase del texto que contiene la posición `index` (sin saltos de línea ni espacios de más).
+ * Con `endIndex` la frase llega hasta donde termina esa posición: así incluye una selección de varias palabras.
+ */
+export function sentenceAt(text: string, index: number, endIndex: number = index): string {
   let start = 0;
   for (let i = index - 1; i >= 0; i--) {
     if (END.test(text[i])) {
@@ -42,7 +59,7 @@ export function sentenceAt(text: string, index: number): string {
     }
   }
   let end = text.length;
-  for (let i = index; i < text.length; i++) {
+  for (let i = Math.max(index, endIndex); i < text.length; i++) {
     if (END.test(text[i])) {
       end = text[i] === '\n' ? i : i + 1;
       break;

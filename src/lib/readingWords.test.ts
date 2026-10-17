@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { normalizeWord, sentenceAt, splitWords } from './readingWords';
+import { normalizeWord, phraseBetween, sentenceAt, splitWords, wordsOf } from './readingWords';
 
 describe('splitWords', () => {
   it('separa palabras de espacios y puntuación sin perder nada', () => {
@@ -40,5 +40,36 @@ describe('sentenceAt', () => {
 describe('normalizeWord', () => {
   it('minúsculas y apóstrofo normal', () => {
     expect(normalizeWord('Don’t')).toBe("don't");
+  });
+});
+
+describe('phraseBetween', () => {
+  const t = 'He decided to give it up, but I looked  forward to\nit.';
+  const w = wordsOf(t);
+  const at = (x: string) => w.findIndex((p) => p.text === x);
+  it('une las palabras elegidas con lo que hay entre ellas', () => {
+    expect(phraseBetween(t, w, at('give'), at('up'))).toBe('give it up');
+    expect(phraseBetween(t, w, at('up'), at('but'))).toBe('up, but');
+  });
+  it('junta saltos de línea y espacios dobles', () => {
+    expect(phraseBetween(t, w, at('looked'), at('looked') + 2)).toBe('looked forward to');
+  });
+  it('una sola palabra y orden invertido', () => {
+    expect(phraseBetween(t, w, at('decided'), at('decided'))).toBe('decided');
+    expect(phraseBetween(t, w, at('up'), at('give'))).toBe('give it up');
+  });
+  it('posiciones fuera del texto', () => {
+    expect(phraseBetween(t, w, 0, 999)).toBe('');
+    expect(phraseBetween('', [], 0, 0)).toBe('');
+  });
+});
+
+describe('sentenceAt con varias palabras', () => {
+  const t = 'It was late. She gave up. Then she left.';
+  it('con el final de la selección sigue la misma frase', () => {
+    expect(sentenceAt(t, t.indexOf('gave'), t.indexOf('up') + 1)).toBe('She gave up.');
+  });
+  it('si la selección cruza frases, abarca de la primera a la última', () => {
+    expect(sentenceAt(t, t.indexOf('gave'), t.indexOf('Then'))).toBe('She gave up. Then she left.');
   });
 });

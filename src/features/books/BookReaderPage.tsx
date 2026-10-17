@@ -23,6 +23,9 @@ function readFont(): number {
   }
 }
 
+const hasSelection = () => !!window.getSelection && !window.getSelection()!.isCollapsed;
+const clearSelection = () => window.getSelection?.()?.removeAllRanges();
+
 const reduceMotion = () => typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 /** Idioma probable del capítulo (para que la separación de palabras con guion sea la correcta). */
@@ -156,6 +159,7 @@ export default function BookReaderPage() {
   const go = useCallback(
     (n: number, pend: Pending = 0) => {
       if (n < 0 || n >= total) return;
+      clearSelection();
       setAnim(false);
       latest.current = { ...latest.current, idx: n, frac: pend === 'last' ? 1 : pend ?? 0 };
       if (n === idx) {
@@ -174,6 +178,7 @@ export default function BookReaderPage() {
   /** Pasa una página; al llegar al final (o al principio) del capítulo sigue con el siguiente (o el anterior). */
   const turn = useCallback(
     (dir: 1 | -1) => {
+      clearSelection();
       const next = page + dir;
       if (next < 0) return idx > 0 ? go(idx - 1, 'last') : undefined;
       if (next >= metrics.pages) return idx < total - 1 ? go(idx + 1, 0) : undefined;
@@ -216,7 +221,7 @@ export default function BookReaderPage() {
     const s = touch.current;
     const t = e.changedTouches[0];
     touch.current = null;
-    if (!s || !t) return;
+    if (!s || !t || hasSelection()) return; // arrastrar para elegir texto no es pasar de página
     const dx = t.clientX - s.x;
     const dy = t.clientY - s.y;
     if (Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy) * 1.5) turn(dx < 0 ? 1 : -1);
@@ -226,6 +231,7 @@ export default function BookReaderPage() {
   // Tocar una palabra sigue abriendo la traducción.
   const onBookClick = (e: React.MouseEvent<HTMLDivElement>) => {
     if (cols !== 1 || !e.currentTarget.contains(e.target as Node)) return; // (lo segundo: la ventana de palabras vive fuera del libro)
+    if (hasSelection()) return clearSelection(); // un toque en blanco primero quita el texto seleccionado
     if ((e.target as HTMLElement).closest('[data-start], button, a')) return;
     const r = e.currentTarget.getBoundingClientRect();
     const x = (e.clientX - r.left) / r.width;
