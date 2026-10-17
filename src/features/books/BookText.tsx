@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { normalizeWord, sentenceAt, splitWords } from '@/lib/readingWords';
 import WordPopup from '@/features/practice/WordPopup';
 import type { Block } from './epub';
@@ -39,11 +40,11 @@ export default function BookText({ blocks }: { blocks: Block[] }) {
           ),
         );
         return b.t === 'h' ? (
-          <h2 key={i} className="mb-4 mt-8 font-sans text-2xl font-bold leading-tight first:mt-0">
+          <h2 key={i} className="mb-4 mt-8 font-sans text-2xl font-bold leading-tight [break-after:avoid] first:mt-0">
             {pieces}
           </h2>
         ) : (
-          <p key={i} className="mb-4 whitespace-pre-line">
+          <p key={i} className="mb-4 whitespace-pre-line [orphans:2] [widows:2]">
             {pieces}
           </p>
         );
@@ -59,14 +60,17 @@ export default function BookText({ blocks }: { blocks: Block[] }) {
       >
         {content}
       </div>
-      {picked && (
-        <WordPopup
-          word={picked.word}
-          sentence={picked.sentence}
-          onClose={() => setPicked(null)}
-          onAdded={(w) => setAdded((s) => new Set(s).add(normalizeWord(w)))}
-        />
-      )}
+      {/* En el body: el texto está dentro de columnas desplazadas con transform y ahí una ventana fija quedaría mal ubicada */}
+      {picked &&
+        createPortal(
+          <WordPopup
+            word={picked.word}
+            sentence={picked.sentence}
+            onClose={() => setPicked(null)}
+            onAdded={(w) => setAdded((s) => new Set(s).add(normalizeWord(w)))}
+          />,
+          document.body,
+        )}
     </>
   );
 }
