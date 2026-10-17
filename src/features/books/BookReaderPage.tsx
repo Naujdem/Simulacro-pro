@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import Icon from '@/components/Icon';
 import BookText from './BookText';
+import ChapterActivities from './ChapterActivities';
 import type { Chapter } from './epub';
 import { getRemoteProgress, pickProgress, pushRemoteProgress } from './driveBooks';
 import { getBook, getProgress, saveProgress, type BookMeta, type Progress } from './store';
@@ -207,6 +208,7 @@ export default function BookReaderPage() {
           <article className="mx-auto max-w-2xl px-5 py-8 font-serif leading-[1.75]" style={{ fontSize: font }}>
             {!startsWithHeading && <h2 className="mb-6 font-sans text-2xl font-bold leading-tight">{ch.title}</h2>}
             <BookText key={`${book.meta.id}-${idx}`} blocks={ch.blocks} />
+            <ChapterActivities key={`act-${book.meta.id}-${idx}`} bookId={book.meta.id} bookTitle={book.meta.title} chapterIndex={idx} chapterTitle={ch.title} blocks={ch.blocks} />
             <div className="mt-10 flex gap-3 font-sans text-base">
               <button onClick={() => go(idx - 1)} disabled={idx === 0} className="btn-secondary flex-1">
                 ‹ Anterior
