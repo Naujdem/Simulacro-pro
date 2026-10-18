@@ -62,6 +62,9 @@ export function parseEntries(raw: unknown): DictEntry | null {
 
 /** Formas base a probar si la palabra tal cual no está (plurales, -ed, -ing…): "played" → "play". */
 export function baseForms(word: string): string[] {
+  // Frase o phrasal verb: la forma base está en el primer verbo ("picked up" → "pick up", "gives up" → "give up")
+  const sp = normalizeWord(word).trim().split(/\s+/);
+  if (sp.length > 1) return baseForms(sp[0]).map((f) => [f, ...sp.slice(1)].join(' '));
   const w = normalizeWord(word).replace(/'s$/, '');
   const out = new Set<string>([w]);
   const add = (s: string) => s.length >= 2 && out.add(s);

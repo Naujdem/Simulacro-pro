@@ -45,3 +45,14 @@ describe('baseForms', () => {
     expect(baseForms('Mary’s')).toEqual(['mary']);
   });
 });
+
+describe('baseForms con frases', () => {
+  it('lleva el primer verbo a su forma base', () => {
+    expect(baseForms('picked up')).toContain('pick up');
+    expect(baseForms('gives up')).toContain('give up');
+    expect(baseForms('looking forward to')).toContain('look forward to');
+  });
+  it('conserva la frase tal cual como primera opción', () => {
+    expect(baseForms('Give  Up')[0]).toBe('give up');
+  });
+});
