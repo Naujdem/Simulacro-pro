@@ -4,6 +4,26 @@ import { normalizeWord, phraseBetween, sentenceAt, splitWords, wordsOf } from '@
 import WordPopup from '@/features/practice/WordPopup';
 import type { Block } from './epub';
 
+const savedKey = (bookId: string) => `simulapro:book-words:${bookId}`;
+
+/** Palabras ya agregadas a Vocabulario desde este libro (se recuerdan para subrayarlas al volver a abrirlo). */
+export function loadSavedWords(bookId: string): Set<string> {
+  try {
+    const raw = JSON.parse(localStorage.getItem(savedKey(bookId)) ?? '[]');
+    return new Set(Array.isArray(raw) ? raw.filter((w): w is string => typeof w === 'string') : []);
+  } catch {
+    return new Set();
+  }
+}
+
+function storeSavedWords(bookId: string, words: Set<string>) {
+  try {
+    localStorage.setItem(savedKey(bookId), JSON.stringify([...words]));
+  } catch {
+    /* sin almacenamiento: el subrayado vale solo mientras el libro está abierto */
+  }
+}
+
 /** Lo más largo que se puede traducir de una vez: la función de traducción acepta hasta 160 letras. */
 const MAX_WORDS = 30;
 const MAX_CHARS = 160;
@@ -21,9 +41,9 @@ interface Sel {
  * Para frases y phrasal verbs hay dos caminos: tocar una palabra y sumar las de al lado desde la ventana, o seleccionar el texto
  * (arrastrando en PC, manteniendo el dedo en el celular) y tocar «Traducir».
  */
-export default function BookText({ blocks }: { blocks: Block[] }) {
+export default function BookText({ blocks, bookId }: { blocks: Block[]; bookId: string }) {
   const [sel, setSel] = useState<Sel | null>(null);
-  const [added, setAdded] = useState<Set<string>>(() => new Set());
+  const [added, setAdded] = useState<Set<string>>(() => loadSavedWords(bookId));
   const [offer, setOffer] = useState<{ sel: Sel; x: number; y: number } | null>(null); // botón «Traducir» junto al texto seleccionado
   const root = useRef<HTMLDivElement>(null);
 
@@ -167,7 +187,14 @@ export default function BookText({ blocks }: { blocks: Block[] }) {
             sentence={sentenceAt(blocks[cur.block].text, first.start, last.start + last.text.length - 1)}
             onClose={() => setSel(null)}
             // Solo una palabra suelta se subraya en el texto; una frase guardada no marca cada una de sus palabras
-            onAdded={(w) => !/\s/.test(w) && setAdded((s) => new Set(s).add(normalizeWord(w)))}
+            onAdded={(w) =>
+              !/\s/.test(w) &&
+              setAdded((s) => {
+                const next = new Set(s).add(normalizeWord(w));
+                storeSavedWords(bookId, next);
+                return next;
+              })
+            }
             extend={{
               left: cur.a > 0 && fits({ ...cur, a: cur.a - 1 }),
               right: cur.b < ws.length - 1 && fits({ ...cur, b: cur.b + 1 }),

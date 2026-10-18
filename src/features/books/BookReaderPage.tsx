@@ -365,7 +365,7 @@ export default function BookReaderPage() {
                 }}
               >
                 {!startsWithHeading && <h2 className="mb-6 font-sans text-2xl font-bold leading-tight [break-after:avoid]">{ch.title}</h2>}
-                <BookText key={`${book.meta.id}-${idx}`} blocks={ch.blocks} />
+                <BookText key={`${book.meta.id}-${idx}`} bookId={book.meta.id} blocks={ch.blocks} />
               </article>
             </div>
 
