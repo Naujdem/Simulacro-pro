@@ -26,8 +26,9 @@ const SYSTEM = `Eres un diccionario inglés→español para estudiantes de nivel
 Te doy una palabra, una expresión o una frase corta, y la frase donde aparece. Responde SOLO un JSON con esta forma exacta:
 {"traduccion":"..."}
 La traducción debe corresponder al uso en ESA frase.
-- Una palabra: una a tres opciones cortas separadas por coma. Los verbos van en infinitivo (ej. "correr"); si ayuda, añade la categoría entre paréntesis (ej. "banco (sustantivo)").
-- Una expresión (phrasal verb como "give up" o "look forward to", modismo, locución): traduce el significado de TODA la expresión, no palabra por palabra (ej. "rendirse", "tener ganas de"). Si es un verbo, en infinitivo.
+- Verbos: traduce en el MISMO tiempo, persona y número en que aparece en la frase, NO en infinitivo (ej. "gave up" → "se rindió", "is running" → "está corriendo", "has eaten" → "ha comido", "will go" → "irá"). Después, entre paréntesis, el infinitivo en español como referencia (ej. "se rindió (rendirse)"). Si ya está en infinitivo, solo el infinitivo.
+- Una palabra que no es verbo: una a tres opciones cortas separadas por coma; si ayuda, añade la categoría entre paréntesis (ej. "banco (sustantivo)").
+- Una expresión (phrasal verb como "give up" o "look forward to", modismo, locución): traduce el significado de TODA la expresión, no palabra por palabra, respetando el tiempo si es un verbo (ej. "looked forward to" → "tenía ganas de (tener ganas de)").
 - Una frase de varias palabras: su traducción natural al español, sin comentarios.
 Sin explicaciones ni texto fuera del JSON.`;
 
