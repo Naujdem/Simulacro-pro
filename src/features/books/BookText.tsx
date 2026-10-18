@@ -4,10 +4,30 @@ import { normalizeWord, sentenceAt, splitWords } from '@/lib/readingWords';
 import WordPopup from '@/features/practice/WordPopup';
 import type { Block } from './epub';
 
+const savedKey = (bookId: string) => `simulapro:book-words:${bookId}`;
+
+/** Palabras ya agregadas a Vocabulario desde este libro (se recuerdan para subrayarlas al volver a abrirlo). */
+export function loadSavedWords(bookId: string): Set<string> {
+  try {
+    const raw = JSON.parse(localStorage.getItem(savedKey(bookId)) ?? '[]');
+    return new Set(Array.isArray(raw) ? raw.filter((w): w is string => typeof w === 'string') : []);
+  } catch {
+    return new Set();
+  }
+}
+
+function storeSavedWords(bookId: string, words: Set<string>) {
+  try {
+    localStorage.setItem(savedKey(bookId), JSON.stringify([...words]));
+  } catch {
+    /* sin almacenamiento: el subrayado vale solo mientras el libro está abierto */
+  }
+}
+
 /** Texto de un capítulo con cada palabra tocable: traducción, diccionario y «Agregar a Vocabulario» (la misma ventana de las lecturas). */
-export default function BookText({ blocks }: { blocks: Block[] }) {
+export default function BookText({ blocks, bookId }: { blocks: Block[]; bookId: string }) {
   const [picked, setPicked] = useState<{ word: string; sentence: string } | null>(null);
-  const [added, setAdded] = useState<Set<string>>(() => new Set());
+  const [added, setAdded] = useState<Set<string>>(() => loadSavedWords(bookId));
 
   const open = (target: EventTarget | null) => {
     const el = (target as HTMLElement | null)?.closest<HTMLElement>('[data-start]');
@@ -67,7 +87,13 @@ export default function BookText({ blocks }: { blocks: Block[] }) {
             word={picked.word}
             sentence={picked.sentence}
             onClose={() => setPicked(null)}
-            onAdded={(w) => setAdded((s) => new Set(s).add(normalizeWord(w)))}
+            onAdded={(w) =>
+              setAdded((s) => {
+                const next = new Set(s).add(normalizeWord(w));
+                storeSavedWords(bookId, next);
+                return next;
+              })
+            }
           />,
           document.body,
         )}
