@@ -26,6 +26,9 @@ const MIME: Record<string, string> = {
 const mimeFor = (name: string) => MIME[name.split('.').pop()?.toLowerCase() ?? ''] ?? '';
 const isUrl = (s: string) => /^https?:\/\//i.test(s);
 
+// Subidas simultáneas a Drive. Si Google pide frenar, drive.ts espera y reintenta solo.
+const UPLOAD_CONCURRENCY = 8;
+
 /** Ejecuta `fn` sobre todos los elementos con a lo sumo `limit` en paralelo. */
 async function mapLimit<T>(items: T[], limit: number, fn: (item: T) => Promise<void>) {
   let next = 0;
@@ -150,10 +153,11 @@ export const AnkiImporter: React.FC<AnkiImporterProps> = ({ onImportSuccess }) =
     if (withMedia && p.mediaNames.size > 0) {
       const jobs = [...p.mediaNames.entries()];
       let done = 0;
-      setProgress({ done: 0, total: jobs.length });
-      setStatus('Subiendo imágenes y audios a Google Drive...');
+      const total = jobs.length;
+      setProgress({ done: 0, total });
+      setStatus(`Subiendo imágenes y audios a Google Drive (0 de ${total})...`);
 
-      await mapLimit(jobs, 4, async ([name, kind]) => {
+      await mapLimit(jobs, UPLOAD_CONCURRENCY, async ([name, kind]) => {
         try {
           const zipKey = lookupMedia(p.mediaIndex, name);
           const entry = zipKey ? p.zip.file(zipKey) : null;
@@ -161,7 +165,7 @@ export const AnkiImporter: React.FC<AnkiImporterProps> = ({ onImportSuccess }) =
             missing++;
           } else if (!driveStopped) {
             const blob = new Blob([await entry.async('blob')], { type: mimeFor(name) });
-            refs.set(name, kind === 'image' ? await uploadImage(blob) : await uploadAudio(blob));
+            refs.set(name, kind === 'image' ? await uploadImage(blob, { keepSmallJpeg: true }) : await uploadAudio(blob));
             uploaded++;
           }
         } catch (e) {
@@ -169,7 +173,9 @@ export const AnkiImporter: React.FC<AnkiImporterProps> = ({ onImportSuccess }) =
           failed++;
           if (e instanceof DriveError && (e.code === 'noconnect' || e.code === 'reconnect')) driveStopped = true;
         }
-        setProgress({ done: ++done, total: jobs.length });
+        done++;
+        setProgress({ done, total });
+        setStatus(`Subiendo imágenes y audios a Google Drive (${done} de ${total})...`);
       });
     }
 
