@@ -136,9 +136,20 @@ export async function connectDrive(): Promise<void> {
 /* ───────────── Carpeta, subida y lectura ───────────── */
 
 let folderId: string | null = null;
+let folderPromise: Promise<string> | null = null;
 
-async function ensureFolder(token: string): Promise<string> {
-  if (folderId) return folderId;
+// Varias subidas en paralelo comparten la misma búsqueda/creación de la carpeta (así no se crean carpetas duplicadas).
+function ensureFolder(token: string): Promise<string> {
+  if (folderId) return Promise.resolve(folderId);
+  if (!folderPromise) {
+    folderPromise = findOrCreateFolder(token).finally(() => {
+      folderPromise = null;
+    });
+  }
+  return folderPromise;
+}
+
+async function findOrCreateFolder(token: string): Promise<string> {
   const auth = { Authorization: `Bearer ${token}` };
   const q = encodeURIComponent(
     `name='${FOLDER_NAME}' and mimeType='application/vnd.google-apps.folder' and trashed=false`,
@@ -165,10 +176,22 @@ export async function driveContext(): Promise<{ token: string; folder: string }>
   return { token, folder: await ensureFolder(token) };
 }
 
+// Un JPEG que ya cabe en MAX_SIDE y pesa menos que esto no gana nada al recomprimirlo.
+const KEEP_JPEG_BELOW = 300 * 1024;
+
+export interface ShrinkOptions {
+  /** Sube tal cual los JPEG que ya son pequeños (en px y en peso), sin volver a codificarlos. */
+  keepSmallJpeg?: boolean;
+}
+
 // Reduce la imagen (máx. 1024 px, JPEG) para que ocupe poco en tu Drive y cargue rápido.
-export async function shrinkImage(file: Blob): Promise<Blob> {
+export async function shrinkImage(file: Blob, opts: ShrinkOptions = {}): Promise<Blob> {
   const bmp = await createImageBitmap(file);
   const scale = Math.min(1, MAX_SIDE / Math.max(bmp.width, bmp.height));
+  if (opts.keepSmallJpeg && scale === 1 && file.type === 'image/jpeg' && file.size <= KEEP_JPEG_BELOW) {
+    bmp.close?.();
+    return file;
+  }
   const w = Math.max(1, Math.round(bmp.width * scale));
   const h = Math.max(1, Math.round(bmp.height * scale));
   const canvas = document.createElement('canvas');
@@ -188,49 +211,93 @@ export async function shrinkImage(file: Blob): Promise<Blob> {
   );
 }
 
+/* ───────────── Subida con reintentos ───────────── */
+
+const MAX_TRIES = 4;
+const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
+const backoff = (attempt: number) => Math.min(8000, 500 * 2 ** (attempt - 1)) + Math.random() * 300;
+const uid = () => `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+
+// Cuando Google pide frenar, todas las subidas en curso esperan juntas hasta esta hora.
+let pauseUntil = 0;
+
+async function isRateLimited(r: Response): Promise<boolean> {
+  if (r.status === 429) return true;
+  if (r.status !== 403) return false;
+  try {
+    return /rateLimitExceeded|userRateLimitExceeded/i.test(await r.clone().text());
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Sube un archivo a la carpeta SimulaPro y devuelve la referencia "gd:<id>".
+ * Reintenta ante cortes de red, errores 5xx y límites de velocidad de Google, y renueva el permiso si caduca (401).
+ */
+async function uploadMultipart(blob: Blob, name: string, mime: string, what: string): Promise<string> {
+  const boundary = `simulapro${uid()}`;
+  let renewed = false;
+
+  for (let attempt = 1; ; attempt++) {
+    const wait = pauseUntil - Date.now();
+    if (wait > 0) await sleep(wait);
+
+    const token = await getToken();
+    const parent = await ensureFolder(token);
+    const meta = { name, mimeType: mime, parents: [parent] };
+    const body = new Blob([
+      `--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${JSON.stringify(meta)}\r\n`,
+      `--${boundary}\r\nContent-Type: ${mime}\r\n\r\n`,
+      blob,
+      `\r\n--${boundary}--`,
+    ]);
+
+    let r: Response;
+    try {
+      r = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': `multipart/related; boundary=${boundary}` },
+        body,
+      });
+    } catch {
+      if (attempt >= MAX_TRIES) throw new DriveError('other', `Sin conexión con Drive al subir ${what}.`);
+      await sleep(backoff(attempt));
+      continue;
+    }
+
+    if (r.ok) return makeRef(((await r.json()) as { id: string }).id);
+
+    if (r.status === 401) {
+      cached = null;
+      if (!renewed) {
+        renewed = true; // un solo intento más con un permiso nuevo
+        continue;
+      }
+    } else if (attempt < MAX_TRIES) {
+      if (await isRateLimited(r)) {
+        pauseUntil = Math.max(pauseUntil, Date.now() + backoff(attempt));
+        continue;
+      }
+      if (r.status >= 500) {
+        await sleep(backoff(attempt));
+        continue;
+      }
+    }
+    throw new DriveError('other', `Drive respondió ${r.status} al subir ${what}.`);
+  }
+}
+
 // Sube la imagen (ya reducida) y devuelve la referencia "gd:<id>".
-export async function uploadImage(file: Blob): Promise<string> {
-  const blob = await shrinkImage(file);
-  const token = await getToken();
-  const parent = await ensureFolder(token);
-  const boundary = `simulapro${Date.now()}`;
-  const meta = { name: `img-${Date.now()}.jpg`, mimeType: 'image/jpeg', parents: [parent] };
-  const body = new Blob([
-    `--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${JSON.stringify(meta)}\r\n`,
-    `--${boundary}\r\nContent-Type: image/jpeg\r\n\r\n`,
-    blob,
-    `\r\n--${boundary}--`,
-  ]);
-  const r = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id', {
-    method: 'POST',
-    headers: { Authorization: `Bearer ${token}`, 'Content-Type': `multipart/related; boundary=${boundary}` },
-    body,
-  });
-  if (r.status === 401) cached = null;
-  if (!r.ok) throw new DriveError('other', `Drive respondió ${r.status} al subir la imagen.`);
-  return makeRef(((await r.json()) as { id: string }).id);
+export async function uploadImage(file: Blob, opts: ShrinkOptions = {}): Promise<string> {
+  const blob = await shrinkImage(file, opts);
+  return uploadMultipart(blob, `img-${uid()}.jpg`, 'image/jpeg', 'la imagen');
 }
 
 // Subir archivos de audio a Google Drive (en la carpeta "SimulaPro")
 export async function uploadAudio(file: Blob): Promise<string> {
-  const token = await getToken();
-  const parent = await ensureFolder(token);
-  const boundary = `simulapro${Date.now()}`;
-  const meta = { name: `audio-${Date.now()}.mp3`, mimeType: file.type || 'audio/mpeg', parents: [parent] };
-  const body = new Blob([
-    `--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${JSON.stringify(meta)}\r\n`,
-    `--${boundary}\r\nContent-Type: ${file.type || 'audio/mpeg'}\r\n\r\n`,
-    file,
-    `\r\n--${boundary}--`,
-  ]);
-  const r = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id', {
-    method: 'POST',
-    headers: { Authorization: `Bearer ${token}`, 'Content-Type': `multipart/related; boundary=${boundary}` },
-    body,
-  });
-  if (r.status === 401) cached = null;
-  if (!r.ok) throw new DriveError('other', `Drive respondió ${r.status} al subir el audio.`);
-  return makeRef(((await r.json()) as { id: string }).id);
+  const mime = file.type || 'audio/mpeg';
+  return uploadMultipart(file, `audio-${uid()}.mp3`, mime, 'el audio');
 }
 
 // Descarga la imagen/audio con tu permiso y devuelve una URL local (se guarda en memoria para no repetir).
