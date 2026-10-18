@@ -5,19 +5,32 @@ import { lookupLocal, type LocalResult } from '@/features/dictionary/store';
 import { VOCAB_DECK, addVocabularyCard } from '@/features/flashcards/api';
 import { playAudio, stopAudio } from '@/lib/playAudio';
 
+/** Para lecturas de libros: ampliar la selección a las palabras de al lado (frases, phrasal verbs). */
+export interface Extend {
+  left: boolean;
+  right: boolean;
+  /** Hay más de una palabra elegida. */
+  multi: boolean;
+  onLeft: () => void;
+  onRight: () => void;
+  onReset: () => void;
+}
+
 interface Props {
+  /** Una palabra o una frase. */
   word: string;
   /** Frase del texto donde aparece la palabra. */
   sentence: string;
   onClose: () => void;
   /** Se llama cuando la ficha quedó guardada (o ya existía). */
   onAdded: (word: string) => void;
+  extend?: Extend;
 }
 
 type Done = 'added' | 'duplicate' | null;
 
 /** Ventana al tocar una palabra de una lectura: traducción con IA (editable), frase de ejemplo y "Agregar a Vocabulario". */
-export default function WordPopup({ word, sentence, onClose, onAdded }: Props) {
+export default function WordPopup({ word, sentence, onClose, onAdded, extend }: Props) {
   const [translation, setTranslation] = useState('');
   const [loading, setLoading] = useState(true);
   const [aiError, setAiError] = useState('');
@@ -79,8 +92,15 @@ export default function WordPopup({ word, sentence, onClose, onAdded }: Props) {
   };
   const togglePicked = (text: string) => setPicked((p) => (p.includes(text) ? p.filter((x) => x !== text) : [...p, text]));
 
+  const lastWord = useRef(word);
   useEffect(() => {
     let cancelled = false;
+    if (lastWord.current !== word) {
+      // Se amplió o cambió la frase: la traducción de antes (también la escrita a mano) ya no sirve
+      lastWord.current = word;
+      typed.current = false;
+      setTranslation('');
+    }
     setLoading(true);
     setAiError('');
     setUsedOther(null);
@@ -143,7 +163,7 @@ export default function WordPopup({ word, sentence, onClose, onAdded }: Props) {
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex shrink-0 items-start justify-between gap-2">
-          <h2 className="text-2xl font-bold leading-tight">{word}</h2>
+          <h2 className={`font-bold leading-tight ${word.length > 24 ? 'text-lg' : 'text-2xl'}`}>{word}</h2>
           <button onClick={onClose} aria-label="Cerrar" className="text-2xl leading-none text-slate-400">
             ✕
           </button>
@@ -156,6 +176,24 @@ export default function WordPopup({ word, sentence, onClose, onAdded }: Props) {
         ) : (
           <>
             <div className="min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain">
+            {extend && (
+              <div className="space-y-1">
+                <div className="flex flex-wrap items-center gap-2 text-xs" role="group" aria-label="Ampliar la selección">
+                  <button onClick={extend.onLeft} disabled={!extend.left} className="rounded-full border border-slate-300 px-3 py-1 font-bold text-slate-600 disabled:opacity-40 dark:border-slate-600 dark:text-slate-300">
+                    ← Palabra anterior
+                  </button>
+                  <button onClick={extend.onRight} disabled={!extend.right} className="rounded-full border border-slate-300 px-3 py-1 font-bold text-slate-600 disabled:opacity-40 dark:border-slate-600 dark:text-slate-300">
+                    Palabra siguiente →
+                  </button>
+                  {extend.multi && (
+                    <button onClick={extend.onReset} className="rounded-full border border-slate-300 px-3 py-1 font-bold text-slate-600 disabled:opacity-40 dark:border-slate-600 dark:text-slate-300">
+                      Solo una
+                    </button>
+                  )}
+                </div>
+                {!extend.multi && <p className="text-xs text-slate-500">Para frases o phrasal verbs (give up, look forward to…) suma las palabras que van juntas.</p>}
+              </div>
+            )}
             <div className="flex items-center gap-2 text-xs" role="group" aria-label="IA para traducir">
               <span className="font-bold text-slate-500">Traducir con</span>
               {(['openrouter', 'gemini'] as const).map((p) => (

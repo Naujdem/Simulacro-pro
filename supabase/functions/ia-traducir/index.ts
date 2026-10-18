@@ -1,5 +1,5 @@
-// Traduce al español una palabra en inglés de una lectura, usando la frase donde aparece como contexto.
-// Se llama desde la app al tocar una palabra:
+// Traduce al español una palabra, una expresión (phrasal verb, modismo) o una frase corta en inglés de una lectura,
+// usando la frase donde aparece como contexto. Se llama desde la app al tocar o seleccionar texto:
 //   supabase.functions.invoke('ia-traducir', { body: { palabra, frase, proveedor } })
 // "proveedor" es la IA que se prefiere: 'openrouter' (por defecto) o 'gemini'. Si esa falla se prueba la otra
 // automáticamente; si fallan las dos, el mensaje de error explica el motivo de cada una.
@@ -23,10 +23,13 @@ const reply = (body: Record<string, unknown>) =>
   new Response(JSON.stringify(body), { headers: { ...cors, 'content-type': 'application/json' } });
 
 const SYSTEM = `Eres un diccionario inglés→español para estudiantes de nivel básico.
-Te doy una palabra y la frase donde aparece. Responde SOLO un JSON con esta forma exacta:
+Te doy una palabra, una expresión o una frase corta, y la frase donde aparece. Responde SOLO un JSON con esta forma exacta:
 {"traduccion":"..."}
-La traducción debe corresponder al uso de la palabra en ESA frase: una a tres opciones cortas separadas por coma.
-Los verbos van en infinitivo (ej. "correr"); si ayuda, añade la categoría entre paréntesis (ej. "banco (sustantivo)").
+La traducción debe corresponder al uso en ESA frase.
+- Verbos: traduce en el MISMO tiempo, persona y número en que aparece en la frase, NO en infinitivo (ej. "gave up" → "se rindió", "is running" → "está corriendo", "has eaten" → "ha comido", "will go" → "irá"). Después, entre paréntesis, el infinitivo en español como referencia (ej. "se rindió (rendirse)"). Si ya está en infinitivo, solo el infinitivo.
+- Una palabra que no es verbo: una a tres opciones cortas separadas por coma; si ayuda, añade la categoría entre paréntesis (ej. "banco (sustantivo)").
+- Una expresión (phrasal verb como "give up" o "look forward to", modismo, locución): traduce el significado de TODA la expresión, no palabra por palabra, respetando el tiempo si es un verbo (ej. "looked forward to" → "tenía ganas de (tener ganas de)").
+- Una frase de varias palabras: su traducción natural al español, sin comentarios.
 Sin explicaciones ni texto fuera del JSON.`;
 
 Deno.serve(async (req) => {
@@ -44,7 +47,7 @@ Deno.serve(async (req) => {
   } catch {
     return reply({ ok: false, error: 'entrada', mensaje: 'La petición no es válida.' });
   }
-  if (!palabra || palabra.length > 60) return reply({ ok: false, error: 'entrada', mensaje: 'Falta la palabra (máximo 60 letras).' });
+  if (!palabra || palabra.length > 160) return reply({ ok: false, error: 'entrada', mensaje: 'Falta la palabra o frase (máximo 160 letras).' });
   frase = frase.slice(0, 400);
 
   // Prueba primero la IA elegida y, si falla, la otra. Si fallan las dos, el mensaje cuenta POR QUÉ falló cada una.
@@ -58,7 +61,7 @@ Deno.serve(async (req) => {
         fallos.push(`${p === 'gemini' ? 'Gemini' : 'OpenRouter'}: no devolvió una traducción.`);
         continue;
       }
-      return reply({ ok: true, traduccion: traduccion.slice(0, 200), proveedor: p, pedido: proveedor });
+      return reply({ ok: true, traduccion: traduccion.slice(0, 400), proveedor: p, pedido: proveedor });
     } catch (e) {
       fallos.push((e as Error).message);
     }
@@ -78,7 +81,7 @@ function extraerTraduccion(texto: string): string {
   return texto.trim();
 }
 
-const userText = (palabra: string, frase: string) => `Palabra: ${palabra}\nFrase: ${frase || palabra}`;
+const userText = (palabra: string, frase: string) => `Palabra o expresión: ${palabra}\nFrase: ${frase || palabra}`;
 
 async function viaOpenRouter(palabra: string, frase: string): Promise<string> {
   const key = Deno.env.get('OPENROUTER_API_KEY');
@@ -89,7 +92,7 @@ async function viaOpenRouter(palabra: string, frase: string): Promise<string> {
     body: JSON.stringify({
       model: Deno.env.get('OPENROUTER_MODEL') || 'openrouter/free',
       temperature: 0,
-      max_tokens: 120,
+      max_tokens: 300,
       messages: [
         { role: 'system', content: SYSTEM },
         { role: 'user', content: userText(palabra, frase) },
