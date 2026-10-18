@@ -2,7 +2,7 @@
 import 'fake-indexeddb/auto';
 import { describe, expect, it } from 'vitest';
 import type { ParsedBook } from './epub';
-import { getBook, getProgress, listBooks, listProgress, removeBook, saveBook, saveProgress } from './store';
+import { getActivities, getBook, getProgress, listBooks, listProgress, removeBook, saveActivities, saveBook, saveProgress } from './store';
 
 const book = (title: string): ParsedBook => ({
   title,
@@ -35,6 +35,23 @@ describe('libros en el dispositivo', () => {
     await removeBook(meta.id);
     expect(await getBook(meta.id)).toBeNull();
     expect(await getProgress(meta.id)).toBeNull();
+  });
+});
+
+describe('actividades con IA', () => {
+  const acts = { mcq: [{ question: 'Q?', options: ['a', 'b'], correct: 1, explanation: '' }], tf: [], vocab: [], speaking: [] };
+  it('se guardan por capítulo y se borran junto con el libro (sin tocar los de otro libro)', async () => {
+    const a = await saveBook(book('Libro A'), file);
+    const b = await saveBook(book('Libro B'), file);
+    expect(await getActivities(a.id, 0)).toBeNull();
+    await saveActivities(a.id, 0, acts);
+    await saveActivities(a.id, 1, acts);
+    await saveActivities(b.id, 0, acts);
+    expect(await getActivities(a.id, 1)).toEqual(acts);
+    await removeBook(a.id);
+    expect(await getActivities(a.id, 0)).toBeNull();
+    expect(await getActivities(a.id, 1)).toBeNull();
+    expect(await getActivities(b.id, 0)).toEqual(acts);
   });
 });
 

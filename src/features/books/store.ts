@@ -1,3 +1,4 @@
+import type { Activities } from './activities';
 import type { Chapter, ParsedBook } from './epub';
 
 /*
@@ -10,6 +11,7 @@ const META = 'meta';
 const CONTENT = 'content';
 const FILE = 'file';
 const PROGRESS = 'progress';
+const ACTIVITIES = 'activities';
 
 export interface BookMeta {
   id: string;
@@ -28,10 +30,10 @@ export interface BookMeta {
 function open(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
     if (typeof indexedDB === 'undefined') return reject(new Error('Este navegador no permite guardar libros.'));
-    const req = indexedDB.open(DB, 2);
+    const req = indexedDB.open(DB, 3);
     req.onupgradeneeded = () => {
       // Crea solo los almacenes que faltan: así quien ya tenía la versión 1 conserva sus libros
-      for (const s of [META, CONTENT, FILE, PROGRESS]) if (!req.result.objectStoreNames.contains(s)) req.result.createObjectStore(s, { keyPath: 'id' });
+      for (const s of [META, CONTENT, FILE, PROGRESS, ACTIVITIES]) if (!req.result.objectStoreNames.contains(s)) req.result.createObjectStore(s, { keyPath: 'id' });
     };
     req.onsuccess = () => resolve(req.result);
     req.onerror = () => reject(new Error('No se pudo abrir el almacenamiento de libros.'));
@@ -112,8 +114,21 @@ export async function getBook(id: string): Promise<{ meta: BookMeta; chapters: C
 }
 
 export async function removeBook(id: string): Promise<void> {
-  await run([META, CONTENT, FILE, PROGRESS], 'readwrite', (tx) => {
+  await run([META, CONTENT, FILE, PROGRESS, ACTIVITIES], 'readwrite', (tx) => {
     for (const s of [META, CONTENT, FILE, PROGRESS]) tx.objectStore(s).delete(id);
+    tx.objectStore(ACTIVITIES).delete(IDBKeyRange.bound(`${id}#`, `${id}#\uffff`)); // las actividades de todos sus capítulos
+  });
+}
+
+/** Actividades con IA de un capítulo, guardadas para no gastar IA cada vez que se abre. */
+export async function getActivities(bookId: string, chapter: number): Promise<Activities | null> {
+  const rec = await run<{ id: string; activities: Activities } | undefined>([ACTIVITIES], 'readonly', (tx) => tx.objectStore(ACTIVITIES).get(`${bookId}#${chapter}`));
+  return rec?.activities ?? null;
+}
+
+export async function saveActivities(bookId: string, chapter: number, activities: Activities): Promise<void> {
+  await run([ACTIVITIES], 'readwrite', (tx) => {
+    tx.objectStore(ACTIVITIES).put({ id: `${bookId}#${chapter}`, activities, createdAt: Date.now() });
   });
 }
 

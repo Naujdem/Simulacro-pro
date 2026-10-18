@@ -2,6 +2,7 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react
 import { useNavigate, useParams } from 'react-router-dom';
 import Icon from '@/components/Icon';
 import BookText from './BookText';
+import ChapterActivities from './ChapterActivities';
 import type { Chapter } from './epub';
 import { getRemoteProgress, pickProgress, pushRemoteProgress } from './driveBooks';
 import { getBook, getProgress, saveProgress, type BookMeta, type Progress } from './store';
@@ -43,6 +44,7 @@ export default function BookReaderPage() {
   const [book, setBook] = useState<{ meta: BookMeta; chapters: Chapter[] } | 'missing' | null>(null);
   const [idx, setIdx] = useState(0);
   const [tocOpen, setTocOpen] = useState(() => window.innerWidth >= 768);
+  const [actsOpen, setActsOpen] = useState(false); // actividades con IA del capítulo, en una ventana encima del libro
   const [font, setFont] = useState(readFont);
   const [page, setPage] = useState(0);
   const [metrics, setMetrics] = useState({ pages: 1, step: 0 }); // páginas del capítulo y desplazamiento de una página a otra
@@ -276,6 +278,9 @@ export default function BookReaderPage() {
           <p className="truncate text-sm font-bold">{book.meta.title}</p>
           <p className="truncate text-xs text-slate-500">{ch.title}</p>
         </div>
+        <button onClick={() => setActsOpen(true)} aria-label="Actividades del capítulo" className="btn-ghost px-2.5 text-sm">
+          ✎ <span className="max-sm:hidden">Actividades</span>
+        </button>
         {typeof document !== 'undefined' && document.fullscreenEnabled && (
           <button onClick={toggleFullscreen} aria-label="Pantalla completa" className="btn-ghost px-2.5 text-base">
             ⛶
@@ -381,6 +386,11 @@ export default function BookReaderPage() {
               <span className="min-w-0 truncate">
                 Cap. {idx + 1} de {total}
               </span>
+              {page >= metrics.pages - 1 && (
+                <button onClick={() => setActsOpen(true)} className="pointer-events-auto shrink-0 rounded-full bg-sky-500 px-3 py-0.5 font-sans text-[11px] font-bold text-white md:text-xs">
+                  ✎ Actividades
+                </button>
+              )}
               <span className="shrink-0">
                 Pág. {Math.min(metrics.pages, page + 1)} de {metrics.pages}
               </span>
@@ -392,6 +402,35 @@ export default function BookReaderPage() {
           </div>
         </main>
       </div>
+
+      {actsOpen && (
+        <div role="dialog" aria-modal="true" aria-label="Actividades del capítulo" className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 sm:items-center sm:p-4">
+          <div className="flex max-h-[92dvh] w-full max-w-2xl flex-col rounded-t-2xl bg-white shadow-xl sm:rounded-2xl dark:bg-slate-900">
+            <div className="flex shrink-0 items-center justify-between border-b border-slate-200 px-4 py-2 dark:border-slate-800">
+              <p className="truncate text-sm font-bold">{ch.title}</p>
+              <button onClick={() => setActsOpen(false)} className="btn-ghost px-3">
+                Cerrar
+              </button>
+            </div>
+            <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4">
+              <ChapterActivities key={`act-${book.meta.id}-${idx}`} bookId={book.meta.id} bookTitle={book.meta.title} chapterIndex={idx} chapterTitle={ch.title} blocks={ch.blocks} />
+            </div>
+            {idx < total - 1 && (
+              <div className="shrink-0 border-t border-slate-200 p-3 dark:border-slate-800">
+                <button
+                  onClick={() => {
+                    setActsOpen(false);
+                    go(idx + 1);
+                  }}
+                  className="btn-primary w-full"
+                >
+                  Siguiente capítulo ›
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
