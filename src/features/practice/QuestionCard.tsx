@@ -1,10 +1,11 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Question, Response, checkAnswer, correctText } from '@/lib/grading';
 import QuestionImage from '@/components/QuestionImage';
 import AiPanel from '@/features/ai/AiPanel';
 import ReadingText from './ReadingText';
 import FullscreenOverlay, { ExpandButton } from '@/components/FullscreenText';
 import { saveQuestionTag, type QuestionTag } from '@/features/exams/api';
+import { letterOf, loadShuffleOptions, shuffleQuestion } from '@/lib/shuffle';
 
 type Props = {
   question: Question;
@@ -69,7 +70,11 @@ const styles = {
 } as const;
 type S = keyof typeof styles;
 
-export function QuestionCard({ question: q, examId, onNext, aiHelp = false, reading = null, anonymous = false }: Props) {
+export function QuestionCard({ question, examId, onNext, aiHelp = false, reading = null, anonymous = false }: Props) {
+  // Opciones mezcladas: cada vez que se abre la pregunta (se monta la tarjeta) quedan en otro orden; los ids no cambian
+  const [seed] = useState(() => Math.floor(Math.random() * 4294967296));
+  const [shuffle] = useState(loadShuffleOptions);
+  const q = useMemo(() => (shuffle ? shuffleQuestion(question, seed) : question), [question, seed, shuffle]);
   const [resp, setResp] = useState<Response>(() => emptyResponse(q)); // usar key={q.id} en el padre
   const [correct, setCorrect] = useState<boolean | null>(null);
   const [savingTag, setSavingTag] = useState(false);
@@ -182,7 +187,7 @@ export function QuestionCard({ question: q, examId, onNext, aiHelp = false, read
 
           {q.type === 'multiple_choice' && (
             <div className={`grid grid-cols-1 gap-3 ${cols}`}>
-              {q.options!.map((o) => (
+              {q.options!.map((o, i) => (
                 <button
                   key={o.id}
                   onClick={() => pick(o.id)}
@@ -190,7 +195,7 @@ export function QuestionCard({ question: q, examId, onNext, aiHelp = false, read
                   className={base + styles[optionState(o.id)]}
                 >
                   <span className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border text-sm uppercase">
-                    {o.id}
+                    {letterOf(i)}
                   </span>
                   <span className="min-w-0 flex-1 space-y-2">
                     {o.text ? <span className="block">{o.text}</span> : null}
