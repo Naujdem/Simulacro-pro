@@ -294,6 +294,53 @@ describe('guía de simulacros (selección múltiple)', () => {
     expect(JSON_PROMPT_SIMULACROS).toContain('escribe el par de caracteres \\n');
   });
 
+  it('la guía cubre simulacros con la clave de respuestas al final, dentro del texto y antes de los datos del bloque', async () => {
+    const { JSON_PROMPT_SIMULACROS } = await load();
+    for (const frase of [
+      'CLAVE DE RESPUESTAS AL FINAL DEL DOCUMENTO',
+      'POSICIÓN | CLAVE | COMPONENTE | COMPETENCIA',
+      'PREGUNTA | CLAVE | JUSTIFICACIÓN',
+      'Sub-eje temático',
+      'Licensed to',
+    ])
+      expect(JSON_PROMPT_SIMULACROS, frase).toContain(frase);
+    expect(JSON_PROMPT_SIMULACROS.indexOf('CLAVE DE RESPUESTAS AL FINAL DEL DOCUMENTO')).toBeLessThan(JSON_PROMPT_SIMULACROS.indexOf('DATOS DE ESTE BLOQUE Y MATERIAL'));
+    expect(JSON_PROMPT_SIMULACROS.trimEnd().endsWith('ya sin tus datos personales]')).toBe(true);
+  });
+
+  it('un simulacro con clave al final (3 opciones, lectura compartida, justificación) se importa con la sección del sub-eje', () => {
+    const json = JSON.stringify({
+      version: 1,
+      bibliotecas: [
+        {
+          nombre: 'Concurso docente - Ciencias Naturales',
+          simulacros: [
+            {
+              titulo: 'Simulacro 8',
+              orden: 1,
+              lecturas: [
+                {
+                  titulo: 'Situación 1-2: manglar y biología celular',
+                  seccion: 'Biología celular y de organismos',
+                  texto: 'Un docente de ciencias naturales diseña una unidad sobre transporte celular.',
+                  preguntas: [
+                    { tipo: 'multiple_choice', enunciado: 'Para iniciar la planeación, ¿cuál propósito articula mejor…?', opciones: ['Explicar el transporte…', 'Describir los organelos…', 'Identificar las partes…'], correcta: 0, explicacion: 'La opción A vincula un proceso celular con un fenómeno observable.' },
+                    { tipo: 'multiple_choice', enunciado: '¿Qué propósito permite integrar los saberes previos?', opciones: ['Clasificar…', 'Ilustrar…', 'Evaluar…'], correcta: 2 },
+                  ],
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    });
+    const r = ok(json);
+    expect(r.warnings).toEqual([]);
+    const exam = r.plan.folders[0].exams[0];
+    expect(examSections(exam)).toEqual(['Biología celular y de organismos']);
+    expect(exam.questions.map((q) => q.answer)).toEqual([{ correct: ['a'] }, { correct: ['c'] }]);
+  });
+
   it('la respuesta en dos partes (JSON + "PARA REVISAR") se importa, con o sin ```', async () => {
     const { JSON_EXAMPLE_SIMULACRO } = await load();
     expect(ok('```json\n' + JSON_EXAMPLE_SIMULACRO + '\n```\n\n' + REVISAR).summary.questions).toBe(6);
