@@ -479,3 +479,16 @@ SECCIÓN / ÁREA de las preguntas: [ej. Biología]
 
 MATERIAL:
 [Pega aquí el texto del bloque, ya sin tus datos personales]`;
+
+
+════════ 11b. SIMULACROS CON LA CLAVE DE RESPUESTAS AL FINAL ════════
+Algunos PDF traen las preguntas primero y, en las últimas páginas, una tabla de respuestas con columnas como POSICIÓN | CLAVE | COMPONENTE | COMPETENCIA.
+- La respuesta correcta de cada pregunta es la CLAVE de la fila cuya POSICIÓN coincide con el número de la pregunta. Conviértela a número empezando en 0: A=0, B=1, C=2, D=3.
+- Usa la tabla solo para "correcta" y "seccion". La tabla de respuestas NO es una pregunta ni va en ningún texto.
+- "seccion" = el valor de la columna COMPONENTE (escríbelo con tildes, idéntico en todas las preguntas del mismo componente, ej. "Organísmico", "Ecosistémico", "Celular"). Si la tabla no tiene esa columna, usa la sección que te indique en los datos del bloque.
+- COMPETENCIA (USO DE CONCEPTOS, INDAGAR, EXPLICAR) NO se incluye en el JSON.
+- Verifica que la tabla tenga una fila por cada pregunta. Si falta la fila de alguna, déjala fuera del JSON y anótala en "PARA REVISAR".
+- Ignora en cada página el encabezado repetido (nombre del autor o de la serie de simulacros, "Preguntas de selección múltiple con única respuesta (Tipo I)" y su instrucción).
+- "Responda las preguntas X, Y y Z de acuerdo con la siguiente información" es el texto compartido: ponlo UNA vez en "lecturas" (sin esa frase de instrucción) con las preguntas que dependen de él. Si ese texto incluye una tabla de datos, transcríbela dentro del "texto" con \n entre filas y " | " entre columnas.
+- Gráficas, esquemas y dibujos: marca con [IMAGEN] y describe lo que se pueda leer (títulos de ejes, rótulos, etiquetas). Las tablas de datos NO son imágenes: transcríbelas.
+- Si las opciones son gráficas (ej. A, B, C, D son dibujos), escribe "[IMAGEN A]", "[IMAGEN B]"… como opciones.
