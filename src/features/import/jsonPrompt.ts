@@ -386,8 +386,8 @@ Si hay una pregunta para completar, usa "tipo": "fill_blank", con ___ (tres guio
 El texto suele venir de un PDF o de Google Forms y trae basura. NO la copies:
 - Pies y encabezados de página: fechas y horas ("14/9/25, 3:04 p.m."), el título del documento repetido, direcciones web (docs.google.com…), contadores de página ("5/124", "Página 3").
 - Marcas del formulario: asteriscos de "obligatorio" (*), "Total de puntos", "Correo electrónico", "Comentarios", "Respuesta correcta" (son etiquetas, no contenido).
-- DATOS PERSONALES de quien resolvió el simulacro (correo, nombre, cédula, teléfono): NO los incluyas nunca, en ningún campo.
-- Textos de instrucciones generales ("Preguntas de selección múltiple con única respuesta TIPO I…", "Escriba su nombre"): no son preguntas.
+- DATOS PERSONALES de quien resolvió el simulacro o de a quien está licenciado el archivo (correo, nombre, cédula, teléfono, códigos de licencia, sellos tipo "Licensed to Nombre - correo - código" que se repiten en el margen de cada página): NO los incluyas nunca, en ningún campo.
+- Textos de instrucciones generales ("Preguntas de selección múltiple con única respuesta TIPO I…", "Escriba su nombre"), portada (número de preguntas, tiempo, descripción, aviso de derechos de autor), encabezados repetidos ("Material de Estudio…", "Síguenos en nuestras redes sociales…"), la hoja de respuestas con burbujas (A) (B) (C) vacías y la palabra "FIN": no son preguntas.
 - Palabras cortadas por guion al final de renglón: "trans- formación" → "transformación"; "pro- puesta" → "propuesta". Une también los renglones partidos a la mitad de una frase y los espacios dobles. Un guion que pertenece a la palabra (ej. "físico-químico") se conserva.
 - El número de la pregunta ("109)", "20.") NO va en el enunciado. Tampoco la letra de la opción ("A)", "b.", "C)"): la app pone sus propias letras.
 
@@ -401,7 +401,8 @@ Si el material viene en el orden normal (enunciado, opciones, respuesta), usa es
 ════════ 4. RESPUESTA CORRECTA ════════
 - "correcta" es el NÚMERO de la opción correcta EMPEZANDO EN 0, sin comillas: A=0, B=1, C=2, D=3, E=4. NO uses letras ("B"), NO empieces en 1, NO uses texto.
 - La respuesta puede aparecer escrita de muchas formas: "Respuesta: B", "Respuesta: B.", "RESPUESTA B", "Respuesta (B)", "Respuesta correcta: A", "Rta: C", "Clave: D", o el texto completo de la opción tras "Respuesta correcta". Todas valen. Si dos lugares se contradicen, no elijas: pon la pregunta en "PARA REVISAR".
-- Si el material NO dice cuál es la correcta, NO la adivines ni la deduzcas con tu conocimiento. Deja esa pregunta FUERA del JSON y anótala en "PARA REVISAR".
+- Antes de decir que el material no trae la respuesta, busca la CLAVE DE RESPUESTAS AL FINAL del documento (punto 11): si hay una tabla de respuestas, la respuesta SÍ está en el material.
+- Si de verdad el material NO dice cuál es la correcta (ni junto a la pregunta ni en una tabla final), NO la adivines ni la deduzcas con tu conocimiento. Deja esa pregunta FUERA del JSON y anótala en "PARA REVISAR".
 - Solo usa una lista ("correcta": [0, 2]) si la pregunta pide marcar VARIAS opciones como respuestas independientes. Si las opciones son combinaciones ("1 y 2 son correctas", "solo I y III"), es UNA sola respuesta: un número.
 - Revisa dos veces la correspondencia letra → número antes de cerrar cada pregunta.
 - "explicacion" es la justificación o el comentario del material, SIN las etiquetas "Respuesta: B", "Respuesta correcta", "Justificación:" ni "Comentarios". Si el comentario solo repite la opción correcta o solo dice la letra, NO pongas "explicacion" (es opcional). Nunca inventes una explicación.
@@ -467,28 +468,34 @@ Pon "ninguna" donde no haya. Usa el número que traía cada pregunta en el mater
 ✖ la lista numerada del enunciado convertida en preguntas   ✔ la lista dentro del "enunciado"
 ✖ la respuesta deducida por ti cuando el material no la trae   ✔ la pregunta en "PARA REVISAR"
 
-════════ 11. EJEMPLO CORRECTO ════════
+════════ 11. CLAVE DE RESPUESTAS AL FINAL DEL DOCUMENTO ════════
+Muchos simulacros (concurso docente, tipo ICFES) traen primero TODAS las preguntas y, en las últimas páginas, la clave de respuestas. Ahí la respuesta SÍ está en el material: usa la clave y NO pongas esas preguntas en "Sin respuesta en el material". La clave suele venir en uno de estos dos formatos:
+  (a) POSICIÓN | CLAVE | COMPONENTE | COMPETENCIA   (una fila por pregunta)
+  (b) PREGUNTA | CLAVE | JUSTIFICACIÓN, agrupada por bloques de preguntas con un encabezado ("Preguntas 1 a 5", "Eje temático", "Sub-eje temático", "Aspecto a evaluar")
+
+Cómo usarla:
+- La respuesta correcta es la CLAVE de la fila cuya POSICIÓN (o PREGUNTA) coincide con el número de la pregunta. Empareja por número, no por el orden de las filas. Conviértela a número empezando en 0: A=0, B=1, C=2, D=3. Si la pregunta tiene solo 3 opciones (A, B, C), la C es 2.
+- Ejemplo: fila "2 | B | …" y la pregunta 2 tiene 4 opciones → "correcta": 1. Fila "5 | C | …" y la pregunta 5 tiene 3 opciones → "correcta": 2.
+- "seccion": en el formato (a) es el valor de COMPONENTE; en el formato (b) es el "Sub-eje temático" del bloque al que pertenece la pregunta. Si no hay ninguno de los dos, usa la sección de los datos del bloque. Escríbela IDÉNTICA en todas las preguntas de esa parte. Excepción a la regla de copiar tal cual: si la tabla trae el componente en MAYÚSCULAS y sin tilde (ORGANISMICO, ECOSISTEMICO, CELULAR), escríbelo normal y con tilde (Organísmico, Ecosistémico, Celular).
+- "explicacion": en el formato (b), la JUSTIFICACIÓN de esa pregunta, copiada sin la etiqueta "Justificación:" ni "Justificación analítica:" y sin cambiar las letras de las opciones que menciona. Si la tabla no trae justificación, no pongas "explicacion".
+- NO van al JSON: COMPETENCIA (USO DE CONCEPTOS, INDAGAR, EXPLICAR), "Eje temático", "Aspecto a evaluar" ni la propia tabla (no es una pregunta ni va dentro de ningún texto).
+- Antes de escribir, verifica que la clave tenga una fila por cada pregunta. Si falta la fila de alguna, o la fila contradice al material, deja esa pregunta FUERA del JSON y anótala en "PARA REVISAR".
+- Las instrucciones tipo "Conteste / Responda las preguntas 1 a 5 de acuerdo con la siguiente situación (o información)" introducen un texto compartido: ponlo UNA sola vez en "lecturas" (sin esa frase de instrucción), con un "titulo" breve (ej. "Situación 1-5: manglar y biología celular") y las preguntas que dependen de él. Si en una misma lectura las preguntas tienen secciones distintas, pon "seccion" en cada pregunta; si no, heredan la de la lectura.
+- Si el texto compartido incluye una tabla de datos, transcríbela dentro de "texto" con \\n entre filas y " | " entre columnas.
+- Gráficas, esquemas, dibujos, cromosomas, mapas: marca el enunciado con [IMAGEN] y escribe lo que se pueda leer (título, ejes, rótulos). NO inventes valores que no puedas leer. Las tablas de datos NO son imágenes: transcríbelas. Si las opciones son gráficas, escribe "[IMAGEN A]", "[IMAGEN B]"… como opciones.
+- Si el texto extraído mezcla enunciados y opciones de preguntas distintas (por columnas o saltos de página), empareja por contenido y por número antes de escribir.
+- "PARA REVISAR": en "Sin respuesta en el material" solo van las preguntas cuya fila falta en la clave.
+
+════════ 12. EJEMPLO CORRECTO ════════
 ${JSON_EXAMPLE_SIMULACRO}
 
-════════ 12. DATOS DE ESTE BLOQUE Y MATERIAL ════════
+════════ 13. DATOS DE ESTE BLOQUE Y MATERIAL ════════
 BIBLIOTECA (escríbela igual en cada bloque para que se agreguen a la misma): [ej. Concurso docente - Ciencias Naturales]
 SIMULACRO (título): [ej. Ciencias Naturales 1-20]
 TEMA (opcional): [ej. Ciencias Naturales]
 ORDEN: [ej. 1]
-SECCIÓN / ÁREA de las preguntas: [ej. Biología]
+SECCIÓN / ÁREA de las preguntas: [ej. Biología; si la clave trae COMPONENTE o Sub-eje temático, se usa ese]
+CLAVE DE RESPUESTAS: [al final del documento / junto a cada pregunta]
 
 MATERIAL:
 [Pega aquí el texto del bloque, ya sin tus datos personales]`;
-
-
-════════ 11b. SIMULACROS CON LA CLAVE DE RESPUESTAS AL FINAL ════════
-Algunos PDF traen las preguntas primero y, en las últimas páginas, una tabla de respuestas con columnas como POSICIÓN | CLAVE | COMPONENTE | COMPETENCIA.
-- La respuesta correcta de cada pregunta es la CLAVE de la fila cuya POSICIÓN coincide con el número de la pregunta. Conviértela a número empezando en 0: A=0, B=1, C=2, D=3.
-- Usa la tabla solo para "correcta" y "seccion". La tabla de respuestas NO es una pregunta ni va en ningún texto.
-- "seccion" = el valor de la columna COMPONENTE (escríbelo con tildes, idéntico en todas las preguntas del mismo componente, ej. "Organísmico", "Ecosistémico", "Celular"). Si la tabla no tiene esa columna, usa la sección que te indique en los datos del bloque.
-- COMPETENCIA (USO DE CONCEPTOS, INDAGAR, EXPLICAR) NO se incluye en el JSON.
-- Verifica que la tabla tenga una fila por cada pregunta. Si falta la fila de alguna, déjala fuera del JSON y anótala en "PARA REVISAR".
-- Ignora en cada página el encabezado repetido (nombre del autor o de la serie de simulacros, "Preguntas de selección múltiple con única respuesta (Tipo I)" y su instrucción).
-- "Responda las preguntas X, Y y Z de acuerdo con la siguiente información" es el texto compartido: ponlo UNA vez en "lecturas" (sin esa frase de instrucción) con las preguntas que dependen de él. Si ese texto incluye una tabla de datos, transcríbela dentro del "texto" con \n entre filas y " | " entre columnas.
-- Gráficas, esquemas y dibujos: marca con [IMAGEN] y describe lo que se pueda leer (títulos de ejes, rótulos, etiquetas). Las tablas de datos NO son imágenes: transcríbelas.
-- Si las opciones son gráficas (ej. A, B, C, D son dibujos), escribe "[IMAGEN A]", "[IMAGEN B]"… como opciones.
