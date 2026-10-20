@@ -11,11 +11,12 @@ import { lastSlotFor } from './progress';
 import { QuestionCard } from './QuestionCard';
 import SectionPause from './SectionPause';
 import { boundaryAt, sectionRanges, sectionStats } from '@/lib/sections';
+import { canSkipOver } from './skip';
 
 export default function PracticePage() {
   const { examId } = useParams();
   const nav = useNavigate();
-  const { active, examId: current, mode, queue, index, record, results, ack, continueSection, limitSec, startedAt } = usePractice();
+  const { active, examId: current, mode, queue, index, record, results, ack, continueSection, limitSec, startedAt, skippedIds, skipQuestion, leaveUnanswered } = usePractice();
   const finishing = useRef(false);
   const [resumedAt, setResumedAt] = useState<number | null>(null);
 
@@ -184,6 +185,13 @@ export default function PracticePage() {
     );
   }
   const currentRange = ranges.find((r) => index >= r.start && index < r.end);
+  // Saltar manda la pregunta al final de su sección; si es la única que queda, solo se puede dejar en blanco
+  const canMove = canSkipOver(queue, index, mode === 'full');
+  const onSkip = canMove
+    ? () => void skipQuestion()
+    : () => {
+        if (window.confirm('Se contará como incorrecta. ¿Dejar esta pregunta en blanco?')) leaveUnanswered();
+      };
 
   return (
     <div className="min-h-dvh">
@@ -217,12 +225,19 @@ export default function PracticePage() {
           Continuando donde te quedaste: pregunta {resumedAt}
         </p>
       )}
+      {skippedIds.includes(queue[index].id) && (
+        <p role="status" className="mx-auto mt-3 max-w-xl rounded-xl bg-amber-100 px-4 py-2 text-center text-sm font-bold text-amber-800 md:max-w-2xl dark:bg-amber-950 dark:text-amber-200">
+          ↩ Esta pregunta la saltaste antes
+        </p>
+      )}
       {/* En Repaso Rápido cada pregunta guarda su etiqueta en SU simulacro de origen. En los repasos, al fallar se ofrece la ayuda de IA. */}
       <QuestionCard
         key={queue[index].id}
         question={queue[index]}
         examId={queue[index].exam_id ?? examId!}
         onNext={record}
+        onSkip={onSkip}
+        skipLabel={canMove ? 'Saltar' : 'Dejar en blanco'}
         aiHelp={mode !== 'full'}
         reading={queue[index].reading_id ? readings.data?.[queue[index].reading_id!] ?? null : null}
       />
