@@ -288,6 +288,25 @@ export const saveExamEdits = async (
   if (error) throw error;
 };
 
+// Guarda los cambios de UNA pregunta que ya existe (editar mientras practicas). No toca el resto del simulacro.
+// Con RLS, un UPDATE sin permiso no da error: simplemente no cambia ninguna fila; por eso se comprueba que sí cambió.
+export const updateQuestion = async (q: EditableQuestion): Promise<void> => {
+  if (!q.id) throw new Error('La pregunta no tiene identificador.');
+  const { data, error } = await supabase
+    .from('questions')
+    .update({
+      prompt: q.prompt.trim(),
+      options: q.options,
+      answer: q.answer,
+      explanation: q.explanation?.trim() || null,
+      imagen_url: q.imagen_url || null,
+    })
+    .eq('id', q.id)
+    .select('id');
+  if (error) throw error;
+  if (!data?.length) throw new Error('No tienes permiso para editar esta pregunta (¿es de otra persona?).');
+};
+
 // ───────────────────────── Lista de repaso ─────────────────────────
 
 export interface ReviewEntry {

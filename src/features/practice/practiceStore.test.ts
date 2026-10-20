@@ -142,6 +142,18 @@ describe('saltar en una sesión de práctica', () => {
     expect(P().retryWrongQueue().map((q) => q.id)).toEqual(['a1', 'a3']);
   });
 
+  it('replaceQuestion cambia la pregunta editada en la cola sin mover nada ni tocar las respuestas', () => {
+    P().start('ex1', preguntas(), 'full');
+    P().record(ok, true); // a1
+    const editada = { ...mk('a3', 'A'), prompt: 'a3 corregida', answer: { value: false } };
+    P().replaceQuestion(editada);
+    expect(ids()).toBe('a1,a2,a3,b1,b2');
+    expect(P().queue[2].prompt).toBe('a3 corregida');
+    expect(P().allQuestions.find((q) => q.id === 'a3')!.prompt).toBe('a3 corregida');
+    expect(P().results).toHaveLength(1);
+    expect(P().index).toBe(1);
+  });
+
   it('empezar de nuevo olvida lo saltado', () => {
     P().start('ex1', preguntas(), 'full');
     P().skipQuestion();

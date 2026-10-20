@@ -9,7 +9,7 @@ import { norm } from '@/lib/text';
 import { fetchExamForEdit, saveExamEdits, type EditableQuestion } from './api';
 
 // Cada pregunta del formulario lleva una "key" propia para que React no se confunda al borrar o agregar.
-type Draft = { key: string; q: EditableQuestion };
+export type Draft = { key: string; q: EditableQuestion };
 
 const TYPE_LABEL: Record<QType, string> = {
   multiple_choice: 'Opción múltiple',
@@ -44,7 +44,7 @@ const blankQuestion = (type: QType): EditableQuestion => {
 };
 
 // Devuelve el problema de la pregunta, o null si está bien.
-const problem = (q: EditableQuestion): string | null => {
+export const problem = (q: EditableQuestion): string | null => {
   if (!q.prompt.trim()) return 'falta el enunciado.';
   switch (q.type) {
     case 'multiple_choice': {
@@ -82,7 +82,7 @@ const problem = (q: EditableQuestion): string | null => {
 };
 
 // Limpia la pregunta antes de guardar: quita opciones vacías y respuestas correctas que ya no existen.
-const clean = (q: EditableQuestion): EditableQuestion => {
+export const clean = (q: EditableQuestion): EditableQuestion => {
   if (q.type !== 'multiple_choice') return q;
   const opts = (q.options ?? [])
     .filter((o) => o.text.trim() || o.imagen_url)
@@ -384,16 +384,20 @@ function OptionEditor({
   );
 }
 
-function QuestionEditor({
+export function QuestionEditor({
   index,
   d,
   onPatch,
   onRemove,
+  heading,
 }: {
   index: number;
   d: Draft;
   onPatch: (p: Partial<EditableQuestion>) => void;
-  onRemove: () => void;
+  /** Sin esta función no aparece el botón "Eliminar" (al editar una sola pregunta mientras practicas no se puede borrar). */
+  onRemove?: () => void;
+  /** Reemplaza el "Pregunta N" del encabezado. */
+  heading?: string;
 }) {
   const q = d.q;
   const f = 'w-full rounded-lg border bg-transparent p-2 text-sm outline-none focus:border-sky-400 dark:border-slate-600';
@@ -416,12 +420,14 @@ function QuestionEditor({
     >
       <div className="flex items-center justify-between text-xs font-bold text-slate-500">
         <span>
-          Pregunta {index + 1} · {TYPE_LABEL[q.type]}
+          {heading ?? `Pregunta ${index + 1}`} · {TYPE_LABEL[q.type]}
           {!q.id && <span className="ml-2 rounded-full bg-sky-100 px-2 py-0.5 text-sky-700">nueva</span>}
         </span>
-        <button onClick={onRemove} aria-label="Eliminar pregunta" className="text-red-500">
-          Eliminar
-        </button>
+        {onRemove && (
+          <button onClick={onRemove} aria-label="Eliminar pregunta" className="text-red-500">
+            Eliminar
+          </button>
+        )}
       </div>
 
       <div onPaste={up.onPaste} className="space-y-2">

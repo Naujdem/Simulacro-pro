@@ -72,6 +72,8 @@ interface PracticeState {
   skipQuestion(): boolean;
   /** Deja la pregunta actual en blanco: cuenta como incorrecta y se sigue con la siguiente. */
   leaveUnanswered(): void;
+  /** Cambia en la sesión una pregunta que se acaba de editar (misma posición, mismo id). */
+  replaceQuestion(q: Question): void;
   retryWrongQueue(): Question[];
   /** Guarda el intento. Con `timedOut`, las preguntas sin responder se guardan como incorrectas. */
   finish(opts?: { timedOut?: boolean }): Promise<Summary>;
@@ -210,6 +212,12 @@ export const usePractice = create<PracticeState>((set, get) => {
       persist();
       return true;
     },
+
+    replaceQuestion: (nq) =>
+      set((s) => ({
+        queue: s.queue.map((q) => (q.id === nq.id ? nq : q)),
+        allQuestions: s.allQuestions.map((q) => (q.id === nq.id ? nq : q)),
+      })),
 
     leaveUnanswered: () => {
       set((s) => ({

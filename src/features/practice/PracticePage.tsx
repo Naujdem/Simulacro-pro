@@ -16,7 +16,7 @@ import { canSkipOver } from './skip';
 export default function PracticePage() {
   const { examId } = useParams();
   const nav = useNavigate();
-  const { active, examId: current, mode, queue, index, record, results, ack, continueSection, limitSec, startedAt, skippedIds, skipQuestion, leaveUnanswered } = usePractice();
+  const { active, examId: current, mode, queue, index, record, results, ack, continueSection, limitSec, startedAt, skippedIds, skipQuestion, leaveUnanswered, replaceQuestion } = usePractice();
   const finishing = useRef(false);
   const [resumedAt, setResumedAt] = useState<number | null>(null);
 
@@ -237,6 +237,7 @@ export default function PracticePage() {
         examId={queue[index].exam_id ?? examId!}
         onNext={record}
         onSkip={onSkip}
+        onEdited={replaceQuestion}
         skipLabel={canMove ? 'Saltar' : 'Dejar en blanco'}
         aiHelp={mode !== 'full'}
         reading={queue[index].reading_id ? readings.data?.[queue[index].reading_id!] ?? null : null}

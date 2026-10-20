@@ -6,6 +6,8 @@ import ReadingText from './ReadingText';
 import FullscreenOverlay, { ExpandButton } from '@/components/FullscreenText';
 import { saveQuestionTag, type QuestionTag } from '@/features/exams/api';
 import { letterOf, loadShuffleOptions, shuffleQuestion } from '@/lib/shuffle';
+import EditQuestionSheet from './EditQuestionSheet';
+import { reconcileResponse } from './editSync';
 
 type Props = {
   question: Question;
@@ -20,6 +22,8 @@ type Props = {
   /** Si se pasa, aparece el botón de saltar junto a "Comprobar" (solo antes de comprobar la respuesta). */
   onSkip?: () => void;
   skipLabel?: string;
+  /** Si se pasa, aparece "Editar pregunta": corrige la pregunta en el simulacro sin salir de la práctica. Recibe la pregunta ya guardada. */
+  onEdited?: (q: Question) => void;
 };
 
 const TAGS: { id: QuestionTag; label: string; className: string }[] = [
@@ -73,7 +77,7 @@ const styles = {
 } as const;
 type S = keyof typeof styles;
 
-export function QuestionCard({ question, examId, onNext, aiHelp = false, reading = null, anonymous = false, onSkip, skipLabel = 'Saltar' }: Props) {
+export function QuestionCard({ question, examId, onNext, aiHelp = false, reading = null, anonymous = false, onSkip, skipLabel = 'Saltar', onEdited }: Props) {
   // Opciones mezcladas: cada vez que se abre la pregunta (se monta la tarjeta) quedan en otro orden; los ids no cambian
   const [seed] = useState(() => Math.floor(Math.random() * 4294967296));
   const [shuffle] = useState(loadShuffleOptions);
@@ -87,6 +91,20 @@ export function QuestionCard({ question, examId, onNext, aiHelp = false, reading
   const aiRef = useRef<HTMLDivElement>(null);
   const [full, setFull] = useState<'reading' | 'prompt' | null>(null); // texto largo a pantalla completa
   const showAi = aiHelp && checked && correct === false;
+  const [editing, setEditing] = useState(false);
+
+  // Si editas una pregunta ya respondida (por ejemplo, corriges cuál era la correcta), tu respuesta se conserva y se vuelve a calificar
+  const firstRun = useRef(true);
+  useEffect(() => {
+    if (firstRun.current) {
+      firstRun.current = false;
+      return;
+    }
+    const next = reconcileResponse(resp, q);
+    setResp(next);
+    setCorrect((c) => (c === null ? null : isReady(q, next) ? checkAnswer(q, next) : null));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [question]);
 
   // Al fallar, lleva la vista a la ayuda de IA (la barra de abajo tapa el final de la página)
   useEffect(() => {
@@ -180,6 +198,17 @@ export function QuestionCard({ question, examId, onNext, aiHelp = false, reading
         )}
 
         <div className="min-w-0">
+          {onEdited && (
+            <div className="mb-2 flex justify-end">
+              <button
+                type="button"
+                onClick={() => setEditing(true)}
+                className="rounded-lg px-2 py-1 text-xs font-bold text-slate-500 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800"
+              >
+                ✏️ Editar pregunta
+              </button>
+            </div>
+          )}
           {q.imagen_url && <QuestionImage src={q.imagen_url} className="mb-4" />}
           {q.type === 'transform' && (
             <p className="mb-1 text-sm font-bold text-sky-500 dark:text-sky-300">
@@ -334,6 +363,10 @@ export function QuestionCard({ question, examId, onNext, aiHelp = false, reading
         <FullscreenOverlay title="Enunciado" onClose={() => setFull(null)}>
           <p className="whitespace-pre-line font-semibold">{q.prompt}</p>
         </FullscreenOverlay>
+      )}
+
+      {editing && onEdited && (
+        <EditQuestionSheet question={question} examId={examId} onClose={() => setEditing(false)} onSaved={onEdited} />
       )}
 
       <footer
