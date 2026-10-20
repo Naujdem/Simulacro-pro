@@ -7,6 +7,7 @@ import { fetchExamWrongQuestions, type Exam } from './api';
 import { usePractice } from '@/features/practice/practiceStore';
 import { clearProgress, pendingProgress, setLastSlot } from '@/features/practice/progress';
 import { syncProgress, useProgressVersion } from '@/features/practice/progressSync';
+import { loadShuffleOptions, saveShuffleOptions } from '@/lib/shuffle';
 
 interface Props {
   exam: Exam;
@@ -30,6 +31,7 @@ export default function ExamStartSheet({ exam, onClose }: Props) {
   const pendingWrong = useMemo(() => pendingProgress(exam.id, 'wrong'), [exam.id, version]);
   const wrongCount = wrong.data?.length ?? 0;
   const [sharing, setSharing] = useState(false);
+  const [shuffle, setShuffle] = useState(loadShuffleOptions);
 
   // Continuar: la página de práctica retoma el avance guardado de esa sesión
   const go = (slot: string) => {
@@ -119,6 +121,24 @@ export default function ExamStartSheet({ exam, onClose }: Props) {
           </button>
           {wrong.isError && <p className="text-xs text-red-600">{(wrong.error as Error).message}</p>}
         </div>
+
+        <label className="flex cursor-pointer items-start gap-3 border-t border-slate-100 pt-4 dark:border-slate-700">
+          <input
+            type="checkbox"
+            checked={shuffle}
+            onChange={(e) => {
+              setShuffle(e.target.checked);
+              saveShuffleOptions(e.target.checked);
+            }}
+            className="mt-1 h-4 w-4 accent-sky-500"
+          />
+          <span className="text-sm">
+            <b>🔀 Mezclar las opciones</b>
+            <span className="block text-xs text-slate-500">
+              La respuesta correcta cambia de lugar cada vez que abres la pregunta. Aplica a todos tus simulacros.
+            </span>
+          </span>
+        </label>
 
         <button onClick={() => setSharing(true)} className="btn-secondary w-full">
           🔗 Compartir

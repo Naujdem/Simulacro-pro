@@ -3,14 +3,17 @@ import { Question, Response } from '@/lib/grading';
 import { supabase, todayLocal } from '@/lib/supabase';
 import { clearProgress, loadProgress, saveProgress, type SavedMode } from './progress';
 import { groupBySection } from '@/lib/sections';
+import { moveToEndOfScope } from './skip';
 
 export interface Result {
   questionId: string;
   response: Response;
   correct: boolean;
   timeMs: number;
-  /** Sin responder porque se acabó el tiempo. */
+  /** Sin responder (por tiempo o porque se dejó en blanco). Cuenta como incorrecta. */
   skipped?: boolean;
+  /** Por qué quedó sin responder: se acabó el tiempo o la dejaste en blanco. Si falta, fue por el tiempo. */
+  skipReason?: 'time' | 'user';
 }
 
 export interface Summary {
@@ -54,6 +57,8 @@ interface PracticeState {
   results: Result[];
   /** Índice de la pausa entre secciones que ya se aceptó con "Continuar" (-1 = ninguna). */
   ack: number;
+  /** Preguntas que saltaste en esta sesión (para avisar cuando vuelven a aparecer). */
+  skippedIds: string[];
   startedAt: number;
   questionStartedAt: number;
   summary: Summary | null;
@@ -63,6 +68,10 @@ interface PracticeState {
   record(response: Response, correct: boolean): void;
   /** "Continuar" en la pausa entre secciones. */
   continueSection(): void;
+  /** Manda la pregunta actual al final de su sección (o de la cola) para verla después. Devuelve false si no queda otra por responder. */
+  skipQuestion(): boolean;
+  /** Deja la pregunta actual en blanco: cuenta como incorrecta y se sigue con la siguiente. */
+  leaveUnanswered(): void;
   retryWrongQueue(): Question[];
   /** Guarda el intento. Con `timedOut`, las preguntas sin responder se guardan como incorrectas. */
   finish(opts?: { timedOut?: boolean }): Promise<Summary>;
@@ -111,6 +120,7 @@ export const usePractice = create<PracticeState>((set, get) => {
     index: 0,
     results: [],
     ack: -1,
+    skippedIds: [],
     startedAt: 0,
     questionStartedAt: 0,
     summary: null,
@@ -132,6 +142,7 @@ export const usePractice = create<PracticeState>((set, get) => {
         index: 0,
         results: [],
         ack: -1,
+        skippedIds: [],
         summary: null,
         startedAt: Date.now(),
         questionStartedAt: Date.now(),
@@ -165,6 +176,7 @@ export const usePractice = create<PracticeState>((set, get) => {
         index: results.length, // cada respuesta avanza una pregunta: la siguiente es la que sigue
         results,
         ack: -1, // si saliste en una pausa entre secciones, vuelves a ella
+        skippedIds: [],
         summary: null,
         // El tiempo fuera de la app no cuenta, salvo en el Examen Cronometrado: ahí el reloj sigue corriendo
         startedAt: saved.limitSec && saved.startedAt ? saved.startedAt : Date.now() - saved.elapsedMs,
@@ -187,6 +199,30 @@ export const usePractice = create<PracticeState>((set, get) => {
 
     continueSection: () => set((s) => ({ ack: s.index })),
 
+    skipQuestion: () => {
+      const s = get();
+      const q = s.queue[s.index];
+      if (!s.active || !q) return false;
+      // En el simulacro completo se queda dentro de su sección; en los repasos va al final de la cola
+      const queue = moveToEndOfScope(s.queue, s.index, s.mode === 'full');
+      if (queue === s.queue) return false;
+      set({ queue, skippedIds: s.skippedIds.includes(q.id) ? s.skippedIds : [...s.skippedIds, q.id], questionStartedAt: Date.now() });
+      persist();
+      return true;
+    },
+
+    leaveUnanswered: () => {
+      set((s) => ({
+        results: [
+          ...s.results,
+          { questionId: s.queue[s.index].id, response: { type: 'skipped' }, correct: false, timeMs: Date.now() - s.questionStartedAt, skipped: true, skipReason: 'user' },
+        ],
+        index: s.index + 1,
+        questionStartedAt: Date.now(),
+      }));
+      persist();
+    },
+
     retryWrongQueue: () => {
       const { queue, results } = get();
       const wrong = new Set(results.filter((r) => !r.correct).map((r) => r.questionId));
@@ -201,7 +237,7 @@ export const usePractice = create<PracticeState>((set, get) => {
       // Se acabó el tiempo: lo que no se alcanzó a responder cuenta como incorrecto
       const timedOut = !!opts?.timedOut && !!s.limitSec;
       const skipped: Result[] = timedOut
-        ? s.queue.slice(s.results.length).map((q) => ({ questionId: q.id, response: { type: 'skipped' }, correct: false, timeMs: 0, skipped: true }))
+        ? s.queue.slice(s.results.length).map((q) => ({ questionId: q.id, response: { type: 'skipped' }, correct: false, timeMs: 0, skipped: true, skipReason: 'time' }))
         : [];
       const all = [...s.results, ...skipped];
 
@@ -273,6 +309,6 @@ export const usePractice = create<PracticeState>((set, get) => {
 
     // Salir NO borra el avance guardado: así puedes volver y continuar
     reset: () =>
-      set({ active: false, queue: [], allQuestions: [], results: [], index: 0, ack: -1, summary: null, parentAttemptId: undefined, limitSec: null }),
+      set({ active: false, queue: [], allQuestions: [], results: [], index: 0, ack: -1, skippedIds: [], summary: null, parentAttemptId: undefined, limitSec: null }),
   };
 });

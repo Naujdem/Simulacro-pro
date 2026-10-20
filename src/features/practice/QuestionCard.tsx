@@ -1,10 +1,11 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Question, Response, checkAnswer, correctText } from '@/lib/grading';
 import QuestionImage from '@/components/QuestionImage';
 import AiPanel from '@/features/ai/AiPanel';
 import ReadingText from './ReadingText';
 import FullscreenOverlay, { ExpandButton } from '@/components/FullscreenText';
 import { saveQuestionTag, type QuestionTag } from '@/features/exams/api';
+import { letterOf, loadShuffleOptions, shuffleQuestion } from '@/lib/shuffle';
 
 type Props = {
   question: Question;
@@ -16,6 +17,9 @@ type Props = {
   aiHelp?: boolean;
   /** Visitante sin cuenta (simulacro compartido): no hay etiquetas que guardar; se avanza con "Siguiente". */
   anonymous?: boolean;
+  /** Si se pasa, aparece el botón de saltar junto a "Comprobar" (solo antes de comprobar la respuesta). */
+  onSkip?: () => void;
+  skipLabel?: string;
 };
 
 const TAGS: { id: QuestionTag; label: string; className: string }[] = [
@@ -69,7 +73,11 @@ const styles = {
 } as const;
 type S = keyof typeof styles;
 
-export function QuestionCard({ question: q, examId, onNext, aiHelp = false, reading = null, anonymous = false }: Props) {
+export function QuestionCard({ question, examId, onNext, aiHelp = false, reading = null, anonymous = false, onSkip, skipLabel = 'Saltar' }: Props) {
+  // Opciones mezcladas: cada vez que se abre la pregunta (se monta la tarjeta) quedan en otro orden; los ids no cambian
+  const [seed] = useState(() => Math.floor(Math.random() * 4294967296));
+  const [shuffle] = useState(loadShuffleOptions);
+  const q = useMemo(() => (shuffle ? shuffleQuestion(question, seed) : question), [question, seed, shuffle]);
   const [resp, setResp] = useState<Response>(() => emptyResponse(q)); // usar key={q.id} en el padre
   const [correct, setCorrect] = useState<boolean | null>(null);
   const [savingTag, setSavingTag] = useState(false);
@@ -182,7 +190,7 @@ export function QuestionCard({ question: q, examId, onNext, aiHelp = false, read
 
           {q.type === 'multiple_choice' && (
             <div className={`grid grid-cols-1 gap-3 ${cols}`}>
-              {q.options!.map((o) => (
+              {q.options!.map((o, i) => (
                 <button
                   key={o.id}
                   onClick={() => pick(o.id)}
@@ -190,7 +198,7 @@ export function QuestionCard({ question: q, examId, onNext, aiHelp = false, read
                   className={base + styles[optionState(o.id)]}
                 >
                   <span className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border text-sm uppercase">
-                    {o.id}
+                    {letterOf(i)}
                   </span>
                   <span className="min-w-0 flex-1 space-y-2">
                     {o.text ? <span className="block">{o.text}</span> : null}
@@ -356,13 +364,23 @@ export function QuestionCard({ question: q, examId, onNext, aiHelp = false, read
             </div>
           )}
           {!checked ? (
-            <button
-              disabled={!isReady(q, resp)}
-              onClick={check}
-              className="w-full rounded-2xl bg-sky-500 py-4 text-base font-bold tracking-wide text-white active:bg-sky-600 disabled:bg-slate-300 disabled:text-slate-500"
-            >
-              Comprobar
-            </button>
+            <div className="flex gap-3">
+              {onSkip && (
+                <button
+                  onClick={onSkip}
+                  className="shrink-0 rounded-2xl border-2 border-slate-300 px-5 py-4 text-base font-bold text-slate-600 active:bg-slate-100 dark:border-slate-600 dark:text-slate-300 dark:active:bg-slate-800"
+                >
+                  {skipLabel}
+                </button>
+              )}
+              <button
+                disabled={!isReady(q, resp)}
+                onClick={check}
+                className="min-w-0 flex-1 rounded-2xl bg-sky-500 py-4 text-base font-bold tracking-wide text-white active:bg-sky-600 disabled:bg-slate-300 disabled:text-slate-500"
+              >
+                Comprobar
+              </button>
+            </div>
           ) : anonymous ? (
             <button
               onClick={() => onNext(resp, correct!)}

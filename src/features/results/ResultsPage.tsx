@@ -84,7 +84,7 @@ export default function ResultsPage() {
   };
 
   // Si terminaste en una pausa, solo se revisan las preguntas respondidas
-  const items = queue.slice(0, results.length).map((q, i) => ({ q, correct: results[i].correct, skipped: !!results[i].skipped }));
+  const items = queue.slice(0, results.length).map((q, i) => ({ q, correct: results[i].correct, skipped: !!results[i].skipped, byUser: results[i].skipReason === 'user' }));
   const partial = summary.planned > summary.total;
   const bySection = usePractice.getState().mode === 'full' ? sectionRanges(queue).map((r) => sectionStats(r, results)) : [];
   const okCount = items.filter((x) => x.correct).length;
@@ -236,7 +236,7 @@ export default function ResultsPage() {
           )}
 
           <ul className="space-y-2">
-            {shown.map(({ q, correct, skipped }) => {
+            {shown.map(({ q, correct, skipped, byUser }) => {
               const saved = savedIds.has(q.id);
               return (
                 <li
@@ -248,7 +248,7 @@ export default function ResultsPage() {
                   <p className="whitespace-pre-line">
                     {correct ? '✔' : '✖'} {showPrompt(q.prompt)}
                   </p>
-                  {skipped && <p className="text-xs font-bold text-red-700 dark:text-red-300">⏰ Sin responder (se acabó el tiempo)</p>}
+                  {skipped && <p className="text-xs font-bold text-red-700 dark:text-red-300">{byUser ? '⏭ Dejada en blanco' : '⏰ Sin responder (se acabó el tiempo)'}</p>}
                   {q.imagen_url && <QuestionImage src={q.imagen_url} />}
                   {!correct && (
                     <>
