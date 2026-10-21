@@ -19,6 +19,8 @@ import {
 import CreateFolderDialog from './CreateFolderDialog';
 import DeleteFolderDialog from './DeleteFolderDialog';
 import ExamStartSheet from './ExamStartSheet';
+import ExamStatusBadge from './ExamStatusBadge';
+import { useExamStatus } from './useExamStatus';
 import MoveDialog, { type MoveTarget } from './MoveDialog';
 import ShareDialog from '@/features/share/ShareDialog';
 
@@ -38,6 +40,7 @@ export default function LibraryPage() {
   const exams = useQuery({ queryKey: ['exams'], queryFn: fetchExams });
   const folders = useQuery({ queryKey: ['folders'], queryFn: fetchFolders });
   const best = useQuery({ queryKey: ['best'], queryFn: fetchBestScores });
+  const statusOf = useExamStatus();
 
   const delFolder = useMutation({
     mutationFn: ({ id, withExams }: { id: string; withExams: boolean }) => deleteFolder(id, folders.data ?? [], withExams),
@@ -45,6 +48,7 @@ export default function LibraryPage() {
       qc.invalidateQueries({ queryKey: ['folders'] });
       qc.invalidateQueries({ queryKey: ['exams'] });
       qc.invalidateQueries({ queryKey: ['best'] });
+      qc.invalidateQueries({ queryKey: ['last-finished'] });
       setDeleting(null);
     },
   });
@@ -114,7 +118,10 @@ export default function LibraryPage() {
     return (
       <li key={e.id} className="card relative flex items-center gap-1 pr-1.5">
         <button className="min-w-0 flex-1 p-4 text-left" onClick={() => setSheet(e)}>
-          <p className="truncate font-semibold">{e.title}</p>
+          <p className="flex items-center gap-2 font-semibold">
+            <ExamStatusBadge status={statusOf(e.id)} />
+            <span className="truncate">{e.title}</span>
+          </p>
           <p className="mt-0.5 truncate text-xs text-slate-500">
             {where ? `${where} · ` : ''}
             {e.subject ?? 'Sin tema'} · {e.question_count} preguntas

@@ -16,6 +16,8 @@ import {
 } from './api';
 import Icon from '@/components/Icon';
 import ExamStartSheet from './ExamStartSheet';
+import ExamStatusBadge from './ExamStatusBadge';
+import { useExamStatus } from './useExamStatus';
 import CreateFolderDialog from './CreateFolderDialog';
 import DeleteFolderDialog from './DeleteFolderDialog';
 import MoveDialog, { type MoveTarget } from './MoveDialog';
@@ -36,6 +38,7 @@ export default function FolderPage() {
   const folders = useQuery({ queryKey: ['folders'], queryFn: fetchFolders });
   const exams = useQuery({ queryKey: ['exams'], queryFn: fetchExams });
   const best = useQuery({ queryKey: ['best'], queryFn: fetchBestScores });
+  const statusOf = useExamStatus();
 
   const delFolder = useMutation({
     mutationFn: ({ id, withExams }: { id: string; withExams: boolean }) => deleteFolder(id, folders.data ?? [], withExams),
@@ -44,6 +47,7 @@ export default function FolderPage() {
       qc.invalidateQueries({ queryKey: ['folders'] });
       qc.invalidateQueries({ queryKey: ['exams'] });
       qc.invalidateQueries({ queryKey: ['best'] });
+      qc.invalidateQueries({ queryKey: ['last-finished'] });
       setDeleting(null);
       // Si se eliminó la biblioteca que se está viendo, volver a su biblioteca madre (o a la lista)
       if (wasCurrent) nav(backTo, { replace: true });
@@ -274,7 +278,10 @@ export default function FolderPage() {
                 className="flex-1 text-left"
                 onClick={() => setSheet(e)}
               >
-                <p className="font-semibold">{e.title}</p>
+                <p className="flex items-center gap-2 font-semibold">
+                  <ExamStatusBadge status={statusOf(e.id)} />
+                  <span>{e.title}</span>
+                </p>
                 <p className="text-xs text-slate-500">
                   {e.subject ?? 'Sin tema'} · {e.question_count} preguntas
                   {best.data?.[e.id] !== undefined && ` · mejor ${Math.round(best.data[e.id])}%`}
