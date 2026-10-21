@@ -78,6 +78,22 @@ export const fetchBestScores = async (): Promise<Record<string, number>> => {
   return best;
 };
 
+/** Último intento completo (modo 'full' terminado) de cada simulacro: sirve para el indicador de estado. */
+export const fetchLastFinished = async (): Promise<Record<string, { total: number; correct: number }>> => {
+  const { data } = await supabase
+    .from('attempts')
+    .select('exam_id,total,correct,finished_at')
+    .eq('mode', 'full')
+    .not('finished_at', 'is', null)
+    .order('finished_at', { ascending: false });
+  const last: Record<string, { total: number; correct: number }> = {};
+  // Vienen del más reciente al más antiguo: nos quedamos con el primero de cada simulacro
+  for (const a of data ?? []) {
+    if (!(a.exam_id in last)) last[a.exam_id] = { total: Number(a.total), correct: Number(a.correct) };
+  }
+  return last;
+};
+
 export const fetchFolders = async (): Promise<Folder[]> => {
   const { data, error } = await supabase.from('folders').select('*').order('created_at', { ascending: false });
   if (error) throw error;
