@@ -74,7 +74,7 @@ export default function Layout() {
   };
 
   return (
-    <div className="min-h-dvh pb-24 md:pb-8 md:pl-24" onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>
+    <div className="min-h-dvh overflow-x-clip pb-24 md:pb-8 md:pl-24" onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>
       {/* Móvil: columna angosta con barra abajo. PC (md+): contenido más ancho y barra lateral a la izquierda. */}
       <div key={pathname} className={`mx-auto max-w-xl md:max-w-5xl md:px-4 md:animate-none ${animation}`}>
         <Outlet />

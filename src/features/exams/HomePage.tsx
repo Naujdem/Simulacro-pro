@@ -152,9 +152,9 @@ export default function HomePage() {
               <li key={e.id} className="card flex items-center gap-1 pr-1.5">
                 <button onClick={() => setSheet(e)} className="flex min-w-0 flex-1 items-center justify-between gap-3 p-4 text-left">
                   <div className="min-w-0">
-                    <p className="flex items-center gap-2 font-semibold">
+                    <p className="flex min-w-0 items-center gap-2 font-semibold">
                       <ExamStatusBadge status={statusOf(e.id)} />
-                      <span className="truncate">{e.title}</span>
+                      <span className="min-w-0 truncate">{e.title}</span>
                     </p>
                     <p className="mt-0.5 truncate text-xs text-slate-500">
                       {e.subject ?? 'Sin tema'} · {e.question_count} preguntas

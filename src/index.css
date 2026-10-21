@@ -21,6 +21,7 @@
 }
 
 html, body, #root { min-height: 100dvh; }
+html, body { overflow-x: hidden; } /* nunca scroll horizontal de página en móvil */
 body { @apply bg-slate-50 font-sans text-slate-800 antialiased dark:bg-slate-900 dark:text-slate-100; }
 
 /*

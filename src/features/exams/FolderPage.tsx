@@ -270,17 +270,17 @@ export default function FolderPage() {
         </p>
       )}
 
-      <ul className="grid gap-3 md:grid-cols-2">
+      <ul className="grid grid-cols-1 gap-3 md:grid-cols-2">
         {inFolder.map((e) => (
           <li key={e.id} className="card p-4">
             <div className="flex items-start justify-between gap-2">
               <button
-                className="flex-1 text-left"
+                className="min-w-0 flex-1 text-left"
                 onClick={() => setSheet(e)}
               >
-                <p className="flex items-center gap-2 font-semibold">
+                <p className="flex min-w-0 items-center gap-2 font-semibold">
                   <ExamStatusBadge status={statusOf(e.id)} />
-                  <span>{e.title}</span>
+                  <span className="min-w-0 break-words">{e.title}</span>
                 </p>
                 <p className="text-xs text-slate-500">
                   {e.subject ?? 'Sin tema'} · {e.question_count} preguntas
