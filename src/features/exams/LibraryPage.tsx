@@ -118,9 +118,9 @@ export default function LibraryPage() {
     return (
       <li key={e.id} className="card relative flex items-center gap-1 pr-1.5">
         <button className="min-w-0 flex-1 p-4 text-left" onClick={() => setSheet(e)}>
-          <p className="flex items-center gap-2 font-semibold">
+          <p className="flex min-w-0 items-center gap-2 font-semibold">
             <ExamStatusBadge status={statusOf(e.id)} />
-            <span className="truncate">{e.title}</span>
+            <span className="min-w-0 truncate">{e.title}</span>
           </p>
           <p className="mt-0.5 truncate text-xs text-slate-500">
             {where ? `${where} · ` : ''}
@@ -309,7 +309,7 @@ export default function LibraryPage() {
           )}
 
           {list.length ? (
-            <ul className="grid gap-2.5 md:grid-cols-2">{list.map(examRow)}</ul>
+            <ul className="grid grid-cols-1 gap-2.5 md:grid-cols-2">{list.map(examRow)}</ul>
           ) : (
             <p className="rounded-2xl border border-dashed border-slate-300 p-5 text-center text-sm text-slate-500 dark:border-slate-700">
               Todos tus simulacros están dentro de una biblioteca.

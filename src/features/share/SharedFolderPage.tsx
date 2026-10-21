@@ -250,7 +250,7 @@ export default function SharedFolderPage({ session, sessionLoading }: { session:
       {view.exams.length > 0 && (
         <section className="space-y-2">
           <h2 className="section-title">Simulacros</h2>
-          <ul className="grid gap-2.5">
+          <ul className="grid grid-cols-1 gap-2.5">
             {view.exams.map((e) => (
               <li key={e.id}>
                 <button onClick={() => setOpenExam(e.id)} className="card flex w-full items-center gap-3 p-4 text-left">
