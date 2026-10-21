@@ -14,6 +14,8 @@ import { QUICK_REVIEW_ID, SURPRISE_ID, usePractice } from '@/features/practice/p
 import { pendingProgress, setLastSlot } from '@/features/practice/progress';
 import { useProgressVersion } from '@/features/practice/progressSync';
 import ExamStartSheet from './ExamStartSheet';
+import ExamStatusBadge from './ExamStatusBadge';
+import { useExamStatus } from './useExamStatus';
 import Icon, { type IconName } from '@/components/Icon';
 import Collapsible from '@/components/Collapsible';
 
@@ -22,6 +24,7 @@ export default function HomePage() {
   const profile = useQuery({ queryKey: ['profile'], queryFn: fetchProfile });
   const exams = useQuery({ queryKey: ['exams'], queryFn: fetchExams });
   const best = useQuery({ queryKey: ['best'], queryFn: fetchBestScores });
+  const statusOf = useExamStatus();
   const reviewIds = useQuery({ queryKey: ['review-ids'], queryFn: fetchReviewIds });
   const reviewCount = reviewIds.data?.length ?? 0;
   const wrongCount = useQuery({ queryKey: ['wrong-count'], queryFn: fetchWrongCount });
@@ -149,7 +152,10 @@ export default function HomePage() {
               <li key={e.id} className="card flex items-center gap-1 pr-1.5">
                 <button onClick={() => setSheet(e)} className="flex min-w-0 flex-1 items-center justify-between gap-3 p-4 text-left">
                   <div className="min-w-0">
-                    <p className="truncate font-semibold">{e.title}</p>
+                    <p className="flex items-center gap-2 font-semibold">
+                      <ExamStatusBadge status={statusOf(e.id)} />
+                      <span className="truncate">{e.title}</span>
+                    </p>
                     <p className="mt-0.5 truncate text-xs text-slate-500">
                       {e.subject ?? 'Sin tema'} · {e.question_count} preguntas
                     </p>
