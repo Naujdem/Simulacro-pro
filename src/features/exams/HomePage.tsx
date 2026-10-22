@@ -10,7 +10,7 @@ import {
   fetchWrongQuestions,
   type Exam,
 } from './api';
-import { QUICK_REVIEW_ID, SURPRISE_ID, usePractice } from '@/features/practice/practiceStore';
+import { QUICK_REVIEW_ID, SUPER_ID, SURPRISE_ID, usePractice } from '@/features/practice/practiceStore';
 import { pendingProgress, setLastSlot } from '@/features/practice/progress';
 import { useProgressVersion } from '@/features/practice/progressSync';
 import ExamStartSheet from './ExamStartSheet';
@@ -33,6 +33,7 @@ export default function HomePage() {
   useProgressVersion((s) => s.version); // se vuelve a dibujar cuando llega avance de otro dispositivo
   const savedQuick = pendingProgress(QUICK_REVIEW_ID, 'quick_review'); // Repaso Rápido dejado a medias
   const savedSurprise = pendingProgress(SURPRISE_ID, 'surprise'); // Simulacro Sorpresa dejado a medias
+  const savedSuper = pendingProgress(SUPER_ID, 'super'); // Super simulacro dejado a medias
 
   // Repaso Rápido: busca TODAS las preguntas con etiqueta "Mal" y las practica en una sola sesión
   const quick = useMutation({
@@ -124,6 +125,20 @@ export default function HomePage() {
             />
           )}
           <ActionRow icon="dice" title="Simulacro Sorpresa" hint="Preguntas al azar" to="/surprise" />
+          {savedSuper && (
+            <ActionRow
+              icon="play"
+              title="Continuar Super simulacro"
+              hint={`pregunta ${savedSuper.done + 1} de ${savedSuper.total}`}
+              highlight
+              onClick={() => {
+                setLastSlot(SUPER_ID, 'super');
+                usePractice.getState().reset();
+                nav(`/practice/${SUPER_ID}`);
+              }}
+            />
+          )}
+          <ActionRow icon="clock" title="Super simulacro" hint="Varios con un cronómetro" to="/super" />
           <ActionRow
             icon="bookmark"
             title="Repaso"

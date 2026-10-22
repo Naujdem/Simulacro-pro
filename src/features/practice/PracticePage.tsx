@@ -4,7 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { fetchReadings } from '@/features/exams/api';
 import type { Question } from '@/lib/grading';
-import { isMixedSession, QUICK_REVIEW_ID, SURPRISE_ID, usePractice } from './practiceStore';
+import { isMixedSession, QUICK_REVIEW_ID, SUPER_ID, SURPRISE_ID, usePractice } from './practiceStore';
 import TimerBar from './TimerBar';
 import { remainingSec } from '@/lib/timer';
 import { lastSlotFor } from './progress';
@@ -28,7 +28,7 @@ export default function PracticePage() {
     let cancelled = false;
 
     (async () => {
-      const slot = lastSlotFor(examId!) ?? (examId === QUICK_REVIEW_ID ? 'quick_review' : examId === SURPRISE_ID ? 'surprise' : 'full');
+      const slot = lastSlotFor(examId!) ?? (examId === QUICK_REVIEW_ID ? 'quick_review' : examId === SURPRISE_ID ? 'surprise' : examId === SUPER_ID ? 'super' : 'full');
       const resumed = await usePractice.getState().resume(examId!, slot).catch(() => false);
       if (cancelled) return;
       if (resumed) {

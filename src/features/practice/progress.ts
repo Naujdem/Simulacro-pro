@@ -11,7 +11,7 @@ import type { Response } from '@/lib/grading';
  * que si editaste el simulacro entre tanto se usa la versión actual.
  */
 
-export type SavedMode = 'full' | 'retry_wrong' | 'custom' | 'quick_review' | 'surprise';
+export type SavedMode = 'full' | 'retry_wrong' | 'custom' | 'quick_review' | 'surprise' | 'super';
 
 export interface SavedResult {
   questionId: string;
