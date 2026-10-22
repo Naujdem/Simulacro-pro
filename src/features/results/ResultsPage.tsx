@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Navigate, useNavigate } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { isMixedSession, QUICK_REVIEW_ID, SURPRISE_ID, usePractice } from '@/features/practice/practiceStore';
+import { isMixedSession, QUICK_REVIEW_ID, SUPER_ID, SURPRISE_ID, usePractice } from '@/features/practice/practiceStore';
 import { addToReview, fetchExams, fetchReviewIds, removeFromReview, setExamDifficulty } from '@/features/exams/api';
 import StarRating from '@/components/StarRating';
 import { generateSuggestion, MIN_FAILED, providerName } from '@/features/suggestions/api';
@@ -52,7 +52,7 @@ export default function ResultsPage() {
       // Las que no se alcanzaron a responder por falta de tiempo no dicen qué no sabe el usuario: no entran
       const failed = answered.filter((_, i) => !st.results[i].correct && !st.results[i].skipped);
       const quick = isMixedSession(st.examId);
-      const title = st.examId === QUICK_REVIEW_ID ? 'Repaso rápido' : st.examId === SURPRISE_ID ? 'Simulacro Sorpresa' : (exams.data?.find((e) => e.id === st.examId)?.title ?? 'Simulacro');
+      const title = st.examId === QUICK_REVIEW_ID ? 'Repaso rápido' : st.examId === SURPRISE_ID ? 'Simulacro Sorpresa' : st.examId === SUPER_ID ? 'Super simulacro' : (exams.data?.find((e) => e.id === st.examId)?.title ?? 'Simulacro');
       const sections = [...new Set(answered.map((q) => q.section).filter((x): x is string => !!x))];
       return generateSuggestion({ examId: quick ? null : st.examId, examTitle: title, failed, sections, provider });
     },
@@ -79,11 +79,11 @@ export default function ResultsPage() {
     // En Repaso Rápido, repetir sigue siendo Repaso Rápido (mezcla de simulacros).
     // Un repaso parcial ('custom') tampoco se convierte en simulacro completo: no debe inflar el "mejor %".
     const m =
-      examId === QUICK_REVIEW_ID ? 'quick_review' : examId === SURPRISE_ID ? 'surprise' : mode === 'full' && st.mode === 'custom' ? 'custom' : mode;
+      examId === QUICK_REVIEW_ID ? 'quick_review' : examId === SURPRISE_ID ? 'surprise' : examId === SUPER_ID ? 'super' : mode === 'full' && st.mode === 'custom' ? 'custom' : mode;
     // Cada tipo de sesión guarda su avance aparte para poder continuarla
-    const slot = m === 'quick_review' || m === 'surprise' ? m : mode === 'retry_wrong' ? 'retry_wrong' : m === 'full' ? 'full' : st.slot;
+    const slot = m === 'quick_review' || m === 'surprise' || m === 'super' ? m : mode === 'retry_wrong' ? 'retry_wrong' : m === 'full' ? 'full' : st.slot;
     // Repetir un examen cronometrado vuelve a poner el reloj; repasar solo las falladas no
-    const limit = m === 'full' || m === 'surprise' ? summary.limitSec : null;
+    const limit = m === 'full' || m === 'surprise' || m === 'super' ? summary.limitSec : null;
     st.start(examId, questions, m, summary.attemptId, slot, limit);
     nav(`/practice/${examId}`);
   };
@@ -111,10 +111,11 @@ export default function ResultsPage() {
       <h1 className="text-center text-2xl font-bold">
         {partial ? 'Resultado parcial 📊' : pct >= 70 ? '¡Buen trabajo! 🎉' : 'Sigue practicando 💪'}
       </h1>
-      {(summary.limitSec || examId === SURPRISE_ID) && (
+      {(summary.limitSec || examId === SURPRISE_ID || examId === SUPER_ID) && (
         <p className="flex flex-wrap justify-center gap-2 text-xs font-bold">
           {summary.limitSec ? <span className="rounded-full bg-slate-800 px-3 py-1 text-white dark:bg-slate-600">⏱ Examen cronometrado · {Math.round(summary.limitSec / 60)} min</span> : null}
           {examId === SURPRISE_ID ? <span className="rounded-full bg-sky-500 px-3 py-1 text-white">🎲 Simulacro Sorpresa</span> : null}
+          {examId === SUPER_ID ? <span className="rounded-full bg-sky-500 px-3 py-1 text-white">🏆 Super simulacro</span> : null}
         </p>
       )}
       {summary.timedOut && (

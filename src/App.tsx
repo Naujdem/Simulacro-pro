@@ -1,4 +1,5 @@
 import SurprisePage from '@/features/exams/SurprisePage';
+import SuperSimulacroPage from '@/features/exams/SuperSimulacroPage';
 import SuggestionPage from '@/features/suggestions/SuggestionPage';
 import SuggestionsListPage from '@/features/suggestions/SuggestionsListPage';
 import { useEffect } from 'react';
@@ -67,6 +68,7 @@ export default function App() {
         <Route path="exams/:examId/edit" element={<EditExamPage />} />
         <Route path="review" element={<ReviewPage />} />
         <Route path="surprise" element={<SurprisePage />} />
+        <Route path="super" element={<SuperSimulacroPage />} />
         <Route path="new" element={<ImportPage />} />
         <Route path="import-json" element={<JsonImportPage />} />
         <Route path="stats" element={<StatsPage />} />

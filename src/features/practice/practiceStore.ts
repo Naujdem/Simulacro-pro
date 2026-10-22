@@ -37,8 +37,10 @@ export interface Summary {
 export const QUICK_REVIEW_ID = 'quick';
 // Id especial para el Simulacro Sorpresa (preguntas al azar de varias bibliotecas, sin simulacro propio)
 export const SURPRISE_ID = 'surprise';
+// Id especial para el Super simulacro (varios simulacros completos seguidos con un solo cronómetro)
+export const SUPER_ID = 'super';
 /** Sesiones que mezclan preguntas de varios simulacros: no tienen simulacro propio. */
-export const isMixedSession = (id: string) => id === QUICK_REVIEW_ID || id === SURPRISE_ID;
+export const isMixedSession = (id: string) => id === QUICK_REVIEW_ID || id === SURPRISE_ID || id === SUPER_ID;
 
 type Mode = SavedMode;
 
@@ -139,7 +141,7 @@ export const usePractice = create<PracticeState>((set, get) => {
         parentAttemptId: parent,
         limitSec,
         // Al repetir solo las falladas se conserva la lista completa original
-        allQuestions: mode === 'retry_wrong' || ((mode === 'quick_review' || mode === 'surprise') && parent) ? s.allQuestions : questions,
+        allQuestions: mode === 'retry_wrong' || ((mode === 'quick_review' || mode === 'surprise' || mode === 'super') && parent) ? s.allQuestions : questions,
         queue: questions,
         index: 0,
         results: [],
@@ -259,7 +261,7 @@ export const usePractice = create<PracticeState>((set, get) => {
       const partial = s.mode === 'full' && total < s.queue.length;
       const mode: Mode = partial ? 'custom' : s.mode;
       // Practicar preguntas sueltas ('custom') o mezcladas no da bono por completar, para no regalar XP
-      const bonus = mode === 'custom' || mode === 'quick_review' || mode === 'surprise' ? 0 : 20 + (score >= 90 ? 30 : 0);
+      const bonus = mode === 'custom' || mode === 'quick_review' || mode === 'surprise' || mode === 'super' ? 0 : 20 + (score >= 90 ? 30 : 0);
       const xp = correct * 10 + bonus;
 
       const { data: attempt, error } = await supabase

@@ -160,7 +160,7 @@ export default function StatsPage() {
           {list.slice(0, 30).map((a) => (
             <li key={a.id} className="flex justify-between rounded-xl bg-slate-50 p-3 text-sm dark:bg-slate-900/40">
               <span>
-                <b>{a.mode === 'quick_review' ? '🧠 Repaso Rápido' : a.mode === 'surprise' ? '🎲 Simulacro Sorpresa' : (a.exams?.title ?? 'Simulacro eliminado')}</b>
+                <b>{a.mode === 'quick_review' ? '🧠 Repaso Rápido' : a.mode === 'surprise' ? '🎲 Simulacro Sorpresa' : a.mode === 'super' ? '🏆 Super simulacro' : (a.exams?.title ?? 'Simulacro eliminado')}</b>
                 {a.time_limit_sec ? <span className="ml-1 rounded-full bg-slate-200 px-2 py-0.5 text-[10px] font-bold dark:bg-slate-700">⏱ Examen cronometrado</span> : null}
                 <br />
                 <span className="text-xs text-slate-500">{new Date(a.finished_at).toLocaleString()}</span>
