@@ -380,14 +380,32 @@ export const fetchReviewEntries = async (): Promise<ReviewEntry[]> => {
 
 // ───────────────────────── Repaso Rápido ─────────────────────────
 
-// Cuántas preguntas tienen la etiqueta "Mal" (solo cuenta, no descarga las preguntas)
+// Repaso espaciado: cada etiqueta vuelve a salir en el Repaso Rápido pasados X días desde que la
+// pusiste. "Mal" siempre está pendiente; "Excelente" (null) se considera dominada y no vuelve.
+// Al repasar una pregunta y volver a etiquetarla, el reloj se reinicia (updated_at).
+export const REVIEW_AFTER_DAYS: Record<QuestionTag, number | null> = {
+  mal: 0,
+  ok: 3,
+  bien: 10,
+  excelente: null,
+};
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+const isDue = (tag: QuestionTag, updatedAt: string): boolean => {
+  const days = REVIEW_AFTER_DAYS[tag];
+  if (days === null) return false;
+  return Date.now() - new Date(updatedAt).getTime() >= days * DAY_MS;
+};
+
+// Cuántas preguntas tocan repasar hoy: las "Mal" + las "Ok"/"Bien" cuyo plazo ya venció
 export const fetchWrongCount = async (): Promise<number> => {
-  const { count, error } = await supabase
+  const { data, error } = await supabase
     .from('question_tags')
-    .select('question_id', { count: 'exact', head: true })
-    .eq('tag', 'mal');
+    .select('tag, updated_at')
+    .in('tag', ['mal', 'ok', 'bien']);
   if (error) throw error;
-  return count ?? 0;
+  return ((data ?? []) as { tag: QuestionTag; updated_at: string }[]).filter((r) => isDue(r.tag, r.updated_at)).length;
 };
 
 // Preguntas con etiqueta "Mal" de UN simulacro, en el orden en que aparecen en él.
@@ -404,12 +422,16 @@ export const fetchExamWrongQuestions = async (examId: string): Promise<Question[
     .sort((a, b) => (a.position ?? 0) - (b.position ?? 0));
 };
 
-// Todas las preguntas con etiqueta "Mal" del usuario, de cualquier simulacro o biblioteca,
-// en orden aleatorio. (La seguridad por usuario la aplica Supabase con RLS.)
+// Todas las preguntas que tocan repasar ("Mal" + "Ok"/"Bien" con plazo vencido) del usuario,
+// de cualquier simulacro o biblioteca, en orden aleatorio. (La seguridad por usuario la aplica Supabase con RLS.)
 export const fetchWrongQuestions = async (): Promise<Question[]> => {
-  const { data, error } = await supabase.from('question_tags').select('questions(*)').eq('tag', 'mal');
+  const { data, error } = await supabase
+    .from('question_tags')
+    .select('tag, updated_at, questions(*)')
+    .in('tag', ['mal', 'ok', 'bien']);
   if (error) throw error;
-  const list = ((data ?? []) as unknown as { questions: Question | null }[])
+  const list = ((data ?? []) as unknown as { tag: QuestionTag; updated_at: string; questions: Question | null }[])
+    .filter((r) => isDue(r.tag, r.updated_at))
     .map((r) => r.questions)
     .filter((q): q is Question => q !== null);
   for (let i = list.length - 1; i > 0; i--) {
