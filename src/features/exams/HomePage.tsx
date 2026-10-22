@@ -157,7 +157,7 @@ export default function HomePage() {
                       <span className="min-w-0 truncate">{e.title}</span>
                     </p>
                     <p className="mt-0.5 truncate text-xs text-slate-500">
-                      {e.subject ?? 'Sin tema'} · {e.question_count} preguntas
+                      {e.subject ?? 'Sin tema'} · {e.question_count} preguntas{e.difficulty ? ` · ★ ${e.difficulty}` : ''}
                     </p>
                   </div>
                   {score !== undefined ? (

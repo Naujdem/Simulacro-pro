@@ -283,7 +283,7 @@ export default function FolderPage() {
                   <span className="min-w-0 break-words">{e.title}</span>
                 </p>
                 <p className="text-xs text-slate-500">
-                  {e.subject ?? 'Sin tema'} · {e.question_count} preguntas
+                  {e.subject ?? 'Sin tema'} · {e.question_count} preguntas{e.difficulty ? ` · ★ ${e.difficulty}` : ''}
                   {best.data?.[e.id] !== undefined && ` · mejor ${Math.round(best.data[e.id])}%`}
                 </p>
               </button>

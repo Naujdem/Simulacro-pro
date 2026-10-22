@@ -124,7 +124,7 @@ export default function LibraryPage() {
           </p>
           <p className="mt-0.5 truncate text-xs text-slate-500">
             {where ? `${where} · ` : ''}
-            {e.subject ?? 'Sin tema'} · {e.question_count} preguntas
+            {e.subject ?? 'Sin tema'} · {e.question_count} preguntas{e.difficulty ? ` · ★ ${e.difficulty}` : ''}
           </p>
         </button>
         {score !== undefined && (

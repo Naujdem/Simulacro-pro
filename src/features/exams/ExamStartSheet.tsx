@@ -64,7 +64,7 @@ export default function ExamStartSheet({ exam, onClose }: Props) {
         <div>
           <h2 className="text-lg font-bold leading-tight">{exam.title}</h2>
           <p className="mt-0.5 text-xs text-slate-500">
-            {exam.subject ?? 'Sin tema'} · {exam.question_count} preguntas
+            {exam.subject ?? 'Sin tema'} · {exam.question_count} preguntas{exam.difficulty ? ` · ★ ${exam.difficulty}` : ''}
           </p>
           {exam.description && <p className="mt-2 line-clamp-3 text-sm text-slate-500">{exam.description}</p>}
         </div>
