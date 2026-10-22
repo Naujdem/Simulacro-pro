@@ -2,7 +2,8 @@ import { useEffect, useState } from 'react';
 import { Navigate, useNavigate } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { isMixedSession, QUICK_REVIEW_ID, SURPRISE_ID, usePractice } from '@/features/practice/practiceStore';
-import { addToReview, fetchExams, fetchReviewIds, removeFromReview } from '@/features/exams/api';
+import { addToReview, fetchExams, fetchReviewIds, removeFromReview, setExamDifficulty } from '@/features/exams/api';
+import StarRating from '@/components/StarRating';
 import { generateSuggestion, MIN_FAILED, providerName } from '@/features/suggestions/api';
 import { useDraft } from '@/features/suggestions/draftStore';
 import { getProvider, setProvider, type AiProvider } from '@/features/ai/translate';
@@ -34,6 +35,16 @@ export default function ResultsPage() {
   });
 
   const exams = useQuery({ queryKey: ['exams'], queryFn: fetchExams });
+
+  // Dificultad del simulacro en estrellas (solo simulacros reales, no Repaso Rápido ni Sorpresa)
+  const [pickedStars, setPickedStars] = useState<number | null | undefined>(undefined); // undefined = aún no tocaste las estrellas
+  const rate = useMutation({
+    mutationFn: (stars: number | null) => setExamDifficulty(examId, stars),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['exams'] }),
+    onError: () => setPickedStars(undefined), // si falla, vuelve a mostrar lo que hay guardado
+  });
+  const stars = pickedStars !== undefined ? pickedStars : (exams.data?.find((e) => e.id === examId)?.difficulty ?? null);
+
   const suggest = useMutation({
     mutationFn: (provider: AiProvider) => {
       const st = usePractice.getState();
@@ -139,6 +150,23 @@ export default function ResultsPage() {
           </div>
         ))}
       </div>
+
+      {!isMixedSession(examId) && !partial && exams.data?.some((e) => e.id === examId) && (
+        <section aria-label="Dificultad del simulacro" className="space-y-1 rounded-2xl bg-white p-4 text-center shadow-sm dark:bg-slate-800">
+          <p className="font-bold">¿Qué tan difícil fue?</p>
+          <StarRating
+            value={stars}
+            disabled={rate.isPending}
+            onChange={(s) => {
+              setPickedStars(s);
+              rate.mutate(s);
+            }}
+          />
+          <p className="text-xs text-slate-500">
+            {rate.isError ? 'No se pudo guardar la dificultad. Intenta de nuevo.' : stars ? `${stars} de 5 · la verás en tu lista de simulacros` : 'Opcional · te ayuda a armar tu Super simulacro'}
+          </p>
+        </section>
+      )}
 
       {bySection.length > 0 && (
         <section aria-label="Resultado por sección" className="space-y-2 rounded-2xl bg-white p-4 shadow-sm dark:bg-slate-800">

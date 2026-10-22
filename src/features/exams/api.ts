@@ -13,8 +13,17 @@ export interface Exam {
   position?: number | null;
   /** Examen cronometrado: tiempo límite en minutos (null = sin límite). */
   time_limit_min?: number | null;
+  /** Dificultad que tú le diste, en estrellas de 1 a 5 (null = sin calificar). */
+  difficulty?: number | null;
   created_at: string;
 }
+
+/** Guarda (o quita, con null) la dificultad en estrellas de un simulacro. */
+export const setExamDifficulty = async (examId: string, stars: number | null): Promise<void> => {
+  if (stars !== null && (!Number.isInteger(stars) || stars < 1 || stars > 5)) throw new Error('La dificultad va de 1 a 5 estrellas.');
+  const { error } = await supabase.from('exams').update({ difficulty: stars }).eq('id', examId);
+  if (error) throw error;
+};
 
 export interface Folder {
   id: string;
