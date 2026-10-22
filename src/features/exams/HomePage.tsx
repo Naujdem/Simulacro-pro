@@ -34,7 +34,7 @@ export default function HomePage() {
   const savedQuick = pendingProgress(QUICK_REVIEW_ID, 'quick_review'); // Repaso Rápido dejado a medias
   const savedSurprise = pendingProgress(SURPRISE_ID, 'surprise'); // Simulacro Sorpresa dejado a medias
 
-  // Repaso Rápido: busca TODAS las preguntas con etiqueta "Mal" y las practica en una sola sesión
+  // Repaso Rápido: busca las preguntas pendientes ("Mal" + "Ok"/"Bien" con plazo vencido) y las practica en una sola sesión
   const quick = useMutation({
     mutationFn: fetchWrongQuestions,
     onSuccess: (questions) => {
@@ -101,7 +101,7 @@ export default function HomePage() {
               quick.isPending
                 ? 'Buscando…'
                 : wrongCount.data
-                  ? `${wrongCount.data} ${wrongCount.data === 1 ? 'pregunta' : 'preguntas'} en “Mal”`
+                  ? `${wrongCount.data} ${wrongCount.data === 1 ? 'pregunta' : 'preguntas'} por repasar`
                   : 'Practicar'
             }
             disabled={quick.isPending}
