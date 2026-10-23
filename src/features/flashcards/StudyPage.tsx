@@ -181,10 +181,11 @@ export default function StudyPage() {
 
   const exit = () => nav(deckParam ? `/flashcards?deck=${encodeURIComponent(deckParam)}` : '/flashcards');
 
+  // Alto de la pantalla fijo: el contenido de la ficha se desplaza por dentro y los botones nunca salen de la vista
   return (
-    <div className="mx-auto flex min-h-dvh max-w-xl flex-col p-4">
-      <div className="mb-4 flex items-center justify-between gap-2">
-        <button onClick={exit} className="rounded-xl px-3 py-2 text-sm font-bold text-slate-500">
+    <div className="mx-auto flex h-dvh max-w-xl flex-col overflow-hidden px-3 pt-2">
+      <div className="mb-2 flex shrink-0 items-center justify-between gap-2">
+        <button onClick={exit} className="rounded-xl px-3 py-1.5 text-sm font-bold text-slate-500">
           ✕ Salir
         </button>
         {card && !finished && (
@@ -195,14 +196,14 @@ export default function StudyPage() {
         <button
           onClick={toggleAutoplay}
           title={autoplay ? 'Los audios suenan solos' : 'Los audios se reproducen con el botón'}
-          className="rounded-xl px-3 py-2 text-sm font-bold text-slate-500"
+          className="rounded-xl px-3 py-1.5 text-sm font-bold text-slate-500"
         >
           {autoplay ? '🔊 Auto' : '🔇 Manual'}
         </button>
       </div>
 
       {save.isError && (
-        <p className="mb-3 rounded-2xl bg-red-50 p-3 text-center text-sm font-bold text-red-600 dark:bg-red-950 dark:text-red-300">
+        <p className="mb-2 shrink-0 rounded-2xl bg-red-50 p-2 text-center text-sm font-bold text-red-600 dark:bg-red-950 dark:text-red-300">
           No se pudo guardar la última calificación. Revisa tu conexión.
         </p>
       )}
@@ -234,44 +235,45 @@ export default function StudyPage() {
 
       {card && !finished && (
         <>
-          <div className="flex flex-1 flex-col justify-center">
-            <div className="space-y-4 rounded-3xl bg-white p-6 text-center shadow-sm dark:bg-slate-800">
-              <p className="whitespace-pre-wrap text-xl font-bold">{card.front}</p>
+          {/* Zona de la ficha: ocupa el espacio que sobra y solo ella se desplaza si no cabe */}
+          <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
+            <div className="my-auto space-y-2 rounded-3xl bg-white p-4 text-center shadow-sm dark:bg-slate-800">
+              {/* Frente: al voltear se encoge y deja el sitio al reverso */}
+              <p className={flipped ? 'whitespace-pre-wrap text-base font-bold text-slate-500' : 'whitespace-pre-wrap text-xl font-bold'}>
+                {card.front}
+              </p>
 
-              {card.imagen_ref && (
-                <div className="my-3 flex justify-center">
-                  <QuestionImage src={card.imagen_ref} />
+              {card.imagen_ref && !flipped && (
+                <div className="flex justify-center">
+                  <QuestionImage src={card.imagen_ref} maxHeight="max-h-[40dvh]" />
                 </div>
               )}
 
-              {card.audio_ref && (
-                <div className="flex justify-center">
-                  <AudioButton src={card.audio_ref} />
+              {/* Los audios del frente y del reverso van en una sola fila */}
+              {(card.audio_ref || (flipped && card.back_audio_ref)) && (
+                <div className="flex items-center justify-center gap-3">
+                  {card.audio_ref && <AudioButton src={card.audio_ref} size={flipped ? 'sm' : 'md'} />}
+                  {flipped && card.back_audio_ref && <AudioButton src={card.back_audio_ref} />}
                 </div>
               )}
 
               {flipped && (
                 <>
                   <hr className="border-slate-200 dark:border-slate-600" />
-                  <p className="whitespace-pre-wrap text-lg">{card.back}</p>
-
                   {card.back_imagen_ref && (
-                    <div className="my-3 flex justify-center">
-                      <QuestionImage src={card.back_imagen_ref} />
+                    <div className="flex justify-center">
+                      <QuestionImage src={card.back_imagen_ref} maxHeight="max-h-[30dvh]" />
                     </div>
                   )}
 
-                  {card.back_audio_ref && (
-                    <div className="flex justify-center">
-                      <AudioButton src={card.back_audio_ref} />
-                    </div>
-                  )}
+                  {/* Saltos de línea sobrantes (p. ej. etiquetas "Word:/Meaning:" sin contenido) ocupaban media pantalla */}
+                  <p className="whitespace-pre-wrap text-base leading-snug">{card.back.replace(/\n\s*\n+/g, '\n').trim()}</p>
                 </>
               )}
             </div>
           </div>
 
-          <div className="pt-4 pb-[env(safe-area-inset-bottom)]">
+          <div className="shrink-0 pt-2 pb-[max(0.5rem,env(safe-area-inset-bottom))]">
             {!flipped ? (
               <button
                 onClick={() => setFlipped(true)}

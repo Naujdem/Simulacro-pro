@@ -2,7 +2,16 @@ import { useEffect, useState } from 'react';
 import { imageUrlFor } from '@/lib/drive';
 
 // Muestra la imagen de una pregunta (referencia "gd:<id>"). Si no carga: "Imagen no disponible".
-export default function QuestionImage({ src, className = '' }: { src?: string | null; className?: string }) {
+export default function QuestionImage({
+  src,
+  className = '',
+  maxHeight = 'max-h-72',
+}: {
+  src?: string | null;
+  className?: string;
+  /** Clase de Tailwind con el alto máximo (por defecto max-h-72). */
+  maxHeight?: string;
+}) {
   const [url, setUrl] = useState<string | null>(null);
   const [state, setState] = useState<'loading' | 'ok' | 'error'>('loading');
   const [zoom, setZoom] = useState(false);
@@ -43,7 +52,7 @@ export default function QuestionImage({ src, className = '' }: { src?: string | 
         alt="Imagen de la pregunta"
         onClick={() => setZoom(true)}
         onError={() => setState('error')}
-        className={`max-h-72 w-full cursor-zoom-in rounded-xl bg-white object-contain ${className}`}
+        className={`${maxHeight} w-full cursor-zoom-in rounded-xl bg-white object-contain ${className}`}
       />
       {zoom && (
         <div
