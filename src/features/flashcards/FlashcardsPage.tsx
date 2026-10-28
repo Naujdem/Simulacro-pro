@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { supabase } from '@/lib/supabase';
 import { AudioButton } from '@/components/AudioButton';
+import { splitRefs } from './media';
 import { parseFlashcardsCsv } from './csv';
 import { AnkiImporter } from './AnkiImporter';
 import { DeckOptionsDialog } from './DeckOptionsDialog';
@@ -539,7 +540,7 @@ function DeckDetail({
 
           <ul className="space-y-3">
             {list.slice(0, visible).map((c) => {
-              const audio = c.audio_ref ?? c.back_audio_ref;
+              const audio = splitRefs(c.audio_ref)[0] ?? splitRefs(c.back_audio_ref)[0];
               return (
                 <li key={c.id} className="flex items-start gap-2 rounded-2xl bg-white p-4 shadow-sm dark:bg-slate-800">
                   <div className="min-w-0 flex-1">

@@ -95,7 +95,8 @@ describe('readAnkiCollection', () => {
     const mol = readAnkiCollection(db).cards.find((c) => c.front.includes('molaridad'))!;
     expect(mol.frontImage).toBeNull();
     expect(mol.backImage).toBe('mol es.png');
-    expect(mol.backAudio).toBe('molar.mp3');
+    expect(mol.frontAudios).toEqual([]);
+    expect(mol.backAudios).toEqual(['molar.mp3']);
   });
 
   it('asigna el mazo de cada tarjeta, con su jerarquía', () => {

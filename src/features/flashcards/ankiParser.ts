@@ -32,8 +32,9 @@ export interface AnkiCard {
   /** Nombres de archivo tal como aparecen en el HTML (o URL http/https). */
   frontImage: string | null;
   backImage: string | null;
-  frontAudio: string | null;
-  backAudio: string | null;
+  /** Todos los audios de cada lado, en el orden en que aparecen en la tarjeta. */
+  frontAudios: string[];
+  backAudios: string[];
   sched: RawSched;
 }
 
@@ -43,7 +44,7 @@ export interface AnkiCollection {
   crt: number;
   /** Tarjetas descartadas por tener el frente vacío. */
   skipped: number;
-  /** Imágenes/audios sobrantes (solo se guarda 1 imagen y 1 audio por lado). */
+  /** Imágenes sobrantes (solo se guarda 1 imagen por lado; los audios se guardan todos). */
   extraMedia: number;
 }
 
@@ -268,8 +269,7 @@ export function readAnkiCollection(db: SqlDb): AnkiCollection {
 
     const front = extractMedia(frontHtml);
     const back = extractMedia(backHtml);
-    extraMedia += Math.max(0, front.images.length - 1) + Math.max(0, front.audios.length - 1);
-    extraMedia += Math.max(0, back.images.length - 1) + Math.max(0, back.audios.length - 1);
+    extraMedia += Math.max(0, front.images.length - 1) + Math.max(0, back.images.length - 1);
 
     const frontText = htmlToText(frontHtml);
     if (!frontText && !front.images.length && !front.audios.length) {
@@ -283,8 +283,9 @@ export function readAnkiCollection(db: SqlDb): AnkiCollection {
       back: htmlToText(backHtml),
       frontImage: front.images[0] ?? null,
       backImage: back.images[0] ?? null,
-      frontAudio: front.audios[0] ?? null,
-      backAudio: back.audios[0] ?? null,
+      frontAudios: [...new Set(front.audios)],
+      // El reverso de Anki suele repetir el frente ({{FrontSide}}): esos audios ya están en el frente.
+      backAudios: [...new Set(back.audios)].filter((a) => !front.audios.includes(a)),
       sched: {
         type: num(type),
         queue: num(queue),
