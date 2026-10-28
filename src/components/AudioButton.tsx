@@ -40,8 +40,8 @@ export function AudioButton({ src, size = 'md', className = '' }: Props) {
     }
     setState('loading');
     try {
-      await playAudio(src, () => alive.current && setState('idle'));
-      if (alive.current) setState('playing');
+      const started = await playAudio(src, () => alive.current && setState('idle'));
+      if (alive.current && started) setState('playing');
     } catch (err) {
       console.error('No se pudo reproducir el audio:', err);
       if (alive.current) setState('error');

@@ -8,6 +8,7 @@ import { DriveError, connectDrive, getToken, preloadGis, uploadAudio, uploadImag
 import { buildMediaIndex, lookupMedia, readAnkiCollection, type AnkiCard } from './ankiParser';
 import { scheduleImportedCards } from './ankiSchedule';
 import { ensureDeckSettings } from './api';
+import { joinRefs } from './media';
 import { isMissingColumn } from './columns';
 import { DEFAULT_MAX_REVIEWS } from './decks';
 
@@ -114,7 +115,7 @@ export const AnkiImporter: React.FC<AnkiImporterProps> = ({ onImportSuccess }) =
       const mediaNames = new Map<string, 'image' | 'audio'>();
       for (const c of collection.cards) {
         for (const n of [c.frontImage, c.backImage]) if (n && !isUrl(n)) mediaNames.set(n, 'image');
-        for (const n of [c.frontAudio, c.backAudio]) if (n && !isUrl(n)) mediaNames.set(n, 'audio');
+        for (const n of [...c.frontAudios, ...c.backAudios]) if (!isUrl(n)) mediaNames.set(n, 'audio');
       }
 
       const p: Pending = { ...collection, zip, mediaIndex, mediaNames };
@@ -193,9 +194,9 @@ export const AnkiImporter: React.FC<AnkiImporterProps> = ({ onImportSuccess }) =
       back: c.back,
       deck: c.deck,
       imagen_ref: refOf(c.frontImage),
-      audio_ref: refOf(c.frontAudio),
+      audio_ref: joinRefs(c.frontAudios.map(refOf)),
       back_imagen_ref: refOf(c.backImage),
-      back_audio_ref: refOf(c.backAudio),
+      back_audio_ref: joinRefs(c.backAudios.map(refOf)),
       ease_factor: schedule[i].easeFactor,
       interval_days: schedule[i].intervalDays,
       repetitions: schedule[i].repetitions,
@@ -237,7 +238,7 @@ export const AnkiImporter: React.FC<AnkiImporterProps> = ({ onImportSuccess }) =
     if (!withMedia && p.mediaNames.size) lines.push(`Se omitieron ${p.mediaNames.size} imágenes/audios (importado sin multimedia).`);
     if (missing) lines.push(`${missing} archivos aparecen en las fichas pero no venían dentro del .apkg.`);
     if (failed) lines.push(`${failed} archivos no se pudieron subir${driveStopped ? ' (Google Drive se desconectó)' : ''}.`);
-    if (p.extraMedia) lines.push(`${p.extraMedia} imágenes/audios extra no se importaron (solo se guarda 1 imagen y 1 audio por lado).`);
+    if (p.extraMedia) lines.push(`${p.extraMedia} imágenes extra no se importaron (solo se guarda 1 imagen por lado).`);
     if (p.skipped) lines.push(`${p.skipped} tarjetas vacías se omitieron.`);
 
     setReport(lines);

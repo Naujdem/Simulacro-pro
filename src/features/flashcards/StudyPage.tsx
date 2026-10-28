@@ -4,12 +4,13 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import QuestionImage from '@/components/QuestionImage';
 import { AudioButton } from '@/components/AudioButton';
-import { playAudio, prefetchRefs, stopAudio } from '@/lib/playAudio';
+import { playAudioSequence, prefetchRefs, stopAudio } from '@/lib/playAudio';
 import { describeInterval, nextReview, type Rating, type Sm2Result } from './sm2';
 import { isMissingColumn } from './columns';
 import { buildStudyQueue } from './api';
 import { isNewCard } from './decks';
 import { pickNext, type LearningEntry } from './studySession';
+import { formatCardText, splitRefs, type CardLine } from './media';
 import type { StudyCard } from './types';
 
 const RATINGS: { value: Rating; label: string; className: string }[] = [
@@ -113,23 +114,29 @@ export default function StudyPage() {
     return RATINGS.map((r) => describeInterval(nextReview(state, r.value, now)));
   }, [card]);
 
-  // Audio del frente al mostrar la ficha; el del reverso al voltearla
+  const frontAudios = useMemo(() => splitRefs(card?.audio_ref), [card]);
+  const backAudios = useMemo(() => splitRefs(card?.back_audio_ref), [card]);
+  const backLines = useMemo(() => (card ? formatCardText(card.back) : []), [card]);
+
+  // Audios del frente al mostrar la ficha; los del reverso al voltearla (si hay varios, suenan uno tras otro)
   useEffect(() => {
-    if (!card || !autoplay || !card.audio_ref) return;
-    playAudio(card.audio_ref).catch(() => {}); // si el navegador bloquea el autoplay, queda el botón
+    if (!card || !autoplay || !frontAudios.length) return;
+    playAudioSequence(frontAudios).catch(() => {}); // si el navegador bloquea el autoplay, quedan los botones
     return () => stopAudio();
   }, [seq, autoplay]);
 
   useEffect(() => {
-    if (!flipped || !card || !autoplay || !card.back_audio_ref) return;
-    playAudio(card.back_audio_ref).catch(() => {});
+    if (!flipped || !card || !autoplay || !backAudios.length) return;
+    playAudioSequence(backAudios).catch(() => {});
   }, [flipped, seq, autoplay]);
 
   // Descarga por adelantado lo que viene para que no haya espera
   useEffect(() => {
     if (!session) return;
     const upcoming = [session.current, ...session.queue.slice(0, 3)].filter((c): c is StudyCard => !!c);
-    prefetchRefs(upcoming.flatMap((c) => [c.imagen_ref, c.audio_ref, c.back_imagen_ref, c.back_audio_ref]));
+    prefetchRefs(
+      upcoming.flatMap((c) => [c.imagen_ref, c.back_imagen_ref, ...splitRefs(c.audio_ref), ...splitRefs(c.back_audio_ref)]),
+    );
   }, [seq]);
 
   const toggleAutoplay = () => {
@@ -237,39 +244,42 @@ export default function StudyPage() {
         <>
           {/* Zona de la ficha: ocupa el espacio que sobra y solo ella se desplaza si no cabe */}
           <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
-            <div className="my-auto space-y-2 rounded-3xl bg-white p-4 text-center shadow-sm dark:bg-slate-800">
-              {/* Frente: al voltear se encoge y deja el sitio al reverso */}
-              <p className={flipped ? 'whitespace-pre-wrap text-base font-bold text-slate-500' : 'whitespace-pre-wrap text-xl font-bold'}>
-                {card.front}
-              </p>
+            <div className="my-auto space-y-4 rounded-3xl bg-white px-5 py-6 shadow-sm dark:bg-slate-800">
+              {/* Frente: al voltear queda arriba, pequeño, como recordatorio de la pregunta */}
+              {card.front && (
+                <p
+                  className={
+                    flipped
+                      ? 'whitespace-pre-wrap text-center text-sm font-semibold text-slate-400'
+                      : 'whitespace-pre-wrap text-center text-2xl font-bold'
+                  }
+                >
+                  {card.front}
+                </p>
+              )}
 
-              {card.imagen_ref && !flipped && (
+              {!flipped && card.imagen_ref && (
                 <div className="flex justify-center">
                   <QuestionImage src={card.imagen_ref} maxHeight="max-h-[40dvh]" />
                 </div>
               )}
-
-              {/* Los audios del frente y del reverso van en una sola fila */}
-              {(card.audio_ref || (flipped && card.back_audio_ref)) && (
-                <div className="flex items-center justify-center gap-3">
-                  {card.audio_ref && <AudioButton src={card.audio_ref} size={flipped ? 'sm' : 'md'} />}
-                  {flipped && card.back_audio_ref && <AudioButton src={card.back_audio_ref} />}
+              {flipped && (card.back_imagen_ref || card.imagen_ref) && (
+                <div className="flex justify-center">
+                  <QuestionImage src={(card.back_imagen_ref || card.imagen_ref)!} maxHeight="max-h-[28dvh]" />
                 </div>
               )}
 
-              {flipped && (
-                <>
-                  <hr className="border-slate-200 dark:border-slate-600" />
-                  {card.back_imagen_ref && (
-                    <div className="flex justify-center">
-                      <QuestionImage src={card.back_imagen_ref} maxHeight="max-h-[30dvh]" />
-                    </div>
-                  )}
-
-                  {/* Saltos de línea sobrantes (p. ej. etiquetas "Word:/Meaning:" sin contenido) ocupaban media pantalla */}
-                  <p className="whitespace-pre-wrap text-base leading-snug">{card.back.replace(/\n\s*\n+/g, '\n').trim()}</p>
-                </>
+              {/* Un botón por audio, todos del mismo tamaño */}
+              {(frontAudios.length > 0 || (flipped && backAudios.length > 0)) && (
+                <div className="flex flex-wrap items-center justify-center gap-3">
+                  {frontAudios.map((ref) => (
+                    <AudioButton key={ref} src={ref} />
+                  ))}
+                  {flipped && backAudios.map((ref) => <AudioButton key={ref} src={ref} />)}
+                </div>
               )}
+
+              {flipped && backLines.length > 0 && <CardBack lines={backLines} />}
             </div>
           </div>
 
@@ -301,3 +311,55 @@ export default function StudyPage() {
     </div>
   );
 }
+
+/* ───────────── Reverso con jerarquía visual ───────────── */
+
+// Cabecera centrada (palabra, pronunciación, traducción) y debajo cada definición en su propio bloque,
+// alineada a la izquierda y con su ejemplo debajo, para que no quede todo apiñado y centrado.
+export function CardBack({ lines }: { lines: CardLine[] }) {
+  const header: CardLine[] = [];
+  const blocks: CardLine[][] = [];
+  for (const l of lines) {
+    if (l.kind === 'long') blocks.push([l]);
+    else if (l.kind === 'example') (blocks.at(-1) ?? blocks[blocks.push([]) - 1]).push(l);
+    else if (blocks.length) blocks.at(-1)!.push(l);
+    else header.push(l);
+  }
+
+  return (
+    <div className="space-y-3">
+      {header.length > 0 && (
+        <div className="space-y-1 text-center">
+          {header.map((l, i) => (
+            <p key={i} className={HEADER_STYLE[l.kind]}>
+              {l.text}
+            </p>
+          ))}
+        </div>
+      )}
+      {blocks.map((b, i) => (
+        <div key={i} className="space-y-1.5 rounded-2xl bg-slate-50 p-3 text-left dark:bg-slate-900/50">
+          {b.map((l, j) =>
+            l.kind === 'example' ? (
+              <p key={j} className="border-l-2 border-sky-400 pl-3 text-[15px] italic leading-snug text-slate-500 dark:text-slate-400">
+                {l.text}
+              </p>
+            ) : (
+              <p key={j} className="text-[15px] leading-snug">
+                {l.text}
+              </p>
+            ),
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+const HEADER_STYLE: Record<CardLine['kind'], string> = {
+  title: 'text-2xl font-bold',
+  phonetic: 'text-sm text-slate-400',
+  short: 'text-lg font-semibold text-sky-600 dark:text-sky-300',
+  long: 'text-[15px]',
+  example: 'text-[15px] italic',
+};
