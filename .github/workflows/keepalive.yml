@@ -1,5 +1,6 @@
 # Mantiene activo el proyecto de Supabase (el plan gratuito lo pausa tras ~7 días sin actividad).
-# Hace una consulta de solo lectura cada 3 días.
+# Desde oct-2026 pausa los proyectos gratis con "muy poca actividad" semanal (umbral no publicado);
+# una consulta cada 3 días ya no bastó (pausa de nov-2026). Ahora corre cada 3 horas con varias consultas.
 # Requiere dos secretos del repo (Settings → Secrets and variables → Actions):
 #   SUPABASE_URL       = el mismo valor de VITE_SUPABASE_URL
 #   SUPABASE_ANON_KEY  = el mismo valor de VITE_SUPABASE_ANON_KEY
@@ -7,7 +8,7 @@ name: Supabase keep-alive
 
 on:
   schedule:
-    - cron: '23 9 */3 * *'   # 09:23 UTC, cada 3 días
+    - cron: '23 */3 * * *'   # cada 3 horas (minuto 23)
   workflow_dispatch:          # también se puede lanzar a mano desde la pestaña Actions
 
 permissions: {}
@@ -26,7 +27,8 @@ jobs:
             echo "::error::Faltan los secretos SUPABASE_URL y/o SUPABASE_ANON_KEY en el repo."
             exit 1
           fi
-          curl --fail --silent --show-error --retry 3 --retry-delay 10 \
-            -H "apikey: $SUPABASE_ANON_KEY" \
-            "${SUPABASE_URL%/}/rest/v1/profiles?select=id&limit=1"
-          echo
+          for t in profiles exams questions flashcards folders; do
+            curl --fail --silent --show-error --retry 3 --retry-delay 10 -o /dev/null -w "$t: %{http_code}\n" \
+              -H "apikey: $SUPABASE_ANON_KEY" \
+              "${SUPABASE_URL%/}/rest/v1/$t?select=*&limit=5"
+          done
